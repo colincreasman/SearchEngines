@@ -15,13 +15,13 @@ public class TermDocumentIndex implements Index {
 	/**
 	 * Constructs an empty index with with given vocabulary set and corpus size.
 	 * @param vocabulary a collection of all terms in the corpus vocabulary.
-	 * @param corpuseSize the number of documents in the corpus.
+	 * @param corpusSize the number of documents in the corpus.
 	 */
-	public TermDocumentIndex(Collection<String> vocabulary, int corpuseSize) {
-		mMatrix = new boolean[vocabulary.size()][corpuseSize];
+	public TermDocumentIndex(Collection<String> vocabulary, int corpusSize) {
+		mMatrix = new boolean[vocabulary.size()][corpusSize];
 		mVocabulary = new ArrayList<String>();
 		mVocabulary.addAll(vocabulary);
-		mCorpusSize = corpuseSize;
+		mCorpusSize = corpusSize;
 		
 		Collections.sort(mVocabulary);
 	}
@@ -45,7 +45,7 @@ public class TermDocumentIndex implements Index {
 		int vocabularyTerm = Collections.binarySearch(mVocabulary, term);
 		// Walk down the mMatrix row for the term and collect the document IDs (column indices)
 		// of the "true" entries.
-		for (int i = 0; i < mMatrix[vocabularyTerm].length; i++) {
+		for (int i = 0; i < mMatrix[0].length; i++) {
 			if (mMatrix[vocabularyTerm][i] == true) {
 				Posting currentPosting = new Posting(i);
 				results.add(currentPosting);
