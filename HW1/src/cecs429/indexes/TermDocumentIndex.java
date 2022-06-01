@@ -1,6 +1,7 @@
 package cecs429.indexes;
 
 import java.util.*;
+import java.util.Collections;
 
 /**
  * Implements an Index using a term-document matrix. Requires knowing the full corpus vocabulary and number of documents
@@ -41,9 +42,16 @@ public class TermDocumentIndex implements Index {
 		
 		// TODO: implement this method.
 		// Binary search the mVocabulary array for the given term.
+		int vocabularyTerm = Collections.binarySearch(mVocabulary, term);
 		// Walk down the mMatrix row for the term and collect the document IDs (column indices)
 		// of the "true" entries.
-		
+		for (int i = 0; i < mMatrix[vocabularyTerm].length; i++) {
+			if (mMatrix[vocabularyTerm][i] == true) {
+				Posting currentPosting = new Posting(i);
+				results.add(currentPosting);
+			}
+		}
+
 		return results;
 	}
 	
