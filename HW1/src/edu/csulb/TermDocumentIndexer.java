@@ -6,6 +6,7 @@ import cecs429.documents.DocumentCorpus;
 import cecs429.indexes.Index;
 import cecs429.indexes.Posting;
 import cecs429.text.BasicTokenProcessor;
+import cecs429.text.EnglishTokenStream;
 
 import java.nio.file.Paths;
 import java.util.HashSet;
@@ -35,12 +36,19 @@ public class TermDocumentIndexer {
 			System.out.println("Found document " + d.getTitle());
 			// TODO:
 			// Tokenize the document's content by constructing an EnglishTokenStream around the document's content.
+			EnglishTokenStream stream = new EnglishTokenStream(d.getContent());
 			// Iterate through the tokens in the document, processing them using a BasicTokenProcessor,
 			//		and adding them to the HashSet vocabulary.
+			Iterable<String> tokens = stream.getTokens();
+			for (String token : tokens) {
+				BasicTokenProcessor processer = new BasicTokenProcessor();
+				String processedToken = processor.processToken(token);
+				vocabulary.add(processedToken);
+			}
 		}
 		
 		// TODO
-		// Constuct a TermDocumentMatrix once you know the size of the vocabulary.
+		// Construct a TermDocumentMatrix once you know the size of the vocabulary.
 		// THEN, do the loop again! But instead of inserting into the HashSet, add terms to the index with addPosting.
 		
 		return null;
