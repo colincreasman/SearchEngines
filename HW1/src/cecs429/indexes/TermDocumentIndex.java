@@ -13,7 +13,7 @@ public class TermDocumentIndex implements Index {
 	private int mCorpusSize;
 	
 	/**
-	 * Constructs an empty index with with given vocabulary set and corpus size.
+	 * Constructs an empty index  with given vocabulary set and corpus size.
 	 * @param vocabulary a collection of all terms in the corpus vocabulary.
 	 * @param corpusSize the number of documents in the corpus.
 	 */
@@ -46,7 +46,7 @@ public class TermDocumentIndex implements Index {
 		// Walk down the mMatrix row for the term and collect the document IDs (column indices)
 		// of the "true" entries.
 		for (int i = 0; i < mMatrix[0].length; i++) {
-			if (mMatrix[vocabularyTerm][i] == true) {
+			if (mMatrix[vocabularyTerm][i]) {
 				Posting currentPosting = new Posting(i);
 				results.add(currentPosting);
 			}

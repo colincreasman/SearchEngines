@@ -4,6 +4,7 @@ import cecs429.documents.DirectoryCorpus;
 import cecs429.documents.Document;
 import cecs429.documents.DocumentCorpus;
 import cecs429.indexes.Index;
+import cecs429.indexes.InvertedIndex;
 import cecs429.indexes.Posting;
 import cecs429.indexes.TermDocumentIndex;
 import cecs429.text.BasicTokenProcessor;
@@ -33,7 +34,9 @@ public class TermDocumentIndexer {
 
 		// TODO: fix this application so the user is asked for a term to search.
 	}
-	
+
+	// TODO:
+	// update to use the inverted index
 	private static Index indexCorpus(DocumentCorpus corpus) {
 		HashSet<String> vocabulary = new HashSet<>();
 		BasicTokenProcessor processor = new BasicTokenProcessor();
@@ -56,7 +59,7 @@ public class TermDocumentIndexer {
 		
 		// TODO
 		// Construct a TermDocumentMatrix once you know the size of the vocabulary.
-		TermDocumentIndex index = new TermDocumentIndex(vocabulary, corpus.getCorpusSize());
+		InvertedIndex index = new InvertedIndex(vocabulary, corpus.getCorpusSize());
 		// THEN, do the loop again! But instead of inserting into the HashSet, add terms to the index with addPosting.
 		for (Document d : corpus.getDocuments()) {
 			//System.out.println("here");
