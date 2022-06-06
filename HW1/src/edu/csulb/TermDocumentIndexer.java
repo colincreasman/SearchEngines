@@ -35,31 +35,12 @@ public class TermDocumentIndexer {
 		// TODO: fix this application so the user is asked for a term to search.
 	}
 
-	// TODO:
-	// update to use the inverted index
 	private static Index indexCorpus(DocumentCorpus corpus) {
 		HashSet<String> vocabulary = new HashSet<>();
 		BasicTokenProcessor processor = new BasicTokenProcessor();
-		
-		// First, build the vocabulary hash set.
-		for (Document d : corpus.getDocuments()) {
-			System.out.println("Found document " + d.getTitle());
-			// TODO:
-			// Tokenize the document's content by constructing an EnglishTokenStream around the document's content.
-			EnglishTokenStream stream = new EnglishTokenStream(d.getContent());
-			// Iterate through the tokens in the document, processing them using a BasicTokenProcessor,
-			//		and adding them to the HashSet vocabulary.
-			Iterable<String> tokens = stream.getTokens();
-			for (String token : tokens) {
-				BasicTokenProcessor processer = new BasicTokenProcessor();
-				String processedToken = processor.processToken(token);
-				vocabulary.add(processedToken);
-			}
-		}
-		
-		// TODO
-		// Construct a TermDocumentMatrix once you know the size of the vocabulary.
-		InvertedIndex index = new InvertedIndex(vocabulary, corpus.getCorpusSize());
+
+
+		InvertedIndex index = new InvertedIndex(vocabulary);
 		// THEN, do the loop again! But instead of inserting into the HashSet, add terms to the index with addPosting.
 		for (Document d : corpus.getDocuments()) {
 			//System.out.println("here");

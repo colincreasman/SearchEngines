@@ -3,23 +3,21 @@ package cecs429.indexes;
 import java.util.*;
 
 public class InvertedIndex implements Index {
-    // use a HashMap that maps each term to a HashSet of integerts representing the document ID's it is found in
+    // use a HashMap that maps each term to a HashSet of integers representing the document ID's it is found in
     // HashSet<Integer> is used instead of List<Integer> to ensure there are no duplicate postings
     private final HashMap<String, HashSet<Integer>> mMatrix;
     private final List<String> mVocabulary;
-    private int mCorpusSize;
+  //  private int mCorpusSize;
 
 
     /**
      * Constructs an empty Inverted Index  with given vocabulary set and corpus size.
      * @param vocabulary a collection of all terms in the corpus vocabulary.
-     * @param corpusSize the number of documents in the corpus.
      */
-    public InvertedIndex(Collection<String> vocabulary, int corpusSize) {
+    public InvertedIndex(Collection<String> vocabulary) {
         mVocabulary = new ArrayList<String>();
         mVocabulary.addAll(vocabulary);
-        mCorpusSize = corpusSize;
-        mMatrix = new HashMap<>(corpusSize);
+        mMatrix = new HashMap<>();
 
         Collections.sort(mVocabulary);
     }
@@ -33,7 +31,7 @@ public class InvertedIndex implements Index {
             postingsList.add(documentId);
 
             // for debugging
-            System.out.println("A new postings list has been made for the term '" + term + "' starting with the document Id: " + documentId);
+            //System.out.println("A new postings list has been made for the term '" + term + "' starting with the document Id: " + documentId);
         }
         // otherwise, the term must already have a postings list
         else {
