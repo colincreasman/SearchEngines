@@ -16,14 +16,21 @@ import java.util.Scanner;
 
 public class TermDocumentIndexer {
 	public static void main(String[] args) {
-		// Create a DocumentCorpus to load .txt documents from the project directory.
-		DocumentCorpus corpus = DirectoryCorpus.loadTextDirectory(Paths.get("").toAbsolutePath(), ".txt");
+		Scanner input = new Scanner(System.in);
+
+		// ask the user for corpus directory
+		System.out.println("Please enter the local path for your corpus directory: ");
+		String corpusPath = input.nextLine();
+
+		// Create a DocumentCorpus to load .json documents from the corpus directory.
+		DocumentCorpus corpus = DirectoryCorpus.loadJsonDirectory(Paths.get(corpusPath), ".json");
+
 		// Index the documents of the corpus.
-		Index index = indexCorpus(corpus) ;
+		Index index = indexCorpus(corpus);
 
 		// We aren't ready to use a full query parser; for now, we'll only support single-term queries.
 		//String query = "whale"; // hard-coded search for "whale"
-		Scanner input = new Scanner(System.in);
+
 		System.out.println("Enter your query term: ");
 		String query = input.nextLine();
 

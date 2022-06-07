@@ -54,14 +54,17 @@ public class JsonFileDocument implements FileDocument {
                 if (Objects.equals(currentName, "body")) {
                     // extract the content as a string
                     content = reader.nextString();
-                    break;
                 }
                 // find the "title" section and store it in the corresponding class variable
                 // simplifies getTitle()
                 else if (Objects.equals(currentName, "title")) {
                     mDocumentTitle = reader.nextString();
                 }
+                else {
+                    reader.nextString();
+                }
             }
+
             // close the reader and stream
             reader.endObject();
             reader.close();
@@ -86,5 +89,9 @@ public class JsonFileDocument implements FileDocument {
     @Override
     public Path getFilePath() {
         return mFilePath;
+    }
+
+    public static FileDocument loadJsonFileDocument(Path absolutePath, int documentId) {
+        return new JsonFileDocument(documentId, absolutePath);
     }
 }
