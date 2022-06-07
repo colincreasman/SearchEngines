@@ -16,13 +16,17 @@ public class TermDocumentIndexer {
 	public static void main(String[] args) {
 		Scanner input = new Scanner(System.in);
 
+		// TODO: Comment out for final demo
+		// hard coded path for testing
+		String corpusPath = "/Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/all-nps-sites-extracted";
+
+
+		// TODO: Uncomment for final demo
 		// ask the user for corpus directory
-		// "/Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/all-nps-sites-extracted"
-		System.out.println("Please enter the local path for your corpus directory: ");
+//		System.out.println("Please enter the local path for your corpus directory: ");
+//		String corpusPath = input.nextLine();
+//		// Create a DocumentCorpus to load .json documents from the corpus directory.
 
-		String corpusPath = input.nextLine();
-
-		// Create a DocumentCorpus to load .json documents from the corpus directory.
 		DocumentCorpus corpus = DirectoryCorpus.loadJsonDirectory(Paths.get(corpusPath), ".json");
 
 		// Index the documents of the corpus.
