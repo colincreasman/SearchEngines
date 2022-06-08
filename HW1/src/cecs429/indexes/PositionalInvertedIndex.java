@@ -15,7 +15,8 @@ public class PositionalInvertedIndex implements Index {
     }
 
     /**
-     * Adds a term to the index using the document it occurs in and a list of integer positions where it occurs
+     * Adds a term to the index using the document it occurs in
+     * and the list of integer positions where it occurs
      * @param term
      * @param documentId
      * @param termPosition
@@ -52,6 +53,7 @@ public class PositionalInvertedIndex implements Index {
             mIndex.put(term, newPostingsList);
         }
     }
+
     /**
      * Retrieves a list of Postings of documents that contain the given term.
      *

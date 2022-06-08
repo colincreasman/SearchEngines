@@ -3,6 +3,7 @@ import cecs429.documents.DirectoryCorpus;
 import cecs429.documents.Document;
 import cecs429.documents.DocumentCorpus;
 import cecs429.indexes.*;
+import cecs429.text.AdvancedTokenProcessor;
 import cecs429.text.BasicTokenProcessor;
 import cecs429.text.EnglishTokenStream;
 import java.nio.file.Paths;
@@ -17,6 +18,7 @@ public class TermDocumentIndexer {
 		mainLoop();
 	}
 
+	// driver method to route user selections from the main menu
 	private static void mainLoop() {
 		Scanner in = new Scanner(System.in);
 		// TODO: Comment out for final demo
@@ -43,8 +45,8 @@ public class TermDocumentIndexer {
 			else if (Objects.equals(input, ":stem")) {
 				System.out.println("Please enter the token you would like stemmed: ");
 				String token = in.nextLine();
-				String stemmedTerm = showStemmedTerm(token);
-				System.out.println("The stemmed term for the token '" + token + "' is: " + stemmedTerm);
+				List<String> stemmedTerms = showStemmedTerm(token);
+				System.out.println("The stemmed term(s) for the token '" + token + "' is: " + stemmedTerms.toString());
 			}
 			else if (Objects.equals(input, ":index")) {
 				mainLoop();
@@ -59,16 +61,15 @@ public class TermDocumentIndexer {
 		}
 	}
 
+	// builds an index (any implementation of the Index interface) using a Document Corpus
 	private static Index indexCorpus (DocumentCorpus corpus) {
 		System.out.println("Indexing corpus...");
 		// start timer
 		long start = System.currentTimeMillis();
-
 		HashSet<String> vocabulary = new HashSet<>();
-		BasicTokenProcessor processor = new BasicTokenProcessor();
-
-
+		AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
 		PositionalInvertedIndex index = new PositionalInvertedIndex(vocabulary);
+
 		// THEN, do the loop again! But instead of inserting into the HashSet, add terms to the index with addPosting.
 		for (Document d : corpus.getDocuments()) {
 			//System.out.println("here");
@@ -82,13 +83,12 @@ public class TermDocumentIndexer {
 			for (String token : tokens) {
 				// keep track of the position of each token as we iterate through the document
 				position += 1;
-
-				// process each token into a term
-				BasicTokenProcessor processer = new BasicTokenProcessor();
-				String term = processor.processToken(token);
-
-				// add the term to the index
-				index.addTerm(term, d.getId(), position);
+				// process each token into a term(s)
+				List<String> terms = processor.processToken(token);
+				for (String term : terms) {
+					// add the term(s) to the index
+					index.addTerm(term, d.getId(), position);
+				}
 			}
 		}
 
@@ -99,13 +99,15 @@ public class TermDocumentIndexer {
 		return index;
 	}
 
+	// tests the stemming of a single provided token by returning its stemmed term(s)
 	// TODO: update this once Porter2 has been implemented
-	private static String showStemmedTerm (String token){
-		BasicTokenProcessor processor = new BasicTokenProcessor();
-		String term = processor.processToken(token);
-		return term;
+	private static List<String> showStemmedTerm (String token){
+		AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
+		List<String> terms = processor.processToken(token);
+		return terms;
 	}
 
+	// tests the vocabulary of the index by printing out the first 1000 terms in order and the total amount of terms in the vocabulary
 	private static void showVocabulary(Index index) {
 		System.out.println("Sorting vocabulary...");
 		Collections.sort(index.getVocabulary());
@@ -119,6 +121,7 @@ public class TermDocumentIndexer {
 		System.out.println("\n The total number of terms in the vocabulary is: " + index.getVocabulary().size());
 	}
 
+	// processes a query inputted by the user
 	private static void processQuery(DocumentCorpus corpus, Index index, String query) {
 		try {
 			List<Posting> postings = index.getPostings(query);
