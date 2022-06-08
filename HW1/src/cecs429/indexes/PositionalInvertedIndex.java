@@ -41,6 +41,9 @@ public class PositionalInvertedIndex implements Index {
                 Posting newPosting = new Posting(documentId, termPosition);
                 // add a new posting with the docId and termPosition to the HashMap index
                 postingsInIndex.add(newPosting);
+
+                // after adding a new term, re-sort the list of postings by their documentId's
+                ///postingsInIndex.sort(Comparator.comparingInt(Posting::getDocumentId));
             }
         }
         // if the val for this term is null, the term has not been added to the HashMap index yet
@@ -62,6 +65,7 @@ public class PositionalInvertedIndex implements Index {
     @Override
     public List<Posting> getPostings(String term) {
         List<Posting> postings = mIndex.get(term);
+
         return postings;
     }
 
@@ -70,6 +74,9 @@ public class PositionalInvertedIndex implements Index {
      */
     @Override
     public List<String> getVocabulary() {
-        return Collections.unmodifiableList(mVocabulary);
+        List<String> sortedVocab = new ArrayList<>();
+        sortedVocab.addAll(mIndex.keySet());
+        Collections.sort(sortedVocab);
+        return sortedVocab;
     }
 }

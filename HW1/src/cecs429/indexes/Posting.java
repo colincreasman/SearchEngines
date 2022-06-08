@@ -36,6 +36,7 @@ public class Posting {
 	public Posting(int documentId, List<Integer> termPositions) {
 		mDocumentId = documentId;
 		mTermPositions = termPositions;
+		Collections.sort(mTermPositions);
 	}
 	
 	public int getDocumentId() {
@@ -48,6 +49,7 @@ public class Posting {
 
 	public void addTermPosition (int position) {
 		mTermPositions.add(position);
+		Collections.sort(mTermPositions);
 
 	}
 }

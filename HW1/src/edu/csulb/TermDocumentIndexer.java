@@ -69,8 +69,6 @@ public class TermDocumentIndexer {
 		}
 	}
 
-
-
 	// builds an index (any implementation of the Index interface) using a Document Corpus
 	private static Index indexCorpus (DocumentCorpus corpus) {
 		System.out.println("Indexing corpus...");
