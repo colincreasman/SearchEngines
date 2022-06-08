@@ -51,10 +51,7 @@ public class PositionalInvertedIndex implements Index {
             // add the new term and new postingsList to the HashMap index
             mIndex.put(term, newPostingsList);
         }
-
     }
-
-
     /**
      * Retrieves a list of Postings of documents that contain the given term.
      *
@@ -62,7 +59,8 @@ public class PositionalInvertedIndex implements Index {
      */
     @Override
     public List<Posting> getPostings(String term) {
-        return null;
+        List<Posting> postings = mIndex.get(term);
+        return postings;
     }
 
     /**
@@ -70,6 +68,6 @@ public class PositionalInvertedIndex implements Index {
      */
     @Override
     public List<String> getVocabulary() {
-        return null;
+        return Collections.unmodifiableList(mVocabulary);
     }
 }

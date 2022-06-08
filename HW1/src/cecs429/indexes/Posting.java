@@ -7,7 +7,9 @@ import java.util.*;
  */
 public class Posting {
 	private int mDocumentId;
+	private int mPositionsCount;
 	private List<Integer> mTermPositions;
+
 	/**
 	 * Simple constructor for making a posting with only a documentId at the time of initialization
 	 * @param documentId
