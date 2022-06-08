@@ -45,8 +45,16 @@ public class TermDocumentIndexer {
 			else if (Objects.equals(input, ":stem")) {
 				System.out.println("Please enter the token you would like stemmed: ");
 				String token = in.nextLine();
-				String stemmedTerms = showStemmedTerm(token);
-				System.out.println("The stemmed term(s) for the token '" + token + "' is: " + stemmedTerms);
+				String stemmedTerm = showStemmedTerm(token);
+				System.out.println("The stemmed term(s) for the token '" + token + "' is: " + stemmedTerm);
+			}
+			// for testing only
+			// end to end tests of token processing in AdvancedTokenProcessor
+			else if (Objects.equals(input, ":process")) {
+				System.out.println("Please enter the token you would like processed: ");
+				String token = in.nextLine();
+				List<String> processdTerm = showProcessdTerm(token);
+				System.out.println("After normalization and stemming, the processed terms for the token '" + token + "' are: \n" + processdTerm);
 			}
 			else if (Objects.equals(input, ":index")) {
 				mainLoop();
@@ -60,6 +68,8 @@ public class TermDocumentIndexer {
 			}
 		}
 	}
+
+
 
 	// builds an index (any implementation of the Index interface) using a Document Corpus
 	private static Index indexCorpus (DocumentCorpus corpus) {
@@ -107,6 +117,12 @@ public class TermDocumentIndexer {
 		return term;
 	}
 
+	private static List<String> showProcessdTerm(String token) {
+		AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
+		List<String> terms = processor.processToken(token);
+		//System.out.println("Testing which terms are returned by showProcessedTerm: " + terms);
+		return terms;
+	}
 	// tests the vocabulary of the index by printing out the first 1000 terms in order and the total amount of terms in the vocabulary
 	private static void showVocabulary(Index index) {
 		System.out.println("Sorting vocabulary...");

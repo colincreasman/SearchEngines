@@ -17,18 +17,24 @@ public class AdvancedTokenProcessor implements TokenProcessor {
     @Override
     public List<String> processToken(String token) {
         // perform all of necessary processing functions on the single original token before removing hyphens
-        String originalToken = fixNonAlphaNumerics(token);
-        originalToken = fixPunctuation(originalToken);
-        List<String> terms = fixHyphens(originalToken);
+        String token1 = fixNonAlphaNumerics(token);
+       // System.out.println("Testing alphanumberics: " + token1);
+        String token2 = fixPunctuation(token1);
+        //System.out.println("Testing punc:  " + token2);
+        List<String> terms = fixHyphens(token2);
+        //System.out.println("Testing terms:  " + terms);
+        List<String> stemmedTerms = new ArrayList<>();
 
         // perform the case and stemming functions on each term in the list
         for (String t : terms) {
-            t = fixCase(t);
-            //TODO: uncomment this once Porter2 is implmented
-            //t = stem(t);
-        }
+            String lowerTerm = fixCase(t);
+            String stem = stem(lowerTerm);
+            //System.out.println("Testing stem for the term '" + lowerTerm + "' is:" + stem);
 
-        return terms;
+            stemmedTerms.add(stem);
+        }
+        // System.out.println("Testing processToken: " + stemmedTerms.toString());
+        return stemmedTerms;
     }
 
     // Removes all non-alphanumeric characters from the beginning and end of the token, but not the middle.
@@ -57,17 +63,19 @@ public class AdvancedTokenProcessor implements TokenProcessor {
         }
         // then substring between the two to extract the term.
         String result = token.substring(first, last);
+        //System.out.println("Testing fixNonAplhanumerics: " + result);
         return result;
     }
 
     // Removes all apostropes or quotation marks (single or double quotes) from anywhere in the string
     public String fixPunctuation(String token) {
         // first check if the token contains any relevant punctuations
-        if (token.contains("\"") || token.contains("\'")) {
+       // if (token.contains("\"") || token.contains("\'")) {
             // if so, use a regex to remove them
-            token.replaceAll("\"", "");
-            token.replaceAll("\'", "");
-        }
+            token = token.replaceAll("\"", "");
+            token = token.replaceAll("\'", "");
+       // }
+        ///System.out.println("Testing fixPunctuation: " + token);
         return token;
     }
 
@@ -129,22 +137,17 @@ public class AdvancedTokenProcessor implements TokenProcessor {
         else {
             results.add(token);
         }
+       // System.out.println("Testing fixHyphens: " + results.toString());
         return results;
     }
 
-    // converts the token to lowercase
+    //converts the token to lowercase
     public String fixCase(String token) {
+        //System.out.println("Testing fixCase: " + token.toLowerCase());
         return token.toLowerCase();
     }
 
     public String stem(String token) {
-
-//        englishStemmer stemmer = new englishStemmer();
-//        stemmer.setCurrent(token);
-//            stemmer.stem();
-//            String stemmedTerm = stemmer.getCurrent();
-//            System.out.println("Testing stemmed term: " + stemmedTerm);
-//            return stemmedTerm;
         String term = "";
         try {
             Class<?> stemClass = Class.forName("org.tartarus.snowball.ext." + "english" + "Stemmer");
@@ -153,11 +156,14 @@ public class AdvancedTokenProcessor implements TokenProcessor {
             stemmer.setCurrent(token);
             stemmer.stem();
             term = stemmer.getCurrent();
-            System.out.println("testing with github way term is: " + term);
-        } catch (Exception ex) {
-
+            return term;
+            //System.out.println("testing with github way term is: " + term);
         }
-        return term;
+        catch (Exception ex) {
+            return null;
+        }
+        //System.out.println("Testing Stem: " + term);
+       // return term;
     }
 }
 
