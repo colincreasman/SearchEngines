@@ -77,6 +77,13 @@ public class AdvancedTokenProcessor implements TokenProcessor {
         // initialize list of results
         List<String> results = new ArrayList<>();
 
+        // if there are less than 2 characters in the token, then removing a hyphen would remove the token altogether
+        if (token.length() < 3) {
+            // return the token in its original form
+            results.add(token);
+            return results;
+        }
+
         // first check if the token even contains any hyphens before processing
         if (token.contains("-")) {
             System.out.println("Testing token before removing hyphens: " + token);
@@ -92,11 +99,20 @@ public class AdvancedTokenProcessor implements TokenProcessor {
             int start = 0; // keeps track of the beginning of the current substring
             int end; //  keeps track of the end of the current substring
 
+
             // iterate through the original token as a char array
             char[] tokenCharacters = token.toCharArray();
             for (int i = 0; i < tokenCharacters.length; i++) {
                 // check each char for hyphens
-                if (tokenCharacters[i] == '-')  {
+                if (tokenCharacters[i] == '-' && tokenCharacters[i] != tokenCharacters.length - 1)  {
+                    if (tokenCharacters[i + 1] == '-') {
+                        try {
+                            i++;
+                        }
+                        catch (ArrayIndexOutOfBoundsException ex) {
+                            System.out.println("OUt of bounds");
+                        }
+                    }
                     // when found, set the end placeholder to the current index
                     end = i;
                     // extract a substring from the original token using the start and end placeholders
