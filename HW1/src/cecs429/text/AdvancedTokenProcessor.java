@@ -1,5 +1,9 @@
 package cecs429.text;
 
+import org.tartarus.snowball.ext.englishStemmer;
+import org.tartarus.snowball.SnowballStemmer;
+
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -7,6 +11,7 @@ public class AdvancedTokenProcessor implements TokenProcessor {
 
     /**
      * Normalizes a token into a term (or list of terms)
+     *
      * @param token
      */
     @Override
@@ -70,6 +75,7 @@ public class AdvancedTokenProcessor implements TokenProcessor {
      * (a) Removes the hyphens from the token for the first processed token, AND
      * (b) Splits the original hyphenated token into multiple tokens without a hyphen
      * each of which becomes its own processed token
+     *
      * @param token
      * @return
      */
@@ -79,11 +85,11 @@ public class AdvancedTokenProcessor implements TokenProcessor {
 
         // first check if the token even contains any hyphens before processing
         if (token.contains("-")) {
-            System.out.println("Testing token before removing hyphens: " + token);
+            //System.out.println("Testing token before removing hyphens: " + token);
 
             // create a clone of the original token and remove all hyphens from it
-            String tokenWithoutHyphens = token.replaceAll("[\\s\\-()]","");
-           // System.out.println("Testing token without hyphens: " + tokenWithoutHyphens);
+            String tokenWithoutHyphens = token.replaceAll("[\\s\\-()]", "");
+            // System.out.println("Testing token without hyphens: " + tokenWithoutHyphens);
 
             // add the modified token to the results without changing the original token
             results.add(tokenWithoutHyphens);
@@ -96,7 +102,7 @@ public class AdvancedTokenProcessor implements TokenProcessor {
             char[] tokenCharacters = token.toCharArray();
             for (int i = 0; i < tokenCharacters.length; i++) {
                 // check each char for hyphens
-                if (tokenCharacters[i] == '-')  {
+                if (tokenCharacters[i] == '-') {
                     // when found, set the end placeholder to the current index
                     end = i;
                     // make sure hyphens aren't consequtive
@@ -119,12 +125,10 @@ public class AdvancedTokenProcessor implements TokenProcessor {
                 }
             }
         }
-
         // if there are no hyphens in the original token, add it to the list in its original form
         else {
             results.add(token);
         }
-
         return results;
     }
 
@@ -134,7 +138,26 @@ public class AdvancedTokenProcessor implements TokenProcessor {
     }
 
     public String stem(String token) {
-        //TODO: implement Porter2 stemmer here!
-        return null;
+
+//        englishStemmer stemmer = new englishStemmer();
+//        stemmer.setCurrent(token);
+//            stemmer.stem();
+//            String stemmedTerm = stemmer.getCurrent();
+//            System.out.println("Testing stemmed term: " + stemmedTerm);
+//            return stemmedTerm;
+        String term = "";
+        try {
+            Class<?> stemClass = Class.forName("org.tartarus.snowball.ext." + "english" + "Stemmer");
+            SnowballStemmer stemmer = (SnowballStemmer) stemClass.getDeclaredConstructor().newInstance();
+
+            stemmer.setCurrent(token);
+            stemmer.stem();
+            term = stemmer.getCurrent();
+            System.out.println("testing with github way term is: " + term);
+        } catch (Exception ex) {
+
+        }
+        return term;
     }
 }
+

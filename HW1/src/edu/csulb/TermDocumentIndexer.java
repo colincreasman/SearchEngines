@@ -45,8 +45,8 @@ public class TermDocumentIndexer {
 			else if (Objects.equals(input, ":stem")) {
 				System.out.println("Please enter the token you would like stemmed: ");
 				String token = in.nextLine();
-				List<String> stemmedTerms = showStemmedTerm(token);
-				System.out.println("The stemmed term(s) for the token '" + token + "' is: " + stemmedTerms.toString());
+				String stemmedTerms = showStemmedTerm(token);
+				System.out.println("The stemmed term(s) for the token '" + token + "' is: " + stemmedTerms);
 			}
 			else if (Objects.equals(input, ":index")) {
 				mainLoop();
@@ -101,10 +101,10 @@ public class TermDocumentIndexer {
 
 	// tests the stemming of a single provided token by returning its stemmed term(s)
 	// TODO: update this once Porter2 has been implemented
-	private static List<String> showStemmedTerm (String token){
+	private static String showStemmedTerm (String token)  {
 		AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
-		List<String> terms = processor.processToken(token);
-		return terms;
+		String term = processor.stem(token);
+		return term;
 	}
 
 	// tests the vocabulary of the index by printing out the first 1000 terms in order and the total amount of terms in the vocabulary
