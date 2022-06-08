@@ -99,22 +99,23 @@ public class AdvancedTokenProcessor implements TokenProcessor {
                 if (tokenCharacters[i] == '-')  {
                     // when found, set the end placeholder to the current index
                     end = i;
-                    // extract a substring from the original token using the start and end placeholders
-                    String partialToken = token.substring(start, end);
-                    // add the substring to the results as its own term
-                    results.add(partialToken);
+                    // make sure hyphens aren't consequtive
+                    if (end - start > 1) {
+                        // extract a substring from the original token using the start and end placeholders
+                        String partialToken = token.substring(start, end);                // add the substring to the results as its own term
+                        results.add(partialToken);
+                    }
+
                     // now reassign the start placeholder to the next index (right after the most recent hyphen was found)
                     start = i + 1;
                     // continue iterating and repeat the process whenever a new hyphen is found
                 }
                 if (i == tokenCharacters.length - 1) {
-                    // when found, set the end placeholder to the current index
                     end = i + 1;
-                    // extract a substring from the original token using the start and end placeholders
-                    String partialToken = token.substring(start, end);
-                    // add the substring to the results as its own term
-                    results.add(partialToken);
-                    // now reassign the start placeholder to the next index (right after the most recent hyphen was found)
+                    if (end - start > 1) {
+                        String partialToken = token.substring(start, end);
+                        results.add(partialToken);
+                    }
                 }
             }
         }
