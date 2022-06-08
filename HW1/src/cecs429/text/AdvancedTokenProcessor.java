@@ -1,5 +1,6 @@
 package cecs429.text;
 
+import javax.swing.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -77,61 +78,40 @@ public class AdvancedTokenProcessor implements TokenProcessor {
         // initialize list of results
         List<String> results = new ArrayList<>();
 
-        // if there are less than 2 characters in the token, then removing a hyphen would remove the token altogether
-        if (token.length() < 3) {
-            // return the token in its original form
-            results.add(token);
-            return results;
-        }
-
         // first check if the token even contains any hyphens before processing
         if (token.contains("-")) {
             System.out.println("Testing token before removing hyphens: " + token);
 
             // create a clone of the original token and remove all hyphens from it
             String tokenWithoutHyphens = token.replaceAll("[\\s\\-()]","");
-           // System.out.println("Testing token without hyphens: " + tokenWithoutHyphens);
+            // System.out.println("Testing token without hyphens: " + tokenWithoutHyphens);
 
             // add the modified token to the results without changing the original token
             results.add(tokenWithoutHyphens);
 
-            // initialize 2 placeholder indexes:
-            int start = 0; // keeps track of the beginning of the current substring
-            int end; //  keeps track of the end of the current substring
-
-
+            // initialize list to store the index locations of each hyphen in the char array
+            List<Integer> hyphenLocations = new ArrayList<>();
             // iterate through the original token as a char array
             char[] tokenCharacters = token.toCharArray();
             for (int i = 0; i < tokenCharacters.length; i++) {
-                // check each char for hyphens
-                if (tokenCharacters[i] == '-' && tokenCharacters[i] != tokenCharacters.length - 1)  {
-                    if (tokenCharacters[i + 1] == '-') {
-                        try {
-                            i++;
-                        }
-                        catch (ArrayIndexOutOfBoundsException ex) {
-                            System.out.println("OUt of bounds");
-                        }
-                    }
-                    // when found, set the end placeholder to the current index
-                    end = i;
-                    // extract a substring from the original token using the start and end placeholders
-                    String partialToken = token.substring(start, end);
-                    // add the substring to the results as its own term
-                    results.add(partialToken);
-                    // now reassign the start placeholder to the next index (right after the most recent hyphen was found)
-                    start = i + 1;
-                    // continue iterating and repeat the process whenever a new hyphen is found
+                // if the current item is a hypen, add its index to the list
+                if (tokenCharacters[i] == '-') {
+                    hyphenLocations.add(i);
                 }
-                if (i == tokenCharacters.length - 1) {
-                    // when found, set the end placeholder to the current index
-                    end = i + 1;
-                    // extract a substring from the original token using the start and end placeholders
-                    String partialToken = token.substring(start, end);
-                    // add the substring to the results as its own term
-                    results.add(partialToken);
-                    // now reassign the start placeholder to the next index (right after the most recent hyphen was found)
+            }
+            int start;
+            int end;
+
+            // now iterate through the list of hyphen locations
+            for (int i = 0; i < hyphenLocations.size(); i++) {
+
+                if (i != hyphenLocations.size() - 1) {
+                    start = hyphenLocations.get(i);
+                    end = hyphenLocations.get(i + 1);
+                    String subToken = token.substring(start, end);
+                    results.add(subToken);
                 }
+
             }
         }
 
