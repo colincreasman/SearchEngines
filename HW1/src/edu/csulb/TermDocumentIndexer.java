@@ -153,27 +153,12 @@ public class TermDocumentIndexer {
 		QueryComponent fullQuery = parser.parseQuery(query);
 		// sort the list of postings and print results
 		queryPostings = fullQuery.getPostings(index);
-		if ( (queryPostings == null) || (queryPostings.contains(null)) ){
+		if ((queryPostings == null) || (queryPostings.contains(null))) {
 			System.out.println("No documents were found containing the query '" + query + "'");
-		}
-		else {
+		} else {
 			queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
 			showQueryResults(queryPostings, corpus, query);
 		}
-//		try {
-//			queryPostings = fullQuery.getPostings(index);
-//		}
-//		catch (NullPointerException ex) {
-//			System.out.println("No documents were found containing the query '" + query + "'");
-//		}
-//		try {
-//			queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
-//		}
-//		catch (NullPointerException ex) {
-//			System.out.println("No documents were found containing all the terms in the query '" + query + "'");
-//		}
-//		showQueryResults(queryPostings, corpus, query);
-
 	}
 
 	// prints out the results of a given query by showing every document the query was found in - along with its term positions within each document - on a new line

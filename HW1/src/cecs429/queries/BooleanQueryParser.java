@@ -143,6 +143,8 @@ public class BooleanQueryParser {
 	private Literal findNextLiteral(String subquery, int startIndex) {
 		int subLength = subquery.length();
 		int lengthOut;
+		//initialize return literal
+		//Literal result;
 		
 		// Skip past white space.
 		while (subquery.charAt(startIndex) == ' ') {
@@ -153,8 +155,8 @@ public class BooleanQueryParser {
 		if (subquery.charAt(startIndex) == '"') {
 			// set up indexes for the opening and closing quotation marks and use them to find the phrase's length
 			int openQuote = startIndex + 1;
-			int closeQuote = subquery.indexOf('"', openQuote) - 1;
-			int phraseLength = closeQuote - openQuote;
+			int closeQuote = subquery.indexOf('"', openQuote);
+			int phraseLength = closeQuote - openQuote + 1;
 
 			// use the quote indexes to build a StringBounds and extract the phrase query string from the overall subquery
 			StringBounds phraseBounds = new StringBounds(openQuote, phraseLength);
@@ -167,23 +169,24 @@ public class BooleanQueryParser {
 			// use the phraseLiteral to build and return a Literal wrapped around the phrase query
 			Literal phraseWrapper = new Literal(phraseBounds, phraseLiteral);
 			System.out.println("Testing the phrase literal instantiation: " + phraseLiteral.toString());
+
 			return phraseWrapper;
 		}
-		else {
-			// Locate the next space to find the end of this literal.
-			int nextSpace = subquery.indexOf(' ', startIndex);
-			if (nextSpace < 0) {
-				// No more literals in this subquery.
-				lengthOut = subLength - startIndex;
-			} else {
-				lengthOut = nextSpace - startIndex;
-			}
 
-			// This is a term literal containing a single term.
-			return new Literal(
-					new StringBounds(startIndex, lengthOut),
-					new TermLiteral(subquery.substring(startIndex, startIndex + lengthOut)));
+		// Locate the next space to find the end of this literal.
+		int nextSpace = subquery.indexOf(' ', startIndex);
+		if (nextSpace < 0) {
+			// No more literals in this subquery.
+			lengthOut = subLength - startIndex;
+		} else {
+			lengthOut = nextSpace - startIndex;
+		}
+
+		// This is a term literal containing a single term.
+		return new Literal(
+				new StringBounds(startIndex, lengthOut),
+				new TermLiteral(subquery.substring(startIndex, startIndex + lengthOut)));
 		}
 	}
-}
+
 
