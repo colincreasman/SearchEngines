@@ -3,9 +3,13 @@ import cecs429.documents.DirectoryCorpus;
 import cecs429.documents.Document;
 import cecs429.documents.DocumentCorpus;
 import cecs429.indexes.*;
+import cecs429.queries.BooleanQueryParser;
+import cecs429.queries.QueryComponent;
 import cecs429.text.AdvancedTokenProcessor;
 import cecs429.text.BasicTokenProcessor;
 import cecs429.text.EnglishTokenStream;
+
+import javax.management.Query;
 import java.nio.file.Paths;
 import java.sql.SQLOutput;
 import java.time.Clock;
@@ -81,6 +85,7 @@ public class TermDocumentIndexer {
 		// start timer
 		long start = System.currentTimeMillis();
 		HashSet<String> vocabulary = new HashSet<>();
+
 		AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
 		PositionalInvertedIndex index = new PositionalInvertedIndex(vocabulary);
 
@@ -141,36 +146,40 @@ public class TermDocumentIndexer {
 		System.out.println("\n The total number of terms in the vocabulary is: " + index.getVocabulary().size());
 	}
 
+	// TODO: update to implement BooleanQueryParser
 	// processes a query inputted by the user
 	private static void processQuery(DocumentCorpus corpus, Index index, String query) {
 		try {
-			AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
-			List<String> terms = processor.processToken(query);
-			List<Posting> allPostings = new ArrayList<>();
-			for (String t : terms) {
-				List<Posting> currentTermPostings = index.getPostings(t);
-				allPostings.addAll(currentTermPostings);
-			}
-			// sort the list of allPostings
-			allPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
+			// use a boolean query parser to parse the string query into a single Query component before retrieving its postings
+			BooleanQueryParser parser = new BooleanQueryParser();
+			QueryComponent fullQuery = parser.parseQuery(query);
+			List<Posting> queryPostings = fullQuery.getPostings(index);
 
-			// initialize counter to keep track of total number of documents the query was found in
-			int totalDocuments = 0;
-			System.out.println("Query matches were found in the following documents: \n");
-			for (Posting p : allPostings) {
-				// increment the counter for each postings in the master list
-				totalDocuments += 1;
-				// TODO: Comment out for final demo
-				System.out.println("Document #" + p.getDocumentId() + ": '" + corpus.getDocument(p.getDocumentId()).getTitle() + "' ");
-				System.out.println(" Term Positions: " + p.getTermPositions().toString());
-				System.out.println();
-			}
-			System.out.println("Total documents found: " + totalDocuments);
+			// sort the list of postings and print results
+			queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
+			showQueryResults(queryPostings, corpus);
 		}
-
 		catch (NullPointerException ex) {
 			System.out.println(ex);
 		}
+	}
+
+	// prints out the results of a given query by showing every document the query was found in - along with its term positions within each document - on a new line
+	// also prints out the total number of documents with the query that were found in the corpus
+	private static void showQueryResults(List<Posting> results, DocumentCorpus corpus) {
+		// initialize counter to keep track of total number of documents the query was found in
+		int totalDocuments = 0;
+		System.out.println("Query matches were found in the following documents: \n");
+
+		for (Posting p : results) {
+			// increment the counter for each postings in the master list
+			totalDocuments += 1;
+			System.out.println("Document #" + p.getDocumentId() + ": '" + corpus.getDocument(p.getDocumentId()).getTitle() + "' ");
+			System.out.println(" Term Positions: " + p.getTermPositions().toString());
+			System.out.println();
+		}
+
+		System.out.println("Total number of documents found containing the query: " + totalDocuments);
 	}
 }
 
