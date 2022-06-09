@@ -54,14 +54,13 @@ public class OrQuery implements QueryComponent {
 		int j = 0; // top index
 		while (i < top.size() || j < bottom.size()) {
 			// add the current Posting from both lists to the hash map
-			postingsMap.put(top.get(i).getDocumentId(), top.get(i).getTermPositions());
-			postingsMap.put(bottom.get(i).getDocumentId(), top.get(i).getTermPositions());
-
 			// only increment the indexes if they haven't reached the end of their lists yet
 			if (i != top.size() - 1) {
+				postingsMap.put(top.get(i).getDocumentId(), top.get(i).getTermPositions());
 				i++;
 			}
-			if (j != top.size() - 1) {
+			if (j != bottom.size() - 1) {
+				postingsMap.put(bottom.get(j).getDocumentId(), bottom.get(j).getTermPositions());
 				j++;
 			}
 		}
