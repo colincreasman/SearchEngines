@@ -4,15 +4,20 @@ import java.util.List;
 
 import cecs429.indexes.Index;
 import cecs429.indexes.Posting;
+import cecs429.text.AdvancedTokenProcessor;
 
 /**
  * A TermLiteral represents a single term in a subquery.
  */
 public class TermLiteral implements QueryComponent {
 	private String mTerm;
-	
+	private AdvancedTokenProcessor mProcessor;
+
 	public TermLiteral(String term) {
-		mTerm = term;
+		// the TermLiteral should represent a procesed term, not the original token, so we must first process it with a new processor
+		mProcessor = new AdvancedTokenProcessor();
+		// "note: do not perform the split on hyphens step on query literals; use the whole literal, including the hyphen"
+		mTerm = mProcessor.processTokenWithHyphens(term);
 	}
 	
 	public String getTerm() {
@@ -29,4 +34,5 @@ public class TermLiteral implements QueryComponent {
 	public String toString() {
 		return mTerm;
 	}
+
 }

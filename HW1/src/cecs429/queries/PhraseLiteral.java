@@ -6,6 +6,7 @@ import java.util.List;
 
 import cecs429.indexes.Index;
 import cecs429.indexes.Posting;
+import cecs429.text.AdvancedTokenProcessor;
 
 /**
  * Represents a phrase literal consisting of one or more terms that must occur in sequence.
@@ -13,12 +14,19 @@ import cecs429.indexes.Posting;
 public class PhraseLiteral implements QueryComponent {
 	// The list of individual terms in the phrase.
 	private List<String> mTerms = new ArrayList<>();
-	
+	private AdvancedTokenProcessor mProcessor;
+
+
 	/**
 	 * Constructs a PhraseLiteral with the given individual phrase terms.
 	 */
 	public PhraseLiteral(List<String> terms) {
-		mTerms.addAll(terms);
+		mProcessor = new AdvancedTokenProcessor();
+		// before getting postings, each term in the list must be processed (without removing hyphens)
+		for (String t : terms) {
+			String processedTerm = mProcessor.processTokenWithHyphens(t);
+			mTerms.add(processedTerm);
+		}
 	}
 	
 	/**
