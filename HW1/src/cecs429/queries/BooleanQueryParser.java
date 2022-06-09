@@ -1,6 +1,7 @@
 package cecs429.queries;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -147,27 +148,42 @@ public class BooleanQueryParser {
 		while (subquery.charAt(startIndex) == ' ') {
 			++startIndex;
 		}
-		
-		// Locate the next space to find the end of this literal.
-		int nextSpace = subquery.indexOf(' ', startIndex);
-		if (nextSpace < 0) {
-			// No more literals in this subquery.
-			lengthOut = subLength - startIndex;
+
+		// identify Phrase Queries by checking if the first is a quotation mark
+		if (subquery.charAt(startIndex) == '"') {
+			// set up indexes for the opening and closing quotation marks and use them to find the phrase's length
+			int openQuote = startIndex + 1;
+			int closeQuote = subquery.indexOf('"', openQuote) - 1;
+			int phraseLength = closeQuote - openQuote;
+
+			// use the quote indexes to build a StringBounds and extract the phrase query string from the overall subquery
+			StringBounds phraseBounds = new StringBounds(openQuote, phraseLength);
+			String phraseQuery = subquery.substring(openQuote, closeQuote);
+
+			// extract the individual terms from the phrase query into a list to build the PhraseLiteral
+			List<String> phraseTerms = Arrays.asList(phraseQuery.split(" "));
+			PhraseLiteral phraseLiteral = new PhraseLiteral(phraseTerms);
+
+			// use the phraseLiteral to build and return a Literal wrapped around the phrase query
+			Literal phraseWrapper = new Literal(phraseBounds, phraseLiteral);
+			System.out.println("Testing the phrase literal instantiation: " + phraseLiteral.toString());
+			return phraseWrapper;
 		}
 		else {
-			lengthOut = nextSpace - startIndex;
+			// Locate the next space to find the end of this literal.
+			int nextSpace = subquery.indexOf(' ', startIndex);
+			if (nextSpace < 0) {
+				// No more literals in this subquery.
+				lengthOut = subLength - startIndex;
+			} else {
+				lengthOut = nextSpace - startIndex;
+			}
+
+			// This is a term literal containing a single term.
+			return new Literal(
+					new StringBounds(startIndex, lengthOut),
+					new TermLiteral(subquery.substring(startIndex, startIndex + lengthOut)));
 		}
-		
-		// This is a term literal containing a single term.
-		return new Literal(
-		 new StringBounds(startIndex, lengthOut),
-		 new TermLiteral(subquery.substring(startIndex, startIndex + lengthOut)));
-		
-		/*
-		TODO:
-		Instead of assuming that we only have single-term literals, modify this method so it will create a PhraseLiteral
-		object if the first non-space character you find is a double-quote ("). In this case, the literal is not ended
-		by the next space character, but by the next double-quote character.
-		 */
 	}
 }
+

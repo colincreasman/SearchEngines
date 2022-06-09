@@ -28,12 +28,12 @@ public class TermDocumentIndexer {
 
 		// TODO: Comment out for final demo
 		// hard coded path for testing
-		String corpusPath = "/Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/all-nps-sites-extracted";
-		DocumentCorpus corpus = DirectoryCorpus.loadJsonDirectory(Paths.get(corpusPath), ".json");
+//		String corpusPath = "/Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/all-nps-sites-extracted";
+//		DocumentCorpus corpus = DirectoryCorpus.loadJsonDirectory(Paths.get(corpusPath), ".json");
 
 		// Hard coded path for moby dick corpus
-		// String corpusPath = "/Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/MobyDick10Chapters";
-		// DocumentCorpus corpus = DirectoryCorpus.loadTextDirectory(Paths.get(corpusPath), ".txt");
+		String corpusPath = "/Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/MobyDick10Chapters";
+		DocumentCorpus corpus = DirectoryCorpus.loadTextDirectory(Paths.get(corpusPath), ".txt");
 
 		// TODO: Uncomment for final demo
 		// ask the user for corpus directory
@@ -51,8 +51,7 @@ public class TermDocumentIndexer {
 			if (Objects.equals(input, ":q")) {
 				System.out.println("Quitting the application - Goodbye!");
 				System.exit(0);
-			}
-			else if (Objects.equals(input, ":stem")) {
+			} else if (Objects.equals(input, ":stem")) {
 				System.out.println("Please enter the token you would like stemmed: ");
 				String token = in.nextLine();
 				String stemmedTerm = showStemmedTerm(token);
@@ -65,11 +64,9 @@ public class TermDocumentIndexer {
 				String token = in.nextLine();
 				List<String> processdTerm = showProcessdTerm(token);
 				System.out.println("After normalization and stemming, the processed terms for the token '" + token + "' are: \n" + processdTerm);
-			}
-			else if (Objects.equals(input, ":index")) {
+			} else if (Objects.equals(input, ":index")) {
 				mainLoop();
-			}
-			else if (Objects.equals(input, ":vocab")) {
+			} else if (Objects.equals(input, ":vocab")) {
 				showVocabulary(index);
 			}
 			// end of special queries
@@ -80,7 +77,7 @@ public class TermDocumentIndexer {
 	}
 
 	// builds an index (any implementation of the Index interface) using a Document Corpus
-	private static Index indexCorpus (DocumentCorpus corpus) {
+	private static Index indexCorpus(DocumentCorpus corpus) {
 		System.out.println("Indexing corpus...");
 		// start timer
 		long start = System.currentTimeMillis();
@@ -120,7 +117,7 @@ public class TermDocumentIndexer {
 
 	// tests the stemming of a single provided token by returning its stemmed term(s)
 	// TODO: update this once Porter2 has been implemented
-	private static String showStemmedTerm (String token)  {
+	private static String showStemmedTerm(String token) {
 		AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
 		String term = processor.stem(token);
 		return term;
@@ -132,6 +129,7 @@ public class TermDocumentIndexer {
 		//System.out.println("Testing which terms are returned by showProcessedTerm: " + terms);
 		return terms;
 	}
+
 	// tests the vocabulary of the index by printing out the first 1000 terms in order and the total amount of terms in the vocabulary
 	private static void showVocabulary(Index index) {
 		System.out.println("Sorting vocabulary...");
@@ -149,37 +147,56 @@ public class TermDocumentIndexer {
 	// TODO: update to implement BooleanQueryParser
 	// processes a query inputted by the user
 	private static void processQuery(DocumentCorpus corpus, Index index, String query) {
-		try {
-			// use a boolean query parser to parse the string query into a single Query component before retrieving its postings
-			BooleanQueryParser parser = new BooleanQueryParser();
-			QueryComponent fullQuery = parser.parseQuery(query);
-			List<Posting> queryPostings = fullQuery.getPostings(index);
-
-			// sort the list of postings and print results
+		List<Posting> queryPostings = new ArrayList<>();
+		// use a boolean query parser to parse the string query into a single Query component before retrieving its postings
+		BooleanQueryParser parser = new BooleanQueryParser();
+		QueryComponent fullQuery = parser.parseQuery(query);
+		// sort the list of postings and print results
+		queryPostings = fullQuery.getPostings(index);
+		if ( (queryPostings == null) || (queryPostings.contains(null)) ){
+			System.out.println("No documents were found containing the query '" + query + "'");
+		}
+		else {
 			queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
-			showQueryResults(queryPostings, corpus);
+			showQueryResults(queryPostings, corpus, query);
 		}
-		catch (NullPointerException ex) {
-			System.out.println(ex);
-		}
+//		try {
+//			queryPostings = fullQuery.getPostings(index);
+//		}
+//		catch (NullPointerException ex) {
+//			System.out.println("No documents were found containing the query '" + query + "'");
+//		}
+//		try {
+//			queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
+//		}
+//		catch (NullPointerException ex) {
+//			System.out.println("No documents were found containing all the terms in the query '" + query + "'");
+//		}
+//		showQueryResults(queryPostings, corpus, query);
+
 	}
 
 	// prints out the results of a given query by showing every document the query was found in - along with its term positions within each document - on a new line
 	// also prints out the total number of documents with the query that were found in the corpus
-	private static void showQueryResults(List<Posting> results, DocumentCorpus corpus) {
+	private static void showQueryResults(List<Posting> results, DocumentCorpus corpus, String query) {
 		// initialize counter to keep track of total number of documents the query was found in
 		int totalDocuments = 0;
 		System.out.println("Query matches were found in the following documents: \n");
 
-		for (Posting p : results) {
-			// increment the counter for each postings in the master list
-			totalDocuments += 1;
-			System.out.println("Document #" + p.getDocumentId() + ": '" + corpus.getDocument(p.getDocumentId()).getTitle() + "' ");
-			System.out.println(" Term Positions: " + p.getTermPositions().toString());
-			System.out.println();
-		}
+		try {
+			for (Posting p : results) {
+				// increment the counter for each postings in the master list
+				totalDocuments += 1;
+				System.out.println("Document #" + p.getDocumentId() + ": '" + corpus.getDocument(p.getDocumentId()).getTitle() + "' ");
+				System.out.println(" Term Positions: " + p.getTermPositions().toString());
+				System.out.println();
+			}
 
-		System.out.println("Total number of documents found containing the query: " + totalDocuments);
+			System.out.println("Total number of documents found containing the query: " + totalDocuments);
+		}
+		catch (NullPointerException ex) {
+			System.out.println("No documents were found containing the query '" + query + "'");
+		}
 	}
 }
 

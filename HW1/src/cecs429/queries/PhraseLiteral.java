@@ -38,9 +38,21 @@ public class PhraseLiteral implements QueryComponent {
 	
 	@Override
 	public List<Posting> getPostings(Index index) {
-		return null;
-		// TODO: program this method. Retrieve the postings for the individual terms in the phrase,
-		// and positional merge them together.
+
+		// retrieve the postings for the individual terms in the phrase,
+		List<Posting> results = new ArrayList<>();
+
+		// TODO: update this loop to include the positional merge
+		try {
+			for (String t : mTerms) {
+				results.addAll(index.getPostings((t)));
+			}
+			return results;
+		}
+		catch (NullPointerException ex) {
+			System.out.println("No documents were found containing the phrase literal '" + this + "'");
+			return null;
+		}
 	}
 	
 	@Override

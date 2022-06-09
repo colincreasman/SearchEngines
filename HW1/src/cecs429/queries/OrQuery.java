@@ -24,18 +24,24 @@ public class OrQuery implements QueryComponent {
 	public List<Posting> getPostings(Index index) {
 		// initialize a master postings list to which we will add all of the individual lists from each component after any necessary processing
 		List<Posting> masterPostingsList = new ArrayList<>();
-
-		for (int i = 0; i < mComponents.size(); i++) {
-			// for the first QueryComponent only, automatically add it to the master postings list without any OR processing
-			if (i == 0) {
-				masterPostingsList.addAll(mComponents.get(i).getPostings(index));
+		try {
+			for (int i = 0; i < mComponents.size(); i++) {
+				// for the first QueryComponent only, automatically add it to the master postings list without any OR processing
+				if (i == 0) {
+					masterPostingsList.addAll(mComponents.get(i).getPostings(index));
+				}
+				// for every other query component after that, update the master list by OR-ing it with the current component's postings list
+				else {
+					masterPostingsList = union(mComponents.get(i).getPostings(index), masterPostingsList);
+				}
 			}
-			// for every other query component after that, update the master list by OR-ing it with the current component's postings list
-			else {
-				masterPostingsList = union(mComponents.get(i).getPostings(index), masterPostingsList);
-			}
+			return masterPostingsList;
 		}
-		return  masterPostingsList;
+
+		catch (Exception ex) {
+			System.out.println("No documents were found containing the OR query '" + this + "'");
+			return null;
+		}
 	}
 
 	// performs the OR union merge of two lists of postings to return a new list containing all postings from both lists (without duplicates)

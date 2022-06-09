@@ -24,18 +24,23 @@ public class AndQuery implements QueryComponent {
 		AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
 		// initialize a master postings list to which we will add all of the individual lists from each component after any necessary processing
 		List<Posting> masterPostingsList = new ArrayList<>();
-
-		for (int i = 0; i < mComponents.size(); i++) {
-			// for the first QueryComponent only, automatically add it to the master postings list and skip any AND processing
-			if (i == 0) {
-				masterPostingsList.addAll(mComponents.get(i).getPostings(index));
+		try {
+			for (int i = 0; i < mComponents.size(); i++) {
+				// for the first QueryComponent only, automatically add it to the master postings list and skip any AND processing
+				if (i == 0) {
+					masterPostingsList.addAll(mComponents.get(i).getPostings(index));
+				}
+				// for every other query component after that, update the master posting list by AND-ing it with the current component's postings list
+				else {
+					masterPostingsList = intersect(mComponents.get(i).getPostings(index), masterPostingsList);
+				}
 			}
-			// for every other query component after that, update the master posting list by AND-ing it with the current component's postings list
-			else {
-				masterPostingsList = intersect(mComponents.get(i).getPostings(index), masterPostingsList);
-			}
+			return masterPostingsList;
 		}
-		return  masterPostingsList;
+		catch (Exception ex) {
+			System.out.println("No documents were found containing the AND query '" + this + "'");
+			return null;
+		}
 	}
 
 	// performs an AND intersect merge of two lists of postings to return a new list containing only the postings the are found in both of the original lists
