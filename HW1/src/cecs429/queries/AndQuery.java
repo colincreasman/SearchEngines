@@ -30,12 +30,9 @@ public class AndQuery implements QueryComponent {
 			if (i == 0) {
 				masterPostingsList.addAll(mComponents.get(i).getPostings(index));
 			}
-			// for every other query component after that, perform an AND intersect between the current postings list and the master postings list
+			// for every other query component after that, update the master posting list by AND-ing it with the current component's postings list
 			else {
-				// store the result of that intersection in a new List<Posting>
-				List<Posting> intersectedPostings = intersect(mComponents.get(i).getPostings(index), masterPostingsList);
-				// now we can add that List<Posting> to the result list and continue iterating
-				masterPostingsList.addAll(intersectedPostings);
+				masterPostingsList = intersect(mComponents.get(i).getPostings(index), masterPostingsList);
 			}
 		}
 		return  masterPostingsList;
@@ -43,11 +40,13 @@ public class AndQuery implements QueryComponent {
 
 	// performs an AND intersect merge of two lists of postings to return a new list containing only the postings the are found in both of the original lists
 	public List<Posting> intersect(List<Posting> top, List<Posting> bottom) {
+
 		// initialize the results list
 		List<Posting> results = new ArrayList<>();
+
 		// set up indexes to iterate through both postings lists simultaneously
-		int i = 0; // index for top
-		int j = 0; // index for bottom
+		int i = 0; // top index
+		int j = 0; // bottom index
 
 		// iterate through both lists simultaneously
 		while (i < top.size() && j < bottom.size()) {
