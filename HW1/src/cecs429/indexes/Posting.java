@@ -50,6 +50,5 @@ public class Posting {
 	public void addTermPosition (int position) {
 		mTermPositions.add(position);
 		Collections.sort(mTermPositions);
-
 	}
 }

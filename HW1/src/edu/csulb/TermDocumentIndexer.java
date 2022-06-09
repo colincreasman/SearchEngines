@@ -21,15 +21,21 @@ public class TermDocumentIndexer {
 	// driver method to route user selections from the main menu
 	private static void mainLoop() {
 		Scanner in = new Scanner(System.in);
+
 		// TODO: Comment out for final demo
 		// hard coded path for testing
 		String corpusPath = "/Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/all-nps-sites-extracted";
+		DocumentCorpus corpus = DirectoryCorpus.loadJsonDirectory(Paths.get(corpusPath), ".json");
+
+		// Hard coded path for moby dick corpus
+		// String corpusPath = "/Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/MobyDick10Chapters";
+		// DocumentCorpus corpus = DirectoryCorpus.loadTextDirectory(Paths.get(corpusPath), ".txt");
+
 		// TODO: Uncomment for final demo
 		// ask the user for corpus directory
-//		System.out.println("Please enter the local path for your corpus directory: ");
-//		String corpusPath = input.nextLine();
-//		// Create a DocumentCorpus to load .json documents from the corpus directory.
-		DocumentCorpus corpus = DirectoryCorpus.loadJsonDirectory(Paths.get(corpusPath), ".json");
+		// System.out.println("Please enter the local path for your corpus directory: ");
+		// String corpusPath = input.nextLine();
+
 		// Index the documents of the corpus.
 		Index index = indexCorpus(corpus);
 
@@ -138,21 +144,32 @@ public class TermDocumentIndexer {
 	// processes a query inputted by the user
 	private static void processQuery(DocumentCorpus corpus, Index index, String query) {
 		try {
-			List<Posting> postings = index.getPostings(query);
+			AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
+			List<String> terms = processor.processToken(query);
+			List<Posting> allPostings = new ArrayList<>();
+			for (String t : terms) {
+				List<Posting> currentTermPostings = index.getPostings(t);
+				allPostings.addAll(currentTermPostings);
+			}
+			// sort the list of allPostings
+			allPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
 
-			for (Posting p : postings) {
+			// initialize counter to keep track of total number of documents the query was found in
+			int totalDocuments = 0;
+			System.out.println("Query matches were found in the following documents: \n");
+			for (Posting p : allPostings) {
+				// increment the counter for each postings in the master list
+				totalDocuments += 1;
 				// TODO: Comment out for final demo
-				System.out.println("The query term '" + query + "' appears in Document #" + p.getDocumentId() + ": '" + corpus.getDocument(p.getDocumentId()).getTitle() + "' at the following locations: \n" + p.getTermPositions().toString());
+				System.out.println("Document #" + p.getDocumentId() + ": '" + corpus.getDocument(p.getDocumentId()).getTitle() + "' ");
+				System.out.println(" Term Positions: " + p.getTermPositions().toString());
 				System.out.println();
 			}
-
-			// prints the total number of documents found
-			// works only with the INVERTED index, NOT THE POSITIONAL INDEX
-			System.out.println("Total number of documents found: " + index.getPostings(query).size());
+			System.out.println("Total documents found: " + totalDocuments);
 		}
 
 		catch (NullPointerException ex) {
-			System.out.println("There are no documents in the corpus that contain the query '" + query + "'.");
+			System.out.println(ex);
 		}
 	}
 }

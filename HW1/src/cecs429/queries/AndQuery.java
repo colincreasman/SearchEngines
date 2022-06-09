@@ -1,5 +1,6 @@
 package cecs429.queries;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -8,6 +9,7 @@ import cecs429.indexes.Posting;
 
 /**
  * An AndQuery composes other QueryComponents and merges their postings in an intersection-like operation.
+ * An AndQuery occurs when there are more than one consecutive QueryComponents that do not have the '+' between them
  */
 public class AndQuery implements QueryComponent {
 	private List<QueryComponent> mComponents;
@@ -18,12 +20,58 @@ public class AndQuery implements QueryComponent {
 	
 	@Override
 	public List<Posting> getPostings(Index index) {
-		List<Posting> result = null;
-		
-		// TODO: program the merge for an AndQuery, by gathering the postings of the composed QueryComponents and
-		// intersecting the resulting postings.
-		
-		return result;
+		// initialize a master postings list to which we will add all of the individual lists from each component after any necessary processing
+		List<Posting> masterPostingsList = new ArrayList<>();
+
+		for (int i = 0; i < mComponents.size(); i++) {
+			// for the first QueryComponent only, automatically add it to the master postings list and skip any AND processing
+			if (i == 0) {
+				masterPostingsList.addAll(mComponents.get(i).getPostings(index));
+			}
+			// for every other query component after that, perform an AND intersect between the current postings list and the master postings list
+			else {
+				// store the result of that intersection in a new List<Posting>
+				List<Posting> intersectedPostings = intersect(mComponents.get(i).getPostings(index), masterPostingsList);
+				// now we can add that List<Posting> to the result list and continue iterating
+				masterPostingsList.addAll(intersectedPostings);
+			}
+		}
+		return  masterPostingsList;
+	}
+
+	// performs the AND intersect between two lists of postings
+	// returns a new list containing only the postings the are found in both of the original lists
+	public List<Posting> intersect(List<Posting> top, List<Posting> bottom) {
+		// initialize the results list
+		List<Posting> results = new ArrayList<>();
+		// set up indexes to iterate through both postings lists simultaneously
+		int i = 0; // index for top
+		int j = 0; // index for bottom
+
+		// iterate through both lists simultaneously
+		while (i < top.size() && j < bottom.size()) {
+			// find the documentId's of each list at their respective current indexes
+			int topDocId = top.get(i).getDocumentId();
+			int bottomDocId = bottom.get(j).getDocumentId();
+
+			// if they are equal, that means both of the postings contain this docId
+			if (topDocId == bottomDocId) {
+				// so we add the intersected postings lists to the results list
+				results.add(top.get(i));
+				// increment both indexes simultaneously to continue iterating
+				i++;
+				j++;
+			}
+
+			// otherwise, increment the index currently pointing to the lower docId and continue iterating until there's another match
+			else if (topDocId < bottomDocId) {
+				i++;
+			}
+			else {
+				j++;
+			}
+		}
+		return results;
 	}
 	
 	@Override

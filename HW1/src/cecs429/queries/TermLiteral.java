@@ -18,7 +18,8 @@ public class TermLiteral implements QueryComponent {
 	public String getTerm() {
 		return mTerm;
 	}
-	
+
+	// Since an Index can already give the postings for a single term with its own getPostings method, a TermLiteral simply calls that method on the given Index.
 	@Override
 	public List<Posting> getPostings(Index index) {
 		return index.getPostings(mTerm);
