@@ -39,8 +39,7 @@ public class AndQuery implements QueryComponent {
 		return  masterPostingsList;
 	}
 
-	// performs the AND intersect between two lists of postings
-	// returns a new list containing only the postings the are found in both of the original lists
+	// performs an AND intersect merge of two lists of postings to return a new list containing only the postings the are found in both of the original lists
 	public List<Posting> intersect(List<Posting> top, List<Posting> bottom) {
 		// initialize the results list
 		List<Posting> results = new ArrayList<>();
