@@ -150,7 +150,7 @@ public class BooleanQueryParser {
 		while (subquery.charAt(startIndex) == ' ') {
 			++startIndex;
 		}
-
+		
 		// identify Phrase Queries by checking if the first is a quotation mark
 		if (subquery.charAt(startIndex) == '"') {
 			// set up indexes for the opening and closing quotation marks and use them to find the phrase's length

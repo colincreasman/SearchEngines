@@ -10,6 +10,8 @@ import cecs429.text.BasicTokenProcessor;
 import cecs429.text.EnglishTokenStream;
 
 import javax.management.Query;
+import java.io.BufferedReader;
+import java.io.Reader;
 import java.nio.file.Paths;
 import java.sql.SQLOutput;
 import java.time.Clock;
@@ -155,9 +157,36 @@ public class TermDocumentIndexer {
 		queryPostings = fullQuery.getPostings(index);
 		if ((queryPostings == null) || (queryPostings.contains(null))) {
 			System.out.println("No documents were found containing the query '" + query + "'");
-		} else {
+		}
+		else {
 			queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
 			showQueryResults(queryPostings, corpus, query);
+			showDocument(corpus, index);
+		}
+	}
+
+	private static void showDocument(DocumentCorpus corpus, Index index) {
+		Scanner in = new Scanner(System.in);
+		System.out.println();
+		System.out.println("Please enter the ID of the document you'd like to view: ");
+		int docId = in.nextInt();
+		BufferedReader contentReader = new BufferedReader(corpus.getDocument(docId).getContent());
+		StringBuilder stringBuilder = new StringBuilder();
+		String line;
+
+		try {
+			while ((line = contentReader.readLine()) != null) {
+				stringBuilder.append(line);
+				// insert a line break every 15 words for visibility
+				if (stringBuilder.length() % 15 == 0) {
+					stringBuilder.append("\n");
+				}
+			}
+			String stringContent = stringBuilder.toString();
+			System.out.println("The content of document # " + docId + " is shown below: \n" + stringContent);
+		}
+		catch (Exception ex) {
+			System.out.println("Document #" + docId + " has no viewable content.");
 		}
 	}
 
