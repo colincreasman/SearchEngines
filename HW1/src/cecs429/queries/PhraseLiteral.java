@@ -46,7 +46,7 @@ public class PhraseLiteral implements QueryComponent {
 		for (int i = 1; i < mTerms.size(); i++) {
 			// update the master list by positionally merging it with the current postings list
 			List<Posting> currentPostings = index.getPostings(mTerms.get(i));
-				masterList = positionalMerge(currentPostings, masterList);
+				masterList = positionalMerge(masterList, currentPostings);
 		}
 //		try {
 //			return masterList;
@@ -75,16 +75,14 @@ public class PhraseLiteral implements QueryComponent {
 		List<Posting> mergedPostings = new ArrayList<>();
 		// setup indexes for iterating through the postings list of both top and bottom lists
 		int topPostingIndex = 0;
-		int bottomPostingIndex= 0;
+		int bottomPostingIndex = 0;
 
 		// starting with the 0th index of each list, iterate through their postings lists simultaneously
 		while (topPostingIndex < top.size() && bottomPostingIndex < bottom.size()) {
 
 			// check if the current docIds match before proceeding
 			if (top.get(topPostingIndex).getDocumentId() == bottom.get(bottomPostingIndex).getDocumentId()) {
-				// use to store the positions of matching term positions
-				List<Integer> matches = new ArrayList<>();
-				// use to store the term positions at the current index in the top and bottom lists
+				// lists to store the term positions at the current index in the top and bottom lists
 				List<Integer> topTermPositions = top.get(topPostingIndex).getTermPositions();
 				List<Integer> bottomTermPositions = bottom.get(bottomPostingIndex).getTermPositions();
 
@@ -94,9 +92,10 @@ public class PhraseLiteral implements QueryComponent {
 
 				// starting at current top-level index of each list, iterate through their lists of the term positions using new indexes
 				int topTermIndex = 0;
-				int bottomTermIndex = 1; // start at 1 because it is impossible for a matching to occur at the 0th index of the bottom (this would require the matching in the top to occur at the -1st index)
+				int bottomTermIndex = 0;
 				while (topTermIndex < topTermPositions.size() && bottomTermIndex < bottomTermPositions.size()) {
-					int currentBottom = bottomTermPositions.get(bottomTermIndex); // the actual term location found at a given index in the bottom list
+					 // start at 1 aboe the top index because it is impossible for a matching to occur at the 0th index of the bottom (this would require the matching in the top to occur at the -1st index)
+					int currentBottom = bottomTermPositions.get(bottomTermIndex + 1); // the actual term location found at a given index in the bottom list
 					int currentTop = topTermPositions.get(topTermIndex); // the actual term location found at a given index in the top list
 					int bottomMargin = currentBottom - currentTop; // the numerical difference between the current values of the top and bottom's term locations
 
@@ -133,36 +132,36 @@ public class PhraseLiteral implements QueryComponent {
 					// this can happen in one of two ways:
 					else {
 						// the first (and easier) way is when the top's current term position is greater than the bottom's
-						while (bottomMargin <= 0) {
-							if (bottomTermIndex == bottomTermPositions.get(bottomTermPositions.size() - 1)) {
-								break;
-							}
-							else {
-								// this is handled by incrementing the bottom's index until the new currentBottom is no longer smaller than the currentTop
+						if (bottomMargin <= 0) {
+							if (bottomTermIndex < bottomTermPositions.get(bottomTermPositions.size() - 1)) {
 								bottomTermIndex++;
+
+//							else {
+										// this is handled by incrementing the bottom's index until the new currentBottom is no longer smaller than the currentTop
 								// update currentBottom to recalculate the difference
-								currentBottom = bottomTermPositions.get(bottomTermIndex);
-								bottomMargin = currentBottom - currentTop;
+								//currentBottom = bottomTermPositions.get(bottomTermIndex);
+								//bottomMargin = currentBottom - currentTop;
 							}
 						}
 						// the second (more difficult) way is when the bottom's current term location is still greater than the top's, buy by a difference of more than 1
-						while (bottomMargin > 1) {
+						if (bottomMargin > 1) {
 							if (topTermIndex < topTermPositions.get(topTermPositions.size() - 1)) {
-								break;
-							}
-							else {
-								// this is handled by incrementing the top's index until the new bottom margin is at most 1
+//								break;
+//								continue;
 								topTermIndex++;
+
+//							else {
+								// this is handled by incrementing the top's index until the new bottom margin is at most 1
 								// reassign currentTop with the incremented index
-								currentTop = topTermPositions.get(topTermIndex);
-								bottomMargin = currentBottom - currentTop;
+//								currentTop = topTermPositions.get(topTermIndex);
+//								bottomMargin = currentBottom - currentTop;
 							}
 						}
 					}
+					// finally, increment both posting indexes before continuing to iterate
+					topPostingIndex++;
+					bottomPostingIndex++;
 				}
-				// finally, increment both posting indexes before continuing to iterate
-				topPostingIndex++;
-				bottomPostingIndex++;
 			}
 		}
 		return mergedPostings;
