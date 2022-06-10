@@ -2,6 +2,7 @@ package cecs429.queries;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 
 import cecs429.indexes.Index;
@@ -45,16 +46,22 @@ public class PhraseLiteral implements QueryComponent {
 		for (int i = 1; i < mTerms.size(); i++) {
 			// update the master list by positionally merging it with the current postings list
 			List<Posting> currentPostings = index.getPostings(mTerms.get(i));
-
-			try {
 				masterList = positionalMerge(currentPostings, masterList);
-			}
-			catch (NullPointerException ex) {
-				System.out.println("No documents were found containing the phrase literal '" + this + "'");
-				masterList = null;
-			}
 		}
-		return masterList;
+//		try {
+//			return masterList;
+//		}
+//		catch (NullPointerException ex) {
+//			System.out.println("No documents were found containing the phrase literal " + this );
+//			return null;
+//		}
+		if (masterList == null) {
+			System.out.println("No documents were found containing the phrase literal " + this );
+			return null;
+		}
+		else {
+			return masterList;
+		}
 	}
 
 	/**
@@ -66,58 +73,101 @@ public class PhraseLiteral implements QueryComponent {
 	public List<Posting> positionalMerge(List<Posting> top, List<Posting> bottom) {
 		// initialize results list
 		List<Posting> mergedPostings = new ArrayList<>();
-		// setup indexes for iterating both lists simultaneously
-		int topIndex = 0;
-		int bottomIndex = 0;
+		// setup indexes for iterating through the postings list of both top and bottom lists
+		int topPostingIndex = 0;
+		int bottomPostingIndex= 0;
 
-		while (topIndex < top.size() && bottomIndex < bottom.size()) {
+		// starting with the 0th index of each list, iterate through their postings lists simultaneously
+		while (topPostingIndex < top.size() && bottomPostingIndex < bottom.size()) {
 
 			// check if the current docIds match before proceeding
-			if (top.get(topIndex).getDocumentId() == bottom.get(bottomIndex).getDocumentId()) {
-
+			if (top.get(topPostingIndex).getDocumentId() == bottom.get(bottomPostingIndex).getDocumentId()) {
 				// use to store the positions of matching term positions
 				List<Integer> matches = new ArrayList<>();
 				// use to store the term positions at the current index in the top and bottom lists
-				List<Integer> topTermPositions = top.get(topIndex).getTermPositions();
-				List<Integer> bottomTermPositions = bottom.get(bottomIndex).getTermPositions();
+				List<Integer> topTermPositions = top.get(topPostingIndex).getTermPositions();
+				List<Integer> bottomTermPositions = bottom.get(bottomPostingIndex).getTermPositions();
+
+				// create lists of matching term locations for each original list
+				List<Integer> topMatches = new ArrayList<>();
+				List<Integer> bottomMatches = new ArrayList<>();
 
 				// starting at current top-level index of each list, iterate through their lists of the term positions using new indexes
 				int topTermIndex = 0;
-				int bottomTermIndex = 0;
+				int bottomTermIndex = 1; // start at 1 because it is impossible for a matching to occur at the 0th index of the bottom (this would require the matching in the top to occur at the -1st index)
 				while (topTermIndex < topTermPositions.size() && bottomTermIndex < bottomTermPositions.size()) {
-					// now we must handle the two possible comparison cases
+					int currentBottom = bottomTermPositions.get(bottomTermIndex); // the actual term location found at a given index in the bottom list
+					int currentTop = topTermPositions.get(topTermIndex); // the actual term location found at a given index in the top list
+					int bottomMargin = currentBottom - currentTop; // the numerical difference between the current values of the top and bottom's term locations
 
-					// the first case occurs if the current term positions in  each list are equal
-					if (topTermPositions.get(topTermIndex) == bottomTermPositions.get(bottomTermIndex)) {
-						// if so, add the position to the list of matched positions and increment both terms indexes
-						matches.add(topTermPositions.get(topTermIndex));
-						topTermIndex++;
+					// success case occurs when the currentBottom location is one number higher than the currentTop location
+					if (bottomMargin == 1) {
+						// however, in order to truly be a successful matching, the term location immediately preceding currentBottom must also equal the original (un-incremented) currentTop location
+						if (bottomTermPositions.get(bottomTermIndex - 1) == currentTop) {
+							// its possible to have many pairs of matching term positions among the two lists
+							// so for each pair of matches, store the location from the top list into its own list of matches and the location from the bottom into a separate list of matches
+							topMatches.add(currentTop); // note that we do NOT store (currentTop + 1) here; instead we store unmodified currentTop value that the match was found at
+							bottomMatches.add(currentBottom);
+							// combine both sets into a hashset to ensure there are no duplicates
+							HashSet<Integer> matchSet = new HashSet<>();
+							matchSet.addAll(topMatches);
+							matchSet.addAll(bottomMatches);
+
+							// now convert the set of all matches back into a list
+							List<Integer> allMatches = new ArrayList<>();
+							allMatches.addAll(matchSet);
+
+							// create a new Posting that maps the current docId to a list of all matches from the top and bottom
+							Posting matchPosting = new Posting(top.get(topPostingIndex).getDocumentId(), allMatches);
+							System.out.println("Testing new posting of matches: " + matchPosting.toString());
+
+							// add the new Posting to the mergedPostings results list
+							mergedPostings.add(matchPosting);
+						}
+						// increment both indexes regardless of if the matching was a true success or not
 						bottomTermIndex++;
+						topTermIndex++;
 					}
 
-					// the other case occurs when the current term positions in  each list are not equal
-					// this is handled by simply incrementing the term index of the list with the lower term position
-					else if (topTermPositions.get(topTermIndex) > bottomTermPositions.get(bottomTermIndex)) {
-						bottomTermIndex++;
-					} else {
-						topTermIndex++;
+					// now we must handle the remaining cases, in which a successful matching is not immediately found but is still possible
+					// this can happen in one of two ways:
+					else {
+						// the first (and easier) way is when the top's current term position is greater than the bottom's
+						while (bottomMargin <= 0) {
+							if (bottomTermIndex == bottomTermPositions.get(bottomTermPositions.size() - 1)) {
+								break;
+							}
+							else {
+								// this is handled by incrementing the bottom's index until the new currentBottom is no longer smaller than the currentTop
+								bottomTermIndex++;
+								// update currentBottom to recalculate the difference
+								currentBottom = bottomTermPositions.get(bottomTermIndex);
+								bottomMargin = currentBottom - currentTop;
+							}
+						}
+						// the second (more difficult) way is when the bottom's current term location is still greater than the top's, buy by a difference of more than 1
+						while (bottomMargin > 1) {
+							if (topTermIndex < topTermPositions.get(topTermPositions.size() - 1)) {
+								break;
+							}
+							else {
+								// this is handled by incrementing the top's index until the new bottom margin is at most 1
+								topTermIndex++;
+								// reassign currentTop with the incremented index
+								currentTop = topTermPositions.get(topTermIndex);
+								bottomMargin = currentBottom - currentTop;
+							}
+						}
 					}
 				}
-				// increment both top-level indexes to continue iterating
-				topIndex++;
-				bottomIndex++;
+				// finally, increment both posting indexes before continuing to iterate
+				topPostingIndex++;
+				bottomPostingIndex++;
 			}
-
-			// if the docId's aren't equal, just increment to top-level index of whichever list has the lower docId
-			else if (top.get(topIndex).getDocumentId() > bottom.get(bottomIndex).getDocumentId()) {
-				bottomIndex++;
-			} else {
-				topIndex++;
-			}
-			// end of a single iteration of top-level while loop
 		}
 		return mergedPostings;
 	}
+
 	
 	@Override
 	public String toString() {

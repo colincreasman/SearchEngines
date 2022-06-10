@@ -28,19 +28,18 @@ public class TermDocumentIndexer {
 	private static void mainLoop() {
 		Scanner in = new Scanner(System.in);
 
-		// TODO: Comment out for final demo
-		// hard coded path for testing
-//		String corpusPath = "/Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/all-nps-sites-extracted";
-//		DocumentCorpus corpus = DirectoryCorpus.loadJsonDirectory(Paths.get(corpusPath), ".json");
+		/**
+		 *  // local paths for corpora //
+		 *
+		 * National Parks:   /Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/all-nps-sites-extracted
+		 * Moby Dick:   /Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/MobyDick10Chapters
+		 *
+		 */
 
-		// Hard coded path for moby dick corpus
-		String corpusPath = "/Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/MobyDick10Chapters";
-		DocumentCorpus corpus = DirectoryCorpus.loadTextDirectory(Paths.get(corpusPath), ".txt");
-
-		// TODO: Uncomment for final demo
 		// ask the user for corpus directory
-		// System.out.println("Please enter the local path for your corpus directory: ");
-		// String corpusPath = input.nextLine();
+		System.out.println("Please enter the local path for your corpus directory: ");
+		String corpusPath = in.nextLine();
+		DocumentCorpus corpus = DirectoryCorpus.loadTextOrJsonDirectory(Paths.get(corpusPath));
 
 		// Index the documents of the corpus.
 		Index index = indexCorpus(corpus);
@@ -118,7 +117,6 @@ public class TermDocumentIndexer {
 	}
 
 	// tests the stemming of a single provided token by returning its stemmed term(s)
-	// TODO: update this once Porter2 has been implemented
 	private static String showStemmedTerm(String token) {
 		AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
 		String term = processor.stem(token);
@@ -146,7 +144,6 @@ public class TermDocumentIndexer {
 		System.out.println("\n The total number of terms in the vocabulary is: " + index.getVocabulary().size());
 	}
 
-	// TODO: update to implement BooleanQueryParser
 	// processes a query inputted by the user
 	private static void processQuery(DocumentCorpus corpus, Index index, String query) {
 		List<Posting> queryPostings = new ArrayList<>();

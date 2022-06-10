@@ -163,4 +163,13 @@ public class DirectoryCorpus implements DocumentCorpus {
 
 		return corpus;
 	}
+
+	public static DirectoryCorpus loadTextOrJsonDirectory(Path absolutePath) {
+		DirectoryCorpus corpus = new DirectoryCorpus(absolutePath);
+
+		corpus.registerFileDocumentFactory(".json", JsonFileDocument::loadJsonFileDocument);
+		corpus.registerFileDocumentFactory(".txt", TextFileDocument::loadTextFileDocument);
+
+		return corpus;
+	}
 }
