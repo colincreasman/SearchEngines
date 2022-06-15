@@ -17,10 +17,12 @@ public class PositionalInvertedIndex implements Index {
     /**
      * Adds a term to the index using the document it occurs in
      * and the list of integer positions where it occurs
+     *
      * @param term
      * @param documentId
      * @param termPosition
      */
+
     public void addTerm(String term, int documentId, int termPosition) {
         // first check if the term is already in the index by trying to access its postings in the index
         List<Posting> postingsInIndex = mIndex.get(term);
@@ -35,8 +37,7 @@ public class PositionalInvertedIndex implements Index {
             if (lastPosting.getDocumentId() == documentId) {
                 // if true, then the term's postings list already contains a posting for this doc, so we add the new termPosition to the end of the postings list for the term
                 lastPosting.addTermPosition(termPosition);
-            }
-            else {
+            } else {
                 // if false, then the posting list for this term exists but does not yet contain a posting for this doc
                 Posting newPosting = new Posting(documentId, termPosition);
                 // add a new posting with the docId and termPosition to the HashMap index
@@ -55,6 +56,11 @@ public class PositionalInvertedIndex implements Index {
             // add the new term and new postingsList to the HashMap index
             mIndex.put(term, newPostingsList);
         }
+    }
+
+    @Override
+    public void addTerm(String term, int id) {
+
     }
 
     /**
@@ -78,5 +84,40 @@ public class PositionalInvertedIndex implements Index {
         sortedVocab.addAll(mIndex.keySet());
         Collections.sort(sortedVocab);
         return sortedVocab;
+    }
+
+
+    @Override
+    public String toString() {
+        String indexString = "";
+        //int endIndex = termCount - 1;
+
+        // if the vocab size is smaller than the requested term count, use the size for the endIndex instead
+//        if (termCount > mVocabulary.size()) {
+//            endIndex = mVocabulary.size() - 1;
+//        }
+
+//        int count = 0;
+        for (String term : mIndex.keySet()) {
+//            if (count > endIndex) {
+//                break;
+//            }
+
+            // setup "term": {
+            String postingString = "\"" + term + "\":" + " {";
+            for (Posting p : mIndex.get(term)) {
+                postingString += p.toString() + ", ";
+            }
+
+            // remove comma from final term
+            postingString = postingString.substring(0, postingString.length() - 2);
+            postingString += "}";
+            indexString += "\n" + postingString;
+        }
+        return indexString;
+    }
+
+    @Override
+    public void addTerm() {
     }
 }

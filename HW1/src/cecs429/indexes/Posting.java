@@ -51,4 +51,10 @@ public class Posting {
 		mTermPositions.add(position);
 		Collections.sort(mTermPositions);
 	}
+
+	// wraps a single posting string as "docId:[pos1,pos2,...,etc.]"
+	@Override
+	public String toString() {
+			return mDocumentId + ":" +mTermPositions.toString();
+	}
 }

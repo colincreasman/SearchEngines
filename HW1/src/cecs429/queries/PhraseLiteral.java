@@ -95,7 +95,7 @@ public class PhraseLiteral implements QueryComponent {
 				int bottomTermIndex = 0;
 				while (topTermIndex < topTermPositions.size() && bottomTermIndex < bottomTermPositions.size()) {
 					 // start at 1 aboe the top index because it is impossible for a matching to occur at the 0th index of the bottom (this would require the matching in the top to occur at the -1st index)
-					int currentBottom = bottomTermPositions.get(bottomTermIndex + 1); // the actual term location found at a given index in the bottom list
+					int currentBottom = bottomTermPositions.get(bottomTermIndex); // the actual term location found at a given index in the bottom list
 					int currentTop = topTermPositions.get(topTermIndex); // the actual term location found at a given index in the top list
 					int bottomMargin = currentBottom - currentTop; // the numerical difference between the current values of the top and bottom's term locations
 

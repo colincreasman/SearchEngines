@@ -69,6 +69,16 @@ public class InvertedIndex implements Index {
     public List<String> getVocabulary() {
         return Collections.unmodifiableList(mVocabulary);
     }
+
+    @Override
+    public void addTerm() {
+
+    }
+
+    @Override
+    public void addTerm(String term, int id, int position) {
+
+    }
 }
 
 

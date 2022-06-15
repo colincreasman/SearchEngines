@@ -11,9 +11,10 @@ public class TermDocumentIndex implements Index {
 	private final boolean[][] mMatrix;
 	private final List<String> mVocabulary;
 	private int mCorpusSize;
-	
+
 	/**
 	 * Constructs an empty index  with given vocabulary set and corpus size.
+	 *
 	 * @param vocabulary a collection of all terms in the corpus vocabulary.
 	 * @param corpusSize the number of documents in the corpus.
 	 */
@@ -22,10 +23,10 @@ public class TermDocumentIndex implements Index {
 		mVocabulary = new ArrayList<String>();
 		mVocabulary.addAll(vocabulary);
 		mCorpusSize = corpusSize;
-		
+
 		Collections.sort(mVocabulary);
 	}
-	
+
 	/**
 	 * Associates the given documentId with the given term in the index.
 	 */
@@ -35,11 +36,11 @@ public class TermDocumentIndex implements Index {
 			mMatrix[vIndex][documentId] = true;
 		}
 	}
-	
+
 	@Override
 	public List<Posting> getPostings(String term) {
 		List<Posting> results = new ArrayList<>();
-		
+
 		// TODO: implement this method.
 		// Binary search the mVocabulary array for the given term.
 		int vocabularyTerm = Collections.binarySearch(mVocabulary, term);
@@ -54,8 +55,18 @@ public class TermDocumentIndex implements Index {
 
 		return results;
 	}
-	
+
 	public List<String> getVocabulary() {
 		return Collections.unmodifiableList(mVocabulary);
+	}
+
+	@Override
+	public void addTerm() {
+
+	}
+
+	@Override
+	public void addTerm(String term, int id, int position) {
+
 	}
 }

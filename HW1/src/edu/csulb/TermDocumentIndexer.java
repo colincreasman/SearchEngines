@@ -10,6 +10,7 @@ import cecs429.text.BasicTokenProcessor;
 import cecs429.text.EnglishTokenStream;
 
 import javax.management.Query;
+import java.awt.desktop.SystemEventListener;
 import java.io.BufferedReader;
 import java.io.Reader;
 import java.nio.file.Paths;
@@ -21,71 +22,130 @@ import java.util.*;
 
 public class TermDocumentIndexer {
 	public static void main(String[] args) {
-		mainLoop();
+		mainMenu();
 	}
 
 	// driver method to route user selections from the main menu
-	private static void mainLoop() {
+	private static void mainMenu() {
 		Scanner in = new Scanner(System.in);
 
-		/**
-		 *  // local paths for corpora //
-		 *
-		 * National Parks:   /Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/all-nps-sites-extracted
-		 * Moby Dick:   /Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/MobyDick10Chapters
-		 *
-		 */
+		// setup the initial corpus
+		DocumentCorpus corpus = selectCorpusMenu();
 
-		// ask the user for corpus directory
-		System.out.println("Please enter the local path for your corpus directory: ");
-		String corpusPath = in.nextLine();
-		DocumentCorpus corpus = DirectoryCorpus.loadTextOrJsonDirectory(Paths.get(corpusPath));
-
-		// Index the documents of the corpus.
-		Index index = indexCorpus(corpus);
+		// setup the initial index
+		Index index = selectIndexMenu(corpus);
 
 		// loop until user wants to quit
 		while (true) {
-			System.out.println("Enter your query: ");
-			String input = in.nextLine();
-			// check for special commands
-			if (Objects.equals(input, ":q")) {
-				System.out.println("Quitting the application - Goodbye!");
-				System.exit(0);
-			} else if (Objects.equals(input, ":stem")) {
-				System.out.println("Please enter the token you would like stemmed: ");
-				String token = in.nextLine();
-				String stemmedTerm = showStemmedTerm(token);
-				System.out.println("The stemmed term(s) for the token '" + token + "' is: " + stemmedTerm);
+			System.out.println("Please select an action from the options below: ");
+			System.out.println("***********************************");
+			System.out.println("(a) Perform a Search Query ");
+			System.out.println("(b) Change Index Type ");
+			System.out.println("(c) Change Corpus Directory ");
+			System.out.println("(d) Stem a Token ");
+			System.out.println("(e) Normalize a Token ");
+			System.out.println("(f) View Top 1000 Vocabulary Tokens  ");
+			System.out.println("(h) View Top 1000 Indexed Terms ");
+			System.out.println("(i) Quit Program ");
+			String selection = in.nextLine();
+
+			switch (selection) {
+				case "a": {
+					// TODO: move input gathering to inside method
+					processQuery(corpus, index);
+					break;
+				}
+				// display index selection menu again
+				case "b": {
+					// reset the current index by asking user to choose a new one
+					index = selectIndexMenu(corpus);
+					break;
+				}
+				case "c": {
+					// reset the current corpusPath by asking user to choose a new one
+					corpus = selectCorpusMenu();
+					// need to rebuild index after choosing a new corpus
+					index = selectIndexMenu(corpus);
+					break;
+				}
+				case "d": {
+					showStemmedToken();
+					break;
+				}
+				case "e": {
+					showNormalizedToken();
+					break;
+				}
+				case "f": {
+					showVocabulary(index);
+					break;
+				}
+				case "g": {
+					showIndex(index);
+					break;
+				}
+				case "h": {
+					System.out.println("Quitting the application - Goodbye!");
+					System.exit(0);
+				}
 			}
-			// for testing only
-			// end to end tests of token processing in AdvancedTokenProcessor
-			else if (Objects.equals(input, ":process")) {
-				System.out.println("Please enter the token you would like processed: ");
-				String token = in.nextLine();
-				List<String> processdTerm = showProcessdTerm(token);
-				System.out.println("After normalization and stemming, the processed terms for the token '" + token + "' are: \n" + processdTerm);
-			} else if (Objects.equals(input, ":index")) {
-				mainLoop();
-			} else if (Objects.equals(input, ":vocab")) {
-				showVocabulary(index);
+		}
+	}
+
+	private static void showIndex(Index index) {
+		Scanner in = new Scanner(System.in);
+		System.out.println("Showing the first 1000 terms in the index below: \n ");
+		System.out.println("\n*****************START OF INDEX******************\n");
+
+		int count = 1;
+		String currentTerms;
+
+		if (index.getVocabulary().size() >= 1000) {
+			currentTerms = index.toString();
+			System.out.println(currentTerms);
+		}
+		else {
+			System.out.println(index.toString());
+			System.out.println("\n*****************END OF INDEX******************\n");
+			System.out.println("Returning to main menu... \n");
+			return;
+		}
+
+		System.out.println("Show the next 1000 terms? ('y' to continue, 'n' to quit and return to main menu) \n");
+		String choice = in.nextLine();
+
+		while (true) {
+			int currentIndex = currentTerms.length();
+			int nextIndex = currentIndex + (count * 1000);
+			if (choice == "y") {
+				if (nextIndex < (index.getVocabulary().size())) {
+					currentTerms = index.toString().substring(currentIndex, nextIndex);
+					System.out.println(currentTerms);
+					count += 1;
+				}
+				else {
+					// if theres not enough terms left to print another 1000, just return however many are left and break out to main menu
+					currentTerms = index.toString().substring(currentIndex, index.getVocabulary().size() - 1);
+					System.out.println(currentTerms);
+					System.out.println("\n*****************END OF INDEX******************\n");
+					System.out.println("Returning to main menu... \n");
+					break;
+				}
 			}
-			// end of special queries
 			else {
-				processQuery(corpus, index, input);
+				System.out.println("Returning to main menu... \n");
+				break;
 			}
 		}
 	}
 
 	// builds an index (any implementation of the Index interface) using a Document Corpus
-	private static Index indexCorpus(DocumentCorpus corpus) {
+	private static Index buildIndex(DocumentCorpus corpus, Index index) {
 		System.out.println("Indexing corpus...");
 		// start timer
 		long start = System.currentTimeMillis();
-		HashSet<String> vocabulary = new HashSet<>();
 
 		AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
-		PositionalInvertedIndex index = new PositionalInvertedIndex(vocabulary);
 
 		// THEN, do the loop again! But instead of inserting into the HashSet, add terms to the index with addPosting.
 		for (Document d : corpus.getDocuments()) {
@@ -98,13 +158,18 @@ public class TermDocumentIndexer {
 			// retrieve tokens from the doc as an iterable
 			Iterable<String> tokens = stream.getTokens();
 			for (String token : tokens) {
-				// keep track of the position of each token as we iterate through the document
-				position += 1;
 				// process each token into a term(s)
 				List<String> terms = processor.processToken(token);
 				for (String term : terms) {
-					// add the term(s) to the index
-					index.addTerm(term, d.getId(), position);
+					if (index instanceof PositionalInvertedIndex) {
+						// add the term(s) to the index based off its type
+						index.addTerm(term, d.getId(), position);
+					}
+					else {
+						index.addTerm(term, d.getId());
+					}
+					// keep track of the position of each token as we iterate through the document
+					position += 1;
 				}
 			}
 		}
@@ -117,17 +182,48 @@ public class TermDocumentIndexer {
 	}
 
 	// tests the stemming of a single provided token by returning its stemmed term(s)
-	private static String showStemmedTerm(String token) {
-		AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
-		String term = processor.stem(token);
-		return term;
+	private static void showStemmedToken() {
+		Scanner in = new Scanner(System.in);
+		boolean isContinue = true;
+		while (isContinue) {
+			System.out.println("Please enter a token a stem: ");
+			String token = in.nextLine();
+
+			AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
+			String term = processor.stem(token);
+			System.out.println("The stemmed term for the provided token is '" + term + "' ");
+
+			System.out.println("Continue stemming tokens? (y/n)");
+			String choice = in.nextLine();
+			if (Objects.equals(choice, "n")) {
+				isContinue = false;
+				return;
+			}
+		}
 	}
 
-	private static List<String> showProcessdTerm(String token) {
-		AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
-		List<String> terms = processor.processToken(token);
-		//System.out.println("Testing which terms are returned by showProcessedTerm: " + terms);
-		return terms;
+	private static void showNormalizedToken() {
+		Scanner in = new Scanner(System.in);
+		boolean isContinue = true;
+		while (isContinue) {
+			System.out.println("Please enter the token to normalize: ");
+			String token = in.nextLine();
+
+			AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
+			List<String> terms = processor.processToken(token);
+			//System.out.println("Testing which terms are returned by showProcessedTerm: " + terms);
+			System.out.println("The normalized term(s) for the provided token are shown below:");
+			for (String t : terms) {
+				System.out.println(t);
+			}
+
+			System.out.println("Continue normalizing tokens? (y/n)");
+			String choice = in.nextLine();
+			if (Objects.equals(choice, "n")) {
+				isContinue = false;
+				return;
+			}
+		}
 	}
 
 	// tests the vocabulary of the index by printing out the first 1000 terms in order and the total amount of terms in the vocabulary
@@ -145,7 +241,11 @@ public class TermDocumentIndexer {
 	}
 
 	// processes a query inputted by the user
-	private static void processQuery(DocumentCorpus corpus, Index index, String query) {
+	private static void processQuery(DocumentCorpus corpus, Index index) {
+		Scanner in = new Scanner(System.in);
+		System.out.println("Please enter your search query: ");
+		String query = in.nextLine();
+
 		List<Posting> queryPostings = new ArrayList<>();
 		// use a boolean query parser to parse the string query into a single Query component before retrieving its postings
 		BooleanQueryParser parser = new BooleanQueryParser();
@@ -186,7 +286,6 @@ public class TermDocumentIndexer {
 			System.out.println("Document #" + docId + " has no viewable content.");
 		}
 	}
-
 	// prints out the results of a given query by showing every document the query was found in - along with its term positions within each document - on a new line
 	// also prints out the total number of documents with the query that were found in the corpus
 	private static void showQueryResults(List<Posting> results, DocumentCorpus corpus, String query) {
@@ -208,6 +307,75 @@ public class TermDocumentIndexer {
 		catch (NullPointerException ex) {
 			System.out.println("No documents were found containing the query '" + query + "'");
 		}
+	}
+
+	private static DocumentCorpus selectCorpusMenu() {
+		Scanner in = new Scanner(System.in);
+
+		// ask the user for corpus directory
+		System.out.println("Please choose a corpus by selecting one of the options below:");
+		System.out.println("***********************************\n");
+		System.out.println("(a) National Parks Websites");
+		System.out.println("(b) Moby Dick - First 10 Chapters");
+		System.out.println("(c) Test Corpus - Json Files");
+		System.out.println("(d) Test Corpus - Txt Files");
+		System.out.println("(e) Custom File Path");
+
+		// setup starter path prefix
+		String corpusPath = "/Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/";
+		String selection = in.nextLine();
+
+		switch (selection) {
+			case "a": {
+				corpusPath += "all-nps-sites-extracted";
+				break;
+			}
+			case "b": {
+				corpusPath += "MobyDick10Chapters";
+				break;
+			}
+			case "c": {
+				corpusPath += "test-corpus-json";
+				break;
+			}
+			case "d": {
+				corpusPath += "test-corpus-txt";
+				break;
+			}
+			case "e": {
+				System.out.println("Please enter the local path for your corpus directory: \n");
+				corpusPath = in.nextLine();
+				break;
+			}
+		}
+		DocumentCorpus corpus = DirectoryCorpus.loadTextOrJsonDirectory(Paths.get(corpusPath));
+		return corpus;
+	}
+
+	private static Index selectIndexMenu(DocumentCorpus corpus) {
+		Scanner in = new Scanner(System.in);
+		System.out.println("Please select the type of index you would like to build:");
+		System.out.println("***********************************\n");
+		System.out.println("(a) Positional Inverted Index ");
+		System.out.println("(b) Term Document Index ");
+		String indexSelect = in.nextLine();
+
+		Index index = null;
+		HashSet<String> vocabulary = new HashSet<>();
+
+		switch (indexSelect) {
+			case ("a"): {
+				index = new PositionalInvertedIndex(vocabulary);
+				break;
+			}
+			case ("b"): {
+				index = new InvertedIndex(vocabulary);
+				break;
+			}
+		}
+
+		return buildIndex(corpus, index);
+
 	}
 }
 
