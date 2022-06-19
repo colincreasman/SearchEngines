@@ -34,6 +34,25 @@ public class AndQuery implements QueryComponent {
 					masterPostingsList = intersect(mComponents.get(i).getPostings(index), masterPostingsList);
 				}
 			}
+//
+//			List<Posting> results = new ArrayList<>();
+//
+//			for (int i = 0; i < masterPostingsList.size() - 1; i++) {
+//
+//				Posting result = masterPostingsList.get(i);
+//				Posting current = masterPostingsList.get(i);
+//				Posting next = masterPostingsList.get(i + 1);
+//
+//				while (current.getDocumentId() == next.getDocumentId() && (i <= masterPostingsList.size() - 1)) {
+//					current = masterPostingsList.get(i);
+//					next = masterPostingsList.get(i + 1);
+//
+//					result = current.merge(next);
+//					i++;
+//				}
+//
+//				masterPostingsList.add(result);
+//			}
 			return masterPostingsList;
 		}
 		catch (Exception ex) {

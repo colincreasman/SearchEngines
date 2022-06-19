@@ -90,6 +90,7 @@ public class TermDocumentIndexer {
 				}
 				case "h": {
 					showDocument(corpus, index);
+					System.out.println("Returning to main menu...");
 					break;
 				}
 				case "i": {
@@ -180,7 +181,7 @@ public class TermDocumentIndexer {
 
 	}
 
-	// builds an index (any implementation of the Index interface) using a Document Corpus
+	// builds an index (any implementation of the Index interface) using a Document Corpus45
 	private static Index buildIndex(DocumentCorpus corpus, Index index) {
 		System.out.println("Indexing corpus...");
 		// start timer
@@ -384,59 +385,73 @@ public class TermDocumentIndexer {
 				choice = in.nextLine();
 			}
 		}
-		System.out.println("Returning to main menu...");
+		//System.out.println("Returning to main menu...");
 	}
 
 	// processes a query inputted by the user
 	private static void processQuery(DocumentCorpus corpus, Index index) {
 		Scanner in = new Scanner(System.in);
-		System.out.println("Please enter your search query: ");
-		String query = in.nextLine();
+		String choice = "y";
 
-		List<Posting> queryPostings = new ArrayList<>();
-		// use a boolean query parser to parse the string query into a single Query component before retrieving its postings
-		BooleanQueryParser parser = new BooleanQueryParser();
-		QueryComponent fullQuery = parser.parseQuery(query);
-		// sort the list of postings and print results
-		queryPostings = fullQuery.getPostings(index);
-		if ((queryPostings == null) || (queryPostings.contains(null))) {
-			System.out.println("No documents were found containing the query '" + query + "'");
-		}
-		else {
-			queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
-			showQueryResults(queryPostings, corpus, query);
-			System.out.println("Would you like to open a document? (y/n) ");
+		while (!choice.equals("n")) {
+			System.out.println("Please enter your search query: ");
+			String query = in.nextLine();
+			List<Posting> queryPostings = new ArrayList<>();
+			// use a boolean query parser to parse the string query into a single Query component before retrieving its postings
+			BooleanQueryParser parser = new BooleanQueryParser();
+			QueryComponent fullQuery = parser.parseQuery(query);
+			// sort the list of postings and print results
+			queryPostings = fullQuery.getPostings(index);
 
-			if (Objects.equals(in.nextLine(), "y")) {
-				showDocument(corpus, index);
+			if (queryPostings == null || queryPostings.contains(null) || queryPostings.size() < 1) {
+				System.out.println("No documents were found containing the query '" + query + "'");
 			}
 			else {
-				System.out.println("Returning to main menu...");
+				queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
+				showQueryResults(queryPostings, corpus, query);
+				String docChoice = "y";
+				while (!Objects.equals(docChoice, "n")) {
+					System.out.println("Open a document? (y/n) ");
+					docChoice = in.nextLine();
+					if (Objects.equals(docChoice, "y")) {
+						showDocument(corpus, index);
+					}
+				}
 			}
+			System.out.println("Perform another query? (y/n)");
+			choice = in.nextLine();
 		}
+		System.out.println("Returning to main menu...");
 	}
 
 	// prints out the results of a given query by showing every document the query was found in - along with its term positions within each document - on a new line
 	// also prints out the total number of documents with the query that were found in the corpus
 	private static void showQueryResults(List<Posting> results, DocumentCorpus corpus, String query) {
 		// initialize counter to keep track of total number of documents the query was found in
-		int totalDocuments = 0;
-		System.out.println("Query matches were found in the following documents: \n");
 
 		try {
+			System.out.println("Number of documents queried: " + corpus.getCorpusSize());
+			System.out.println("Number of documents found: " + results.size());
+			System.out.println("Document matches: \n");
+			System.out.println("********************************BEGIN QUERY RESULTS********************************");
+
+			int count = 1;
 			for (Posting p : results) {
-				// increment the counter for each postings in the master list
-				totalDocuments += 1;
-				System.out.println("Document #" + p.getDocumentId() + ": '" + corpus.getDocument(p.getDocumentId()).getTitle() + "' ");
-				System.out.println(" Term Positions: " + p.getTermPositions().toString());
-				System.out.println();
+				System.out.println(count + ") Title: '" +  corpus.getDocument(p.getDocumentId()).getTitle() + "' ");
+				System.out.println("    - DocId: " + p.getDocumentId());
+				System.out.println("    - Query Term Positions: " + p.getTermPositions().toString());
+				if (count != results.size()) {
+					System.out.println();
+				}
+				count += 1;
 			}
 
-			System.out.println("Total number of documents found containing query matches: " + totalDocuments);
 		}
 		catch (NullPointerException ex) {
-			System.out.println("No documents were found containing the query '" + query + "'");
+			System.out.println("Query failed. The corpus does not contain any documents matching the query '" + query + "'");
 		}
+		System.out.print("********************************END QUERY RESULTS**********************************\n");
+		System.out.println();
 	}
 
 	// prints out a list of every document in the corpus by showing the title of each document and the internal document ID assigned to it
