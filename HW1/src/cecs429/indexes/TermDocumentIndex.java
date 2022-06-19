@@ -62,7 +62,22 @@ public class TermDocumentIndex implements Index {
 
 	@Override
 	public void addTerm() {
+	}
 
+	@Override
+	// Essentially just a toString() for an individual term and its posting(s) from the index
+	public String viewTermPostings(String term) {
+		String postingString = "\"" + term + "\":" + " {";
+		//System.out.println(term);
+
+		for (Posting p : getPostings(term)) {
+			postingString += (p.toString() + ", ");
+		}
+
+		// remove comma from final term
+		postingString = postingString.substring(0, postingString.length() - 2);
+		postingString += "}";
+		return postingString;
 	}
 
 	@Override

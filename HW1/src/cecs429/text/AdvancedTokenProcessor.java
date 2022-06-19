@@ -53,6 +53,11 @@ public class AdvancedTokenProcessor implements TokenProcessor {
         int first = 0;
         int last = token.length() - 1;
 
+        // automatically return the token as-is if it is only a single character long
+        if (first == last) {
+            return token;
+        }
+
         // convert to character array
         char[] tokenCharacters = token.toCharArray();
 

@@ -36,7 +36,7 @@ public class Posting {
 	public Posting(int documentId, List<Integer> termPositions) {
 		mDocumentId = documentId;
 		mTermPositions = termPositions;
-		Collections.sort(mTermPositions);
+		//Collections.sort(mTermPositions);
 	}
 	
 	public int getDocumentId() {
@@ -47,9 +47,34 @@ public class Posting {
 		return mTermPositions;
 	}
 
+
 	public void addTermPosition (int position) {
 		mTermPositions.add(position);
 		Collections.sort(mTermPositions);
+	}
+
+	// given two Separate postings objects with the same docID's, returns a single Posting instance that maps their common docId to an aggregate list of  all the term positions from both original Postings (without duplicates)
+	public Posting merge(Posting b) {
+		///List<Integer> results = new	ArrayList<>();
+		// return the original posting if the docId's are not the same
+		if  (this.mDocumentId != b.mDocumentId) {
+		//	System.out.println("Error: The term positions from the provided postings cannot be merged because they do not map to the same docID. Returning the original (unmerged) Posting\n" );
+			return this;
+		}
+		else {
+			// create a HashSet that will store all non-duplicated term positions from both postings
+			HashSet<Integer> aggregate = new HashSet<>();
+			// add all term positiongs to the set
+			aggregate.addAll(this.mTermPositions);
+			aggregate.addAll(b.mTermPositions);
+			List<Integer> sharedPositions = new ArrayList<>();
+
+			// now convert back into a list to allow Posting instantiation
+			sharedPositions.addAll(aggregate);
+
+			Posting results = new Posting(b.mDocumentId, sharedPositions);
+			return results;
+		}
 	}
 
 	// wraps a single posting string as "docId:[pos1,pos2,...,etc.]"

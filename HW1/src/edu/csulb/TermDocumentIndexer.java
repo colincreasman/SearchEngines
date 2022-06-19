@@ -20,10 +20,13 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.*;
 
+import static java.lang.String.format;
+
 public class TermDocumentIndexer {
 	public static void main(String[] args) {
 		mainMenu();
 	}
+
 
 	// driver method to route user selections from the main menu
 	private static void mainMenu() {
@@ -37,22 +40,26 @@ public class TermDocumentIndexer {
 
 		// loop until user wants to quit
 		while (true) {
-			System.out.println("Please select an action from the options below: ");
-			System.out.println("***********************************");
-			System.out.println("(a) Perform a Search Query ");
+			System.out.println("\nPlease select an action from the options below: ");
+			System.out.println("*************************************************");
+			System.out.println("(a) Change Corpus Directory ");
 			System.out.println("(b) Change Index Type ");
-			System.out.println("(c) Change Corpus Directory ");
-			System.out.println("(d) Stem a Token ");
-			System.out.println("(e) Normalize a Token ");
-			System.out.println("(f) View Top 1000 Vocabulary Tokens  ");
-			System.out.println("(h) View Top 1000 Indexed Terms ");
-			System.out.println("(i) Quit Program ");
+			System.out.println("(c) Stem Token ");
+			System.out.println("(d) Normalize Token ");
+			System.out.println("(e) Top 1000 Vocabulary Tokens  ");
+			System.out.println("(f) Top 1000 Index Postings ");
+			System.out.println("(g) Corpus Overview ");
+			System.out.println("(h) Document Preview ");
+			System.out.println("(i) Perform Search Query ");
+			System.out.println("(j) Quit ");
 			String selection = in.nextLine();
 
 			switch (selection) {
 				case "a": {
-					// TODO: move input gathering to inside method
-					processQuery(corpus, index);
+					// reset the current corpusPath by asking user to choose a new one
+					corpus = selectCorpusMenu();
+					// need to rebuild index after choosing a new corpus
+					index = selectIndexMenu(corpus);
 					break;
 				}
 				// display index selection menu again
@@ -62,29 +69,35 @@ public class TermDocumentIndexer {
 					break;
 				}
 				case "c": {
-					// reset the current corpusPath by asking user to choose a new one
-					corpus = selectCorpusMenu();
-					// need to rebuild index after choosing a new corpus
-					index = selectIndexMenu(corpus);
-					break;
-				}
-				case "d": {
 					showStemmedToken();
 					break;
 				}
-				case "e": {
+				case "d": {
 					showNormalizedToken();
 					break;
 				}
-				case "f": {
+				case "e": {
 					showVocabulary(index);
 					break;
 				}
-				case "g": {
+				case "f": {
 					showIndex(index);
 					break;
 				}
+				case "g": {
+					showCorpusOverview(corpus);
+					break;
+				}
 				case "h": {
+					showDocument(corpus, index);
+					break;
+				}
+				case "i": {
+					// TODO: move input gathering to inside method
+					processQuery(corpus, index);
+					break;
+				}
+				case "j": {
 					System.out.println("Quitting the application - Goodbye!");
 					System.exit(0);
 				}
@@ -92,51 +105,79 @@ public class TermDocumentIndexer {
 		}
 	}
 
-	private static void showIndex(Index index) {
+	private static DocumentCorpus selectCorpusMenu() {
 		Scanner in = new Scanner(System.in);
-		System.out.println("Showing the first 1000 terms in the index below: \n ");
-		System.out.println("\n*****************START OF INDEX******************\n");
 
-		int count = 1;
-		String currentTerms;
+		// ask the user for corpus directory
+		System.out.println("Please select a corpus from the options below: ");
+		System.out.println("**********************************************\n");
+		System.out.println("(a) National Parks Websites");
+		System.out.println("(b) Moby Dick - First 10 Chapters");
+		System.out.println("(c) Test Corpus - Json Files");
+		System.out.println("(d) Test Corpus - Txt Files");
+		System.out.println("(e) Custom File Path");
 
-		if (index.getVocabulary().size() >= 1000) {
-			currentTerms = index.toString();
-			System.out.println(currentTerms);
-		}
-		else {
-			System.out.println(index.toString());
-			System.out.println("\n*****************END OF INDEX******************\n");
-			System.out.println("Returning to main menu... \n");
-			return;
-		}
+		// setup starter path prefix
+		String corpusPath = "/Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/";
+		DocumentCorpus corpus = new DirectoryCorpus(Paths.get(corpusPath));
 
-		System.out.println("Show the next 1000 terms? ('y' to continue, 'n' to quit and return to main menu) \n");
-		String choice = in.nextLine();
+		String selection = in.nextLine();
 
-		while (true) {
-			int currentIndex = currentTerms.length();
-			int nextIndex = currentIndex + (count * 1000);
-			if (choice == "y") {
-				if (nextIndex < (index.getVocabulary().size())) {
-					currentTerms = index.toString().substring(currentIndex, nextIndex);
-					System.out.println(currentTerms);
-					count += 1;
-				}
-				else {
-					// if theres not enough terms left to print another 1000, just return however many are left and break out to main menu
-					currentTerms = index.toString().substring(currentIndex, index.getVocabulary().size() - 1);
-					System.out.println(currentTerms);
-					System.out.println("\n*****************END OF INDEX******************\n");
-					System.out.println("Returning to main menu... \n");
-					break;
-				}
+		switch (selection) {
+			case "a": {
+				corpusPath += "all-nps-sites-extracted";
+				corpus = DirectoryCorpus.loadJsonDirectory(Paths.get(corpusPath), ".json");
+				break;
 			}
-			else {
-				System.out.println("Returning to main menu... \n");
+			case "b": {
+				corpusPath += "MobyDick10Chapters";
+				corpus = DirectoryCorpus.loadTextDirectory((Paths.get(corpusPath)), ".txt");
+				break;
+			}
+			case "c": {
+				corpusPath += "test-corpus-json";
+				corpus = DirectoryCorpus.loadJsonDirectory(Paths.get(corpusPath), ".json");
+				break;
+			}
+			case "d": {
+				corpusPath += "test-corpus-txt";
+				corpus = DirectoryCorpus.loadTextDirectory(Paths.get(corpusPath), ".txt");
+				break;
+			}
+			case "e": {
+				System.out.println("Please enter the local path for your corpus directory: \n");
+				corpusPath = in.nextLine();
+				corpus = DirectoryCorpus.loadTextOrJsonDirectory(Paths.get(corpusPath));
 				break;
 			}
 		}
+		return corpus;
+	}
+
+	private static Index selectIndexMenu(DocumentCorpus corpus) {
+		Scanner in = new Scanner(System.in);
+		System.out.println("Please select the type of index you would like to build:");
+		System.out.println("***********************************\n");
+		System.out.println("(a) Positional Inverted Index ");
+		System.out.println("(b) Term Document Index ");
+		String indexSelect = in.nextLine();
+
+		Index index = null;
+		HashSet<String> vocabulary = new HashSet<>();
+
+		switch (indexSelect) {
+			case ("a"): {
+				index = new PositionalInvertedIndex(vocabulary);
+				break;
+			}
+			case ("b"): {
+				index = new InvertedIndex(vocabulary);
+				break;
+			}
+		}
+
+		return buildIndex(corpus, index);
+
 	}
 
 	// builds an index (any implementation of the Index interface) using a Document Corpus
@@ -181,11 +222,98 @@ public class TermDocumentIndexer {
 		return index;
 	}
 
+	// tests the postings of the index by printing out terms and their postings in increments of 1000
+	private static void showIndex(Index index) {
+		System.out.println("Sorting vocabulary...");
+		Collections.sort(index.getVocabulary());
+
+		int termsCount = 0;
+		Scanner in = new Scanner(System.in);
+		// show the first 1000 terms in the vocabulary
+		System.out.println("The first 1000 Terms and Postings in the index are shown below: \n");
+		System.out.println("**************************BEGIN INDEX*************************");
+
+		String choice = "y";
+		int endIndex = 0;
+		int startIndex = 0;
+
+		while (!Objects.equals(choice, "n")) {
+			// set the new starting index to the end index of the last iteration
+			startIndex = endIndex;
+			// set the new ending index to the minimum of either 1000 terms after the start index or the size of the index's vocabulary
+			endIndex = Math.min((startIndex + 1000), (index.getVocabulary().size()));
+
+			int i;
+			for (i = startIndex; i < endIndex; i++) {
+				termsCount += 1;
+				String term = index.getVocabulary().get(i);
+				System.out.println(index.viewTermPostings(term));
+			}
+
+			// stop if reaching the end of the vocabulary's size
+			if (i >= index.getVocabulary().size() - 1) {
+				System.out.println("**************************END INDEX*************************\n");
+				System.out.println("Total number of terms with postings in index: " + termsCount);
+				System.out.println("No postings remaining in index. Returning to main menu.");
+				choice = "n";
+			}
+			else {
+				System.out.println("View the next 1000 index postings? (y/n)");
+				choice = in.nextLine();
+			}
+		}
+	}
+
+	// tests the vocabulary of the index by printing out terms in increments of 1000
+	private static void showVocabulary(Index index) {
+		System.out.println("Sorting vocabulary...");
+		Collections.sort(index.getVocabulary());
+
+		int termsCount = index.getVocabulary().size();
+
+		Scanner in = new Scanner(System.in);
+		// show the first 1000 terms in the vocabulary
+		System.out.println("The first 1000 Terms index are shown below: \n");
+		System.out.println("****************BEGIN VOCABULARY****************");
+
+		String choice = "y";
+		int endIndex = 0;
+		int startIndex = 0;
+
+		while (!Objects.equals(choice, "n")) {
+			// set the new starting index to the end index of the last iteration
+			startIndex = endIndex;
+			// set the new ending index to the minimum of either 1000 terms after the start index or the size of the index's vocabulary
+			endIndex = Math.min((startIndex + 1000), (index.getVocabulary().size()));
+
+			int i;
+			for (i = startIndex; i < endIndex; i++) {
+				String term = index.getVocabulary().get(i);
+				System.out.println(term);
+			}
+
+			// stop if reaching the end of the vocabulary's size
+			if (i >= index.getVocabulary().size() - 1) {
+				System.out.println("********************END VOCABULARY*******************\n");
+				System.out.println("Total number of terms in vocabulary: " + termsCount);
+				System.out.println("No terms remaining in vocabulary. ");
+				choice = "n";
+			}
+			else {
+				System.out.println("View the next 1000 vocabulary terms? (y/n)");
+				choice = in.nextLine();
+			}
+			System.out.println("Returning to main menu...\n");
+		}
+	}
+
 	// tests the stemming of a single provided token by returning its stemmed term(s)
 	private static void showStemmedToken() {
 		Scanner in = new Scanner(System.in);
-		boolean isContinue = true;
-		while (isContinue) {
+		//boolean isContinue = true;
+		String choice = "y";
+
+		while (!Objects.equals(choice, "n")) {
 			System.out.println("Please enter a token a stem: ");
 			String token = in.nextLine();
 
@@ -194,18 +322,15 @@ public class TermDocumentIndexer {
 			System.out.println("The stemmed term for the provided token is '" + term + "' ");
 
 			System.out.println("Continue stemming tokens? (y/n)");
-			String choice = in.nextLine();
-			if (Objects.equals(choice, "n")) {
-				isContinue = false;
-				return;
-			}
+			choice = in.nextLine();
 		}
 	}
 
+	// tests the normalization of a single provided token by returning its fully normalized term(s)
 	private static void showNormalizedToken() {
 		Scanner in = new Scanner(System.in);
-		boolean isContinue = true;
-		while (isContinue) {
+		String choice = "y";
+		while (!Objects.equals(choice, "n")) {
 			System.out.println("Please enter the token to normalize: ");
 			String token = in.nextLine();
 
@@ -218,26 +343,48 @@ public class TermDocumentIndexer {
 			}
 
 			System.out.println("Continue normalizing tokens? (y/n)");
-			String choice = in.nextLine();
-			if (Objects.equals(choice, "n")) {
-				isContinue = false;
-				return;
-			}
+			choice = in.nextLine();
 		}
 	}
 
-	// tests the vocabulary of the index by printing out the first 1000 terms in order and the total amount of terms in the vocabulary
-	private static void showVocabulary(Index index) {
-		System.out.println("Sorting vocabulary...");
-		Collections.sort(index.getVocabulary());
-		// show the first 1000 terms in the vocabulary
-		System.out.println("The first 1000 terms in the sorted vocabulary are listed below: ");
-		for (int i = 0; i < 1000; i++) {
-			String term = index.getVocabulary().get(i);
-			System.out.println(term);
+	private static void showDocument(DocumentCorpus corpus, Index index) {
+		Scanner in = new Scanner(System.in);
+		System.out.println();
+		String choice = "y";
+		//boolean isContinue = true;
+		while (!Objects.equals(choice, "n")) {
+
+			System.out.println("Please enter the ID of the document you'd like to view: ");
+			int docId = Integer.parseInt(in.nextLine());
+			BufferedReader contentReader = new BufferedReader(corpus.getDocument(docId).getContent());
+			StringBuilder stringBuilder = new StringBuilder();
+			String line;
+
+			try {
+				while ((line = contentReader.readLine()) != null) {
+					stringBuilder.append(line);
+					// insert a line break every 15 words for visibility
+					if (stringBuilder.length() % 15 == 0) {
+						stringBuilder.append("\n");
+					}
+				}
+				String stringContent = stringBuilder.toString();
+				System.out.println("The content of document #" + docId + " is shown below: \n");
+				System.out.println("********************BEGIN CONTENT************************");
+				System.out.println( "\n" + stringContent);
+				System.out.println("********************END CONTENT**************************" + "\n");
+			}
+
+			catch (Exception ex) {
+				System.out.println("Document #" + docId + " has no viewable content.");
+			}
+
+			finally {
+				System.out.println("View another document? (y/n)");
+				choice = in.nextLine();
+			}
 		}
-		// show the total number of terms in the vocabulary
-		System.out.println("\n The total number of terms in the vocabulary is: " + index.getVocabulary().size());
+		System.out.println("Returning to main menu...");
 	}
 
 	// processes a query inputted by the user
@@ -258,34 +405,17 @@ public class TermDocumentIndexer {
 		else {
 			queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
 			showQueryResults(queryPostings, corpus, query);
-			showDocument(corpus, index);
-		}
-	}
+			System.out.println("Would you like to open a document? (y/n) ");
 
-	private static void showDocument(DocumentCorpus corpus, Index index) {
-		Scanner in = new Scanner(System.in);
-		System.out.println();
-		System.out.println("Please enter the ID of the document you'd like to view: ");
-		int docId = in.nextInt();
-		BufferedReader contentReader = new BufferedReader(corpus.getDocument(docId).getContent());
-		StringBuilder stringBuilder = new StringBuilder();
-		String line;
-
-		try {
-			while ((line = contentReader.readLine()) != null) {
-				stringBuilder.append(line);
-				// insert a line break every 15 words for visibility
-				if (stringBuilder.length() % 15 == 0) {
-					stringBuilder.append("\n");
-				}
+			if (Objects.equals(in.nextLine(), "y")) {
+				showDocument(corpus, index);
 			}
-			String stringContent = stringBuilder.toString();
-			System.out.println("The content of document # " + docId + " is shown below: \n" + stringContent);
-		}
-		catch (Exception ex) {
-			System.out.println("Document #" + docId + " has no viewable content.");
+			else {
+				System.out.println("Returning to main menu...");
+			}
 		}
 	}
+
 	// prints out the results of a given query by showing every document the query was found in - along with its term positions within each document - on a new line
 	// also prints out the total number of documents with the query that were found in the corpus
 	private static void showQueryResults(List<Posting> results, DocumentCorpus corpus, String query) {
@@ -302,80 +432,56 @@ public class TermDocumentIndexer {
 				System.out.println();
 			}
 
-			System.out.println("Total number of documents found containing the query: " + totalDocuments);
+			System.out.println("Total number of documents found containing query matches: " + totalDocuments);
 		}
 		catch (NullPointerException ex) {
 			System.out.println("No documents were found containing the query '" + query + "'");
 		}
 	}
 
-	private static DocumentCorpus selectCorpusMenu() {
-		Scanner in = new Scanner(System.in);
+	// prints out a list of every document in the corpus by showing the title of each document and the internal document ID assigned to it
+	private static void showCorpusOverview(DocumentCorpus corpus) {
+		System.out.println("An overview of all document ID's and titles in the current corpus is shown below: \n ");
+		System.out.println("********************BEGIN OVERVIEW***I*****************");
+//		System.out.println("_______________________________________________________");
+//		System.out.println("|____________ID____________|___________Title__________|");
+//		for (Document d : corpus.getDocuments()) {
+//			String strId =  String.valueOf(d.getId());
+//			String strTitle = d.getTitle();
+//			int digits = strId.length();
+//			int length = d.getTitle().length();
+//			// figure out how much to pad the ID and Title by to center them
+//
+//			StringBuilder titleBuilder = new StringBuilder(strTitle);
+//			int lines = Math.round(length / 26);
+//			for (int i = 0; i < lines; i++) {
+//				titleBuilder.insert(25 + (i * 25), "\n");
+//			}
+//
+//			strTitle = titleBuilder.toString();
+//
+//			int padIdLeft = 13 - Math.floorDiv(digits, 2);
+//			int padIdRight = 26 - padIdLeft + digits;
+//			int padTitleLeft = 13 - Math.floorDiv(length, 2);
+//			int padTitleRight = 26 - padTitleLeft + length;
+//
+//			String id = String.format("%" + padIdLeft + "s", strId);
+//			id = String.format("%-" + padIdRight + "s", id);
+//			String title = String.format("%" + padTitleLeft + "s", d.getTitle());
+//		//	title = String.format("%-" + padTitleRight + "s" + title);
+//
+//			String currentRow = "|" + id + "|" + title + "|";
+//			System.out.println(currentRow);
+//		}
 
-		// ask the user for corpus directory
-		System.out.println("Please choose a corpus by selecting one of the options below:");
-		System.out.println("***********************************\n");
-		System.out.println("(a) National Parks Websites");
-		System.out.println("(b) Moby Dick - First 10 Chapters");
-		System.out.println("(c) Test Corpus - Json Files");
-		System.out.println("(d) Test Corpus - Txt Files");
-		System.out.println("(e) Custom File Path");
+		for (Document d : corpus.getDocuments()) {
+			System.out.println("Document ID: " + d.getId() + "");
+			System.out.println("  Title: " + d.getTitle() + "\n");
 
-		// setup starter path prefix
-		String corpusPath = "/Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/";
-		String selection = in.nextLine();
-
-		switch (selection) {
-			case "a": {
-				corpusPath += "all-nps-sites-extracted";
-				break;
-			}
-			case "b": {
-				corpusPath += "MobyDick10Chapters";
-				break;
-			}
-			case "c": {
-				corpusPath += "test-corpus-json";
-				break;
-			}
-			case "d": {
-				corpusPath += "test-corpus-txt";
-				break;
-			}
-			case "e": {
-				System.out.println("Please enter the local path for your corpus directory: \n");
-				corpusPath = in.nextLine();
-				break;
-			}
 		}
-		DocumentCorpus corpus = DirectoryCorpus.loadTextOrJsonDirectory(Paths.get(corpusPath));
-		return corpus;
+		System.out.println("*******************END CORPUS*********************\n");
+		System.out.println("Returning to main menu...");
 	}
 
-	private static Index selectIndexMenu(DocumentCorpus corpus) {
-		Scanner in = new Scanner(System.in);
-		System.out.println("Please select the type of index you would like to build:");
-		System.out.println("***********************************\n");
-		System.out.println("(a) Positional Inverted Index ");
-		System.out.println("(b) Term Document Index ");
-		String indexSelect = in.nextLine();
-
-		Index index = null;
-		HashSet<String> vocabulary = new HashSet<>();
-
-		switch (indexSelect) {
-			case ("a"): {
-				index = new PositionalInvertedIndex(vocabulary);
-				break;
-			}
-			case ("b"): {
-				index = new InvertedIndex(vocabulary);
-				break;
-			}
-		}
-
-		return buildIndex(corpus, index);
-
-	}
 }
 

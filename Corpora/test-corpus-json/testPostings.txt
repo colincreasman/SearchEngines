@@ -1,77 +1,72 @@
-// Positional inverted index of terms and their postings for the test corpora in the form 
-// "term": {docId1:[position1, position2, etc], docId2:[position1, position2, etc]} 
-// terms are stemmed/normalized to match how they would appear in the main app's index as closely as possible
-
-"&": {3:[11]}
-"a": {1:[2]}
-"all": {3:[14]}
-"and": {5:[14]}
-"anoth" : {2:[1]}
-"around": {5:[7]}
-"be": {1:[12]}
-"big": {5:[0]}
-"but" : {2:[9]}
-"challeng": {2:[14]}
-"common": {1:[7], 5:[17]}
-"composit": {4:[1]}
-"compound": {4:[4]}
-"concentr": {4:[11]}
-"corpus": {1:[20], 5:[22]}
-"correct: {3:[17]}
-"document": {1:[16], 2:[2]}
-"everyth: {5:[4]}
-"expect": {3:[9]}
-"found": {1:[13], 5:[19]}
-"funki": {3:[3]}
-"get": {3:[15]}
-"here": {2:[18], 3:[22], 5:[5]}
-"hope": {3:[12]}
-"implement": {4:[6], 5:[9]}
-"in": {1:[14], 3:[1,5]}
-"is": {1:[1]}
-"it": {3:[10,13]}
-"lengthier": {4:[7]}
-"like": {1:[11], 5:[16]}
-"lot": {3:[19]}
-"made": {1:[4]}
-"mess": {5:[6]}
-"mix": {5:[2]}
-"modifi": {2,[10]}
-"more": {2:[13]}
-"multipl": {1:[15]}
-"normal": {3:[16]}
-"place": {3:[6]}]
-"punctuat": {3:[4]}
-"of": {1:[4], 2:[5,16], 3:[20], 5:[3,10]}
-"ol": {5:[1]}
-"on": {4:[12]}
-"sentenc": {1:[3]}
-"same": {2:[7]}
-"sentenc": {4:[0]}
-"set": {2:[15]}
-"slight": {2:[12]}
-"some": {2:[4], 3:[2], 5:[11,15]}
-"stem": {2:[11]}
-"strict": {4:[3]
-"swag": {3:[21]}
-"test": {1:[19], 2:[0]}
-"that": {1:[9], 4:[10]}
-"the": {1:[18], 2:[6], 5:[21]}
-"this": {1:[0]}
-"throughout": {5:[20]}
-"throw": {3:[0]}
-"token": {2:[17]}
-"unnecessari": {4:13}
-"util": {4:[2]}
-"verbiag": {4:[5]}
-"verbos": {4:[14], 5:[12]}
-"very": {1:[6]}
-"whole": {3:[18]}
-"will": {1:[10]}
-"with": {2:[3], 5:[8]}
-"within": {1:[17]}
-"word": {1:[8], 2:[8], 4:[9], 5:[13,18]}
-"wordier": {4:[8]}
-"wouldnt": {3:[8]}
-"you": {3:[7]}
+"&": {2:[11]}
+"a": {0:[2]}
+"all": {2:[14]}
+"and": {4:[14]}
+"anoth" : {1:[1]}
+"around": {4:[7]}
+"be": {0:[12]}
+"big": {4:[0]}
+"but" : {1:[9]}
+"challeng": {1:[14]}
+"common": {0:[7], 4:[17]}
+"composit": {3:[1]}
+"compound": {3:[4]}
+"concentr": {3:[11]}
+"corpus": {0:[20], 4:[22]}
+"correct: {2:[17]}
+"document": {0:[16], 1:[2]}
+"everyth: {4:[4]}
+"expect": {2:[9]}
+"found": {0:[13], 4:[19]}
+"funki": {2:[3]}
+"get": {2:[15]}
+"here": {1:[18], 2:[22], 4:[5]}
+"hope": {2:[12]}
+"implement": {3:[6], 4:[9]}
+"in": {0:[14], 2:[1, 5]}
+"is": {0:[1]}
+"it": {2:[10, 13]}
+"lengthier": {3:[7]}
+"like": {0:[11], 4:[16]}
+"lot": {2:[19]}
+"made": {0:[4]}
+"mess": {4:[6]}
+"mix": {4:[2]}
+"modifi": {1:[10]}
+"more": {1:[13]}
+"multipl": {0:[15]}
+"normal": {2:[16]}
+"of": {0:[4], 1:[5, 16], 2:[20], 4:[3, 10]}
+"ol": {4:[1]}
+"on": {3:[12]}
+"place": {2:[6]}]
+"punctuat": {2:[4]}
+"same": {1:[7]}
+"sentenc": {0:[3], 3:[0]}
+"set": {1:[15]}
+"slight": {1:[12]}
+"some": {1:[4], 2:[2], 4:[11, 15]}
+"stem": {1:[11]}
+"strict": {3:[3]
+"swag": {2:[21]}
+"test": {0:[19], 1:[0]}
+"that": {0:[9], 3:[10]}
+"the": {0:[18], 1:[6], 4:[21]}
+"this": {0:[0]}
+"throughout": {4:[20]}
+"throw": {2:[0]}
+"token": {1:[17]}
+"unnecessari": {3:[13]}
+"util": {3:[2]}
+"verbiag": {3:[5]}
+"verbos": {3:[14], 4:[12]}
+"veri": {0:[6]}
+"whole": {2:[18]}
+"will": {0:[10]}
+"with": {1:[3], 4:[8]}
+"within": {0:[17]}
+"word": {0:[8], 1:[8], 3:[9], 4:[13, 18]}
+"wordier": {3:[8]}
+"wouldnt": {2:[8]}
+"you": {2:[7]}
 

@@ -25,4 +25,6 @@ public interface Index {
 	void addTerm(String term, int id, int position);
 
 	void addTerm(String term, int id);
+
+	String viewTermPostings(String term);
 }

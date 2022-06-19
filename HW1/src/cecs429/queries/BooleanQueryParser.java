@@ -168,7 +168,7 @@ public class BooleanQueryParser {
 
 			// use the phraseLiteral to build and return a Literal wrapped around the phrase query
 			Literal phraseWrapper = new Literal(phraseBounds, phraseLiteral);
-			System.out.println("Testing the phrase literal instantiation: " + phraseLiteral.toString());
+		//	System.out.println("Testing the phrase literal instantiation: " + phraseLiteral.toString());
 
 			return phraseWrapper;
 		}

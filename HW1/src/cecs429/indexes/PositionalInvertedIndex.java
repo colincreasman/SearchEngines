@@ -86,36 +86,22 @@ public class PositionalInvertedIndex implements Index {
         return sortedVocab;
     }
 
-
     @Override
-    public String toString() {
-        String indexString = "";
-        //int endIndex = termCount - 1;
+    // Essentially just a toString() for an individual term and its posting(s) from the index
+    public String viewTermPostings(String term) {
+        String postingString = "\"" + term + "\":" + " {";
+        //System.out.println(term);
 
-        // if the vocab size is smaller than the requested term count, use the size for the endIndex instead
-//        if (termCount > mVocabulary.size()) {
-//            endIndex = mVocabulary.size() - 1;
-//        }
-
-//        int count = 0;
-        for (String term : mIndex.keySet()) {
-//            if (count > endIndex) {
-//                break;
-//            }
-
-            // setup "term": {
-            String postingString = "\"" + term + "\":" + " {";
-            for (Posting p : mIndex.get(term)) {
-                postingString += p.toString() + ", ";
-            }
-
-            // remove comma from final term
-            postingString = postingString.substring(0, postingString.length() - 2);
-            postingString += "}";
-            indexString += "\n" + postingString;
+        for (Posting p : getPostings(term)) {
+            postingString += (p.toString() + ", ");
         }
-        return indexString;
+
+        // remove comma from final term
+        postingString = postingString.substring(0, postingString.length() - 2);
+        postingString += "}";
+        return postingString;
     }
+
 
     @Override
     public void addTerm() {
