@@ -5,10 +5,7 @@ import cecs429.documents.DocumentCorpus;
 import cecs429.indexes.*;
 import cecs429.queries.BooleanQueryParser;
 import cecs429.queries.QueryComponent;
-import cecs429.text.AdvancedTokenProcessor;
-import cecs429.text.EnglishTokenStream;
-import cecs429.text.HyphenTokenProcessor;
-import cecs429.text.TokenProcessor;
+import cecs429.text.*;
 
 import java.io.BufferedReader;
 import java.nio.file.Paths;
@@ -285,7 +282,7 @@ public class Driver {
 		catch (NullPointerException ex) {
 			System.out.println("Query failed. The corpus does not contain any documents matching the query '" + query + "'");
 		}
-		System.out.print("**************************END QUERY RESULTS**********************************\n");
+		System.out.print("**********************************END QUERY RESULTS**********************************\n");
 		System.out.println();
 	}
 
@@ -397,14 +394,40 @@ public class Driver {
 	private static void viewNormalizedToken() {
 		Scanner in = new Scanner(System.in);
 		String choice = "y";
+		TokenProcessor processor = new BasicTokenProcessor();
+
+
 		while (!Objects.equals(choice, "n")) {
+			System.out.println("Please select the type of Processor you would like to use for normalization: ");
+			System.out.println("(a) Basic Token Processor");
+			System.out.println("(a) Hyphen Token Processor (no split on hyphenated words) ");
+			System.out.println("(c) Advanced Token Processor (splits and separates hyphenated words) ");
+			String typeChoice = in.nextLine();
+			String type = "";
+			switch (typeChoice) {
+				case "a": {
+					processor = new BasicTokenProcessor();
+					type = "Basic Token Processor";
+					break;
+				}
+				case "b": {
+					processor = new HyphenTokenProcessor();
+					type = "Hyphen Token Processor";
+					break;
+				}
+				case "c": {
+					processor = new AdvancedTokenProcessor();
+					type = "Advanced Token Processor";
+					break;
+				}
+			}
 			System.out.println("Please enter the token to normalize: ");
 			String token = in.nextLine();
 
-			AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
+			//AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
 			List<String> terms = processor.processToken(token);
 			//System.out.println("Testing which terms are returned by showProcessedTerm: " + terms);
-			System.out.println("The normalized term(s) for the provided token are shown below:");
+			System.out.println("The " + type + " has processed the provided token into the following term(s)" );
 			for (String t : terms) {
 				System.out.println(t);
 			}
@@ -458,36 +481,6 @@ public class Driver {
 	private static void viewCorpusOverview(DocumentCorpus corpus) {
 		System.out.println("An overview of all document ID's and titles in the current corpus is shown below: \n ");
 		System.out.println("********************BEGIN OVERVIEW***I*****************");
-//		System.out.println("_______________________________________________________");
-//		System.out.println("|____________ID____________|___________Title__________|");
-//		for (Document d : corpus.getDocuments()) {
-//			String strId =  String.valueOf(d.getId());
-//			String strTitle = d.getTitle();
-//			int digits = strId.length();
-//			int length = d.getTitle().length();
-//			// figure out how much to pad the ID and Title by to center them
-//
-//			StringBuilder titleBuilder = new StringBuilder(strTitle);
-//			int lines = Math.round(length / 26);
-//			for (int i = 0; i < lines; i++) {
-//				titleBuilder.insert(25 + (i * 25), "\n");
-//			}
-//
-//			strTitle = titleBuilder.toString();
-//
-//			int padIdLeft = 13 - Math.floorDiv(digits, 2);
-//			int padIdRight = 26 - padIdLeft + digits;
-//			int padTitleLeft = 13 - Math.floorDiv(length, 2);
-//			int padTitleRight = 26 - padTitleLeft + length;
-//
-//			String id = String.format("%" + padIdLeft + "s", strId);
-//			id = String.format("%-" + padIdRight + "s", id);
-//			String title = String.format("%" + padTitleLeft + "s", d.getTitle());
-//		//	title = String.format("%-" + padTitleRight + "s" + title);
-//
-//			String currentRow = "|" + id + "|" + title + "|";
-//			System.out.println(currentRow);
-//		}
 
 		for (Document d : corpus.getDocuments()) {
 			System.out.println("Document ID: " + d.getId() + "");

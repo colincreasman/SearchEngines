@@ -16,7 +16,7 @@ public class PhraseLiteral implements QueryComponent {
 	private static List<String> mPhraseTerms;
 	private static List<String> mProcessedTerms;
 
-	private HashSet<Integer> mDocIds;
+	//private HashSet<Integer> mDocIds;
 	private static List<Posting> mMerges;
 	private static List<Posting> mPostings;
 
@@ -29,7 +29,7 @@ public class PhraseLiteral implements QueryComponent {
 		mProcessedTerms = new ArrayList<>();
 		mMerges = new ArrayList<>();
 		mPostings = new ArrayList<>();
-		mDocIds = new HashSet<>();
+		//mDocIds = new HashSet<>();
 	}
 	
 	/**
@@ -39,7 +39,7 @@ public class PhraseLiteral implements QueryComponent {
 		mProcessedTerms = new ArrayList<>();
 		mMerges = new ArrayList<>();
 		mPostings = new ArrayList<>();
-		mDocIds = new HashSet<>();
+		//mDocIds = new HashSet<>();
 
 		mPhraseTerms = Arrays.asList(stringTerms.split(" "));
 
@@ -134,13 +134,14 @@ public class PhraseLiteral implements QueryComponent {
 						matches.add(currentOldPosition);
 						int currentDocId = newPostings.get(newIndex).getDocumentId();
 						Posting match = new Posting(currentDocId, matches);
-
 						// try to merge the new Posting object with a Posting with its docId that has already been merged
-						if (mDocIds.contains(currentDocId)) {
 
-							// find the posting that already has this docId
-							Posting existing = mMerges.stream().filter(posting -> currentDocId == posting.getDocumentId()).findFirst().orElse(null);
-							// merge it with the match posting
+						// try to get a posting that already has this docId
+						Posting existing = mMerges.stream().filter(posting -> currentDocId == posting.getDocumentId()).findFirst().orElse(null);
+
+						// if an existing posting was found, try to merge the new Posting object with it
+						if (existing != null) {
+							// merge it with the matched posting
 							Posting merge = match.merge(existing);
 							// must re-sort term positions after the merging
 							Collections.sort(merge.getTermPositions());
@@ -157,7 +158,7 @@ public class PhraseLiteral implements QueryComponent {
 
 						// re-sort the final list of merged postings by docId
 						mMerges.sort(Comparator.comparingInt(Posting::getDocumentId));
-						mDocIds.add(currentDocId);
+						//mDocIds.add(currentDocId);
 
 					// increment both indexes regardless of if the matching was a true success or not
 						oldPositionsIndex++;

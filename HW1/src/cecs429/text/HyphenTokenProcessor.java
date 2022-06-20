@@ -21,10 +21,11 @@ public class HyphenTokenProcessor implements TokenProcessor {
         List<String> results = new ArrayList<>();
         String token1 = fixNonAlphaNumerics(token);
         String token2 = fixPunctuation(token1);
-        String token3 = fixCase(token2);
-        String stemmedTerm = stem(token3);
+        String token3 = fixHyphens(token2);
+        String token4 = fixCase(token3);
+        String stemmedTerm = stem(token4);
         results.add(stemmedTerm);
-        return  results;
+        return results;
     }
 
     // Removes all non-alphanumeric characters from the beginning and end of the token, but not the middle.
@@ -74,6 +75,25 @@ public class HyphenTokenProcessor implements TokenProcessor {
         return token;
     }
 
+    /**
+     * (a) Removes the hyphens from the token for the first processed token, AND
+     * (b) Splits the original hyphenated token into multiple tokens without a hyphen
+     * each of which becomes its own processed token
+     *
+     * @param token
+     * @return
+     */
+    public String fixHyphens(String token) {
+        // first check if the token even contains any hyphens before processing
+        if (token.contains("-")) {
+            // create a clone of the original token and remove all hyphens from it
+            return token.replaceAll("[\\s\\-()]", "");
+        }
+        // if there are no hyphens in the original token, add it to the list in its original form
+        else {
+            return token;
+        }
+    }
     //converts the token to lowercase
     public String fixCase(String token) {
         //System.out.println("Testing fixCase: " + token.toLowerCase());

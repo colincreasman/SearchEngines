@@ -1,5 +1,6 @@
 package cecs429.queries;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import cecs429.indexes.Index;
@@ -30,8 +31,12 @@ public class TermLiteral implements QueryComponent {
 	@Override
 	public List<Posting> getPostings(TokenProcessor processor, Index index) {
 		try {
-			mTerm = processor.processToken(mTerm).get(0);
-			return index.getPostings(mTerm);
+			List<String> processedTerms = processor.processToken(mTerm);
+			List<Posting> results = new ArrayList<>();
+			for (String t : processedTerms) {
+				results.addAll(index.getPostings(t));
+			}
+			return results;
 		}
 		catch (NullPointerException ex) {
 			System.out.println("No documents were found containing the term literal '" + mTerm + "'");
