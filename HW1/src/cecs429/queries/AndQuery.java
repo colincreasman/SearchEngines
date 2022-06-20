@@ -1,58 +1,51 @@
 package cecs429.queries;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import cecs429.indexes.Index;
 import cecs429.indexes.Posting;
 import cecs429.text.AdvancedTokenProcessor;
 
+import javax.imageio.ImageTranscoder;
+
 /**
  * An AndQuery composes other QueryComponents and merges their postings in an intersection-like operation.
  * An AndQuery occurs when there are more than one consecutive QueryComponents that do not have the '+' between them
  */
 public class AndQuery implements QueryComponent {
-	private List<QueryComponent> mComponents;
-	
+	private final List<QueryComponent> mComponents;
+	private static HashSet<Integer> mDocIds;
+	private static List<Posting> mResults;
+
 	public AndQuery(List<QueryComponent> components) {
 		mComponents = components;
+		mDocIds = new HashSet<>();
+		mResults = new ArrayList<>();
 	}
+
 	
 	@Override
 	public List<Posting> getPostings(Index index) {
 		// initialize a master postings list to which we will add all of the individual lists from each component after any necessary processing
-		List<Posting> masterPostingsList = new ArrayList<>();
+		List<Posting> masterPostingsList = mComponents.get(0).getPostings(index);
+
+		//mResults = mComponents.get(0).getPostings(index);
 		try {
-			for (int i = 0; i < mComponents.size(); i++) {
-				// for the first QueryComponent only, automatically add it to the master postings list and skip any AND processing
-				if (i == 0) {
-					masterPostingsList.addAll(mComponents.get(i).getPostings(index));
-				}
-				// for every other query component after that, update the master posting list by AND-ing it with the current component's postings list
-				else {
-					masterPostingsList = intersect(mComponents.get(i).getPostings(index), masterPostingsList);
-				}
-			}
-//
-//			List<Posting> results = new ArrayList<>();
-//
-//			for (int i = 0; i < masterPostingsList.size() - 1; i++) {
-//
-//				Posting result = masterPostingsList.get(i);
-//				Posting current = masterPostingsList.get(i);
-//				Posting next = masterPostingsList.get(i + 1);
-//
-//				while (current.getDocumentId() == next.getDocumentId() && (i <= masterPostingsList.size() - 1)) {
-//					current = masterPostingsList.get(i);
-//					next = masterPostingsList.get(i + 1);
-//
-//					result = current.merge(next);
-//					i++;
+			for (int i = 1; i < mComponents.size(); i++) {
+				masterPostingsList = intersect(masterPostingsList, mComponents.get(i).getPostings(index));
+//				List<Posting> previousPostings;
+//				// for the first QueryComponent only, automatically add it to the master postings list and skip any AND processing
+//				if (i == 1) {
+//					previousPostings = mComponents.get(0).getPostings(index);
 //				}
-//
-//				masterPostingsList.add(result);
-//			}
+//				// for every other query component after that, update the master posting list by AND-ing it with the current component's postings list
+//				else {
+//					previousPostings = mResults;
+//				}
+//				List<Posting> currentPostings = mComponents.get(i).getPostings(index);
+//				intersect(previousPostings, currentPostings);
+			}
 			return masterPostingsList;
 		}
 		catch (Exception ex) {
@@ -77,16 +70,36 @@ public class AndQuery implements QueryComponent {
 			int topDocId = top.get(i).getDocumentId();
 			int bottomDocId = bottom.get(j).getDocumentId();
 
-			// if they are equal, that means both of the postings contain this docId
+			// if they are equal, merge the two postings and add to the results
 			if (topDocId == bottomDocId) {
-				// so we add the intersected postings lists to the results list
-				results.add(top.get(i));
-				// increment both indexes simultaneously to continue iterating
+//				// merge the postings of the current docId from both lists
+//				Posting match = top.get(i).merge(bottom.get(j));
+//				Collections.sort(match.getTermPositions());
+//				// check if there is already a posting with this docId in the results
+//				if (mDocIds.contains(topDocId)) {
+//					// find the posting that already has this docId
+//					Posting existing = mResults.stream().filter(posting -> topDocId == posting.getDocumentId()).findFirst().orElse(null);
+//					// merge it with the match posting
+//					Posting merge = match.merge(existing);
+//					// must re-sort term positions after the merging
+//					Collections.sort(merge.getTermPositions());
+//					// now remove the existing posting and replace it with the merged posting
+//					mResults.remove(existing);
+//					mResults.add(merge);
+//				} else {
+//					mResults.add(match);
+//				}
+//				mResults.sort(Comparator.comparingInt(Posting::getDocumentId));
+//				// add the docId to the set of added docId's
+//				mDocIds.add(topDocId);
+				// try to find an existing posting with the current docId
+				Posting match = (top.get(i).merge(bottom.get(j)));
+				Collections.sort(match.getTermPositions());
+				results.add(match);
 				i++;
 				j++;
 			}
-
-			// otherwise, increment the index currently pointing to the lower docId and continue iterating until there's another match
+			// if the current docId's aren't equal, increment the one with the lower docId
 			else if (topDocId < bottomDocId) {
 				i++;
 			}

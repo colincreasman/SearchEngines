@@ -69,21 +69,12 @@ public class PhraseLiteral implements QueryComponent {
 			}
 		}
 
-//		try {
-//			return masterList;
-//		}
-//		catch (NullPointerException ex) {
-//			System.out.println("No documents were found containing the phrase literal " + this );
-//			return null;
-//		}
 		if (mMerges == null) {
 		//	System.out.println("No documents were found containing the phrase literal " + this );
 			return null;
 		}
 		else {
-//			for (Posting p : mergedPostings) {
-//				Collections.sort(p.getTermPositions());
-//			}
+
 			mResults = getResults(mMerges);
 			return mResults;
 		}
@@ -96,10 +87,6 @@ public class PhraseLiteral implements QueryComponent {
 	 * @return a new list containing only the postings that survived the merge
 	 */
 	public void positionalMerge(List<Posting> oldPostings, List<Posting> newPostings) {
-		// initialize results list
-		//List<Posting> mergedPostings = new ArrayList<>();
-
-
 		// setup indexes for iterating through the postings list of both top and bottom lists
 		int oldIndex = 0;
 		int newIndex = 0;
@@ -136,9 +123,6 @@ public class PhraseLiteral implements QueryComponent {
 							oldMatches.add(currentOldPosition);
 							newMatches.add(currentNewPosition); // note that we do NOT store (currentTop + 1) here; instead we store unmodified currentTop value that the match was found at
 							// combine both sets into a hashset to ensure there are no duplicates
-//							HashSet<Integer> matchSet = new HashSet<>();
-//							matchSet.addAll(oldMatches);
-//							matchSet.addAll(newMatches);
 							//now convert the set of all matches back into a list
 							List<Integer> allMatches = new ArrayList<>();
 							allMatches.addAll(oldMatches);
@@ -177,46 +161,6 @@ public class PhraseLiteral implements QueryComponent {
 						    mMerges.sort(Comparator.comparingInt(Posting::getDocumentId));
 							mDocIds.add(currentDocId);
 
-///
-//////
-//////
-//////							int index = mergedPostings.indexOf(mergedPostings.stream().filter(p -> p.getDocumentId() == currentDocId).findFirst());
-//////
-//////							if (index >= 0) {
-//////								//int index = mergedPostings.indexOf(mergedPostings.stream().filter(p -> p.getDocumentId() == currentDocId).findFirst());
-//////								for (int m : allMatches) {
-//////									mergedPostings.get(index).addTermPosition(m);
-//////								}
-//////							}
-////							// if the static set of docId's already has an entry for this doc, append the matches to its postings list without making a new one
-////							int currentDocId = oldPostings.get(oldIndex).getDocumentId();
-////							// the index of the pre-exising docId is the same as that of the last element in the set because documents are checked and/or added to the results set in order of increasing docID
-////							if (mDocIds.contains(currentDocId)) {
-////								for (int m : allMatches) {
-////									int lastIndex = mergedPostings.size() - 1;
-////									mergedPostings.get(lastIndex).addTermPosition(m);
-////								}
-////							}
-////
-////
-////
-////
-//////							Optional<Person> matchingObject = objects.stream().
-//////									filter(p -> p.email().equals("testemail")).
-//////									findFirst();
-////							// if the static set of docId's does not already contain an entry for this doc, creating a new posting with the current docId and set of matches
-////							else {
-////								// create a new Posting that maps the current docId to a list of all matches from the top and bottom
-////								Posting matchPosting = new Posting(currentDocId, allMatches);
-////								System.out.println("Testing new posting of matches: " + matchPosting.toString());
-////
-////								// add the docId to the static set of docId's to force all future matches to be appended to this Posting instance, rather than creating a new Posting with duplicate docId each time
-////								mDocIds.add(currentDocId);
-////
-////								// then append the new posting to the mergedPostinged
-////								mergedPostings.add(matchPosting);
-////							}
-////						}/
 						// increment both indexes regardless of if the matching was a true success or not
 							oldPositionsIndex++;
 							newPositionsIndex++;
@@ -291,7 +235,6 @@ public class PhraseLiteral implements QueryComponent {
 		return results;
 	}
 
-	
 	@Override
 	public String toString() {
 		return "\"" + String.join(" ", mTerms) + "\"";

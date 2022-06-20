@@ -23,21 +23,18 @@ import java.util.*;
 import static java.lang.String.format;
 
 public class TermDocumentIndexer {
+
 	public static void main(String[] args) {
 		mainMenu();
 	}
 
-
 	// driver method to route user selections from the main menu
 	private static void mainMenu() {
 		Scanner in = new Scanner(System.in);
-
 		// setup the initial corpus
 		DocumentCorpus corpus = selectCorpusMenu();
-
 		// setup the initial index
 		Index index = selectIndexMenu(corpus);
-
 		// loop until user wants to quit
 		while (true) {
 			System.out.println("\nPlease select an action from the options below: ");
@@ -49,7 +46,7 @@ public class TermDocumentIndexer {
 			System.out.println("(e) Top 1000 Vocabulary Tokens  ");
 			System.out.println("(f) Top 1000 Index Postings ");
 			System.out.println("(g) Corpus Overview ");
-			System.out.println("(h) Document Preview ");
+			System.out.println("(h) View Document ");
 			System.out.println("(i) Perform Search Query ");
 			System.out.println("(j) Quit ");
 			String selection = in.nextLine();
@@ -69,27 +66,27 @@ public class TermDocumentIndexer {
 					break;
 				}
 				case "c": {
-					showStemmedToken();
+					viewStemmedToken();
 					break;
 				}
 				case "d": {
-					showNormalizedToken();
+					viewNormalizedToken();
 					break;
 				}
 				case "e": {
-					showVocabulary(index);
+					viewVocabulary(index);
 					break;
 				}
 				case "f": {
-					showIndex(index);
+					viewIndex(index);
 					break;
 				}
 				case "g": {
-					showCorpusOverview(corpus);
+					viewCorpusOverview(corpus);
 					break;
 				}
 				case "h": {
-					showDocument(corpus, index);
+					viewDocument(corpus, index);
 					System.out.println("Returning to main menu...");
 					break;
 				}
@@ -223,8 +220,71 @@ public class TermDocumentIndexer {
 		return index;
 	}
 
+	private static void processQuery(DocumentCorpus corpus, Index index) {
+		Scanner in = new Scanner(System.in);
+		String choice = "y";
+
+		while (!choice.equals("n")) {
+			System.out.println("Please enter your search query: ");
+			String query = in.nextLine();
+			List<Posting> queryPostings = new ArrayList<>();
+			// use a boolean query parser to parse the string query into a single Query component before retrieving its postings
+			BooleanQueryParser parser = new BooleanQueryParser();
+			QueryComponent fullQuery = parser.parseQuery(query);
+			// sort the list of postings and print results
+			queryPostings = fullQuery.getPostings(index);
+
+			if (queryPostings == null || queryPostings.contains(null) || queryPostings.size() < 1) {
+				System.out.println("No documents were found containing the query '" + query + "'");
+			}
+			else {
+				queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
+				showQueryResults(queryPostings, corpus, query);
+				//viewDocument(corpus, index);
+//				String docChoice = "y";
+//				while (!Objects.equals(docChoice, "n")) {
+					System.out.println("View a document? (y/n) ");
+					String docChoice = in.nextLine();
+					if (Objects.equals(docChoice, "y")) {
+						viewDocument(corpus, index);
+					}
+//				}
+			}
+			System.out.println("Perform another query? (y/n)");
+			choice = in.nextLine();
+		}
+		System.out.println("Returning to main menu...");
+	}
+
+	private static void showQueryResults(List<Posting> results, DocumentCorpus corpus, String query) {
+		// initialize counter to keep track of total number of documents the query was found in
+
+		try {
+			System.out.println("Number of documents queried: " + corpus.getCorpusSize());
+			System.out.println("Number of matches found: " + results.size());
+			System.out.println("Matching Documents: \n");
+			System.out.println("********************************BEGIN QUERY RESULTS********************************");
+
+			int count = 1;
+			for (Posting p : results) {
+				System.out.println(count + ") Title: '" +  corpus.getDocument(p.getDocumentId()).getTitle() + "' ");
+				System.out.println("    - DocId: " + p.getDocumentId());
+				System.out.println("    - Query Term Positions: " + p.getTermPositions().toString());
+				if (count != results.size()) {
+					System.out.println();
+				}
+				count += 1;
+			}
+		}
+		catch (NullPointerException ex) {
+			System.out.println("Query failed. The corpus does not contain any documents matching the query '" + query + "'");
+		}
+		System.out.print("********************************END QUERY RESULTS**********************************\n");
+		System.out.println();
+	}
+
 	// tests the postings of the index by printing out terms and their postings in increments of 1000
-	private static void showIndex(Index index) {
+	private static void viewIndex(Index index) {
 		System.out.println("Sorting vocabulary...");
 		Collections.sort(index.getVocabulary());
 
@@ -266,7 +326,7 @@ public class TermDocumentIndexer {
 	}
 
 	// tests the vocabulary of the index by printing out terms in increments of 1000
-	private static void showVocabulary(Index index) {
+	private static void viewVocabulary(Index index) {
 		System.out.println("Sorting vocabulary...");
 		Collections.sort(index.getVocabulary());
 
@@ -309,7 +369,7 @@ public class TermDocumentIndexer {
 	}
 
 	// tests the stemming of a single provided token by returning its stemmed term(s)
-	private static void showStemmedToken() {
+	private static void viewStemmedToken() {
 		Scanner in = new Scanner(System.in);
 		//boolean isContinue = true;
 		String choice = "y";
@@ -328,7 +388,7 @@ public class TermDocumentIndexer {
 	}
 
 	// tests the normalization of a single provided token by returning its fully normalized term(s)
-	private static void showNormalizedToken() {
+	private static void viewNormalizedToken() {
 		Scanner in = new Scanner(System.in);
 		String choice = "y";
 		while (!Objects.equals(choice, "n")) {
@@ -348,7 +408,7 @@ public class TermDocumentIndexer {
 		}
 	}
 
-	private static void showDocument(DocumentCorpus corpus, Index index) {
+	private static void viewDocument(DocumentCorpus corpus, Index index) {
 		Scanner in = new Scanner(System.in);
 		System.out.println();
 		String choice = "y";
@@ -365,14 +425,14 @@ public class TermDocumentIndexer {
 				while ((line = contentReader.readLine()) != null) {
 					stringBuilder.append(line);
 					// insert a line break every 15 words for visibility
-					if (stringBuilder.length() % 15 == 0) {
-						stringBuilder.append("\n");
-					}
+//					if (stringBuilder.length() % 15 == 0) {
+//						stringBuilder.append("\n");
+//					}
 				}
 				String stringContent = stringBuilder.toString();
 				System.out.println("The content of document #" + docId + " is shown below: \n");
 				System.out.println("********************BEGIN CONTENT************************");
-				System.out.println( "\n" + stringContent);
+				System.out.println( "\n" + stringContent + "\n");
 				System.out.println("********************END CONTENT**************************" + "\n");
 			}
 
@@ -388,74 +448,8 @@ public class TermDocumentIndexer {
 		//System.out.println("Returning to main menu...");
 	}
 
-	// processes a query inputted by the user
-	private static void processQuery(DocumentCorpus corpus, Index index) {
-		Scanner in = new Scanner(System.in);
-		String choice = "y";
-
-		while (!choice.equals("n")) {
-			System.out.println("Please enter your search query: ");
-			String query = in.nextLine();
-			List<Posting> queryPostings = new ArrayList<>();
-			// use a boolean query parser to parse the string query into a single Query component before retrieving its postings
-			BooleanQueryParser parser = new BooleanQueryParser();
-			QueryComponent fullQuery = parser.parseQuery(query);
-			// sort the list of postings and print results
-			queryPostings = fullQuery.getPostings(index);
-
-			if (queryPostings == null || queryPostings.contains(null) || queryPostings.size() < 1) {
-				System.out.println("No documents were found containing the query '" + query + "'");
-			}
-			else {
-				queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
-				showQueryResults(queryPostings, corpus, query);
-				String docChoice = "y";
-				while (!Objects.equals(docChoice, "n")) {
-					System.out.println("Open a document? (y/n) ");
-					docChoice = in.nextLine();
-					if (Objects.equals(docChoice, "y")) {
-						showDocument(corpus, index);
-					}
-				}
-			}
-			System.out.println("Perform another query? (y/n)");
-			choice = in.nextLine();
-		}
-		System.out.println("Returning to main menu...");
-	}
-
-	// prints out the results of a given query by showing every document the query was found in - along with its term positions within each document - on a new line
-	// also prints out the total number of documents with the query that were found in the corpus
-	private static void showQueryResults(List<Posting> results, DocumentCorpus corpus, String query) {
-		// initialize counter to keep track of total number of documents the query was found in
-
-		try {
-			System.out.println("Number of documents queried: " + corpus.getCorpusSize());
-			System.out.println("Number of documents found: " + results.size());
-			System.out.println("Document matches: \n");
-			System.out.println("********************************BEGIN QUERY RESULTS********************************");
-
-			int count = 1;
-			for (Posting p : results) {
-				System.out.println(count + ") Title: '" +  corpus.getDocument(p.getDocumentId()).getTitle() + "' ");
-				System.out.println("    - DocId: " + p.getDocumentId());
-				System.out.println("    - Query Term Positions: " + p.getTermPositions().toString());
-				if (count != results.size()) {
-					System.out.println();
-				}
-				count += 1;
-			}
-
-		}
-		catch (NullPointerException ex) {
-			System.out.println("Query failed. The corpus does not contain any documents matching the query '" + query + "'");
-		}
-		System.out.print("********************************END QUERY RESULTS**********************************\n");
-		System.out.println();
-	}
-
 	// prints out a list of every document in the corpus by showing the title of each document and the internal document ID assigned to it
-	private static void showCorpusOverview(DocumentCorpus corpus) {
+	private static void viewCorpusOverview(DocumentCorpus corpus) {
 		System.out.println("An overview of all document ID's and titles in the current corpus is shown below: \n ");
 		System.out.println("********************BEGIN OVERVIEW***I*****************");
 //		System.out.println("_______________________________________________________");

@@ -61,7 +61,8 @@ public class OrQuery implements QueryComponent {
 
 			// if they are equal, add either list's current posting (top chosen arbitrarily here) to the results and increment both indexes
 			if (topDocId == bottomDocId) {
-				results.add(top.get(i));
+				Posting merge = top.get(i).merge(bottom.get(j));
+				results.add(merge);
 				i++;
 				j++;
 			}
