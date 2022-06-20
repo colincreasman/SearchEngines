@@ -6,23 +6,17 @@ import cecs429.indexes.*;
 import cecs429.queries.BooleanQueryParser;
 import cecs429.queries.QueryComponent;
 import cecs429.text.AdvancedTokenProcessor;
-import cecs429.text.BasicTokenProcessor;
 import cecs429.text.EnglishTokenStream;
+import cecs429.text.HyphenTokenProcessor;
+import cecs429.text.TokenProcessor;
 
-import javax.management.Query;
-import java.awt.desktop.SystemEventListener;
 import java.io.BufferedReader;
-import java.io.Reader;
 import java.nio.file.Paths;
-import java.sql.SQLOutput;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneId;
 import java.util.*;
 
 import static java.lang.String.format;
 
-public class TermDocumentIndexer {
+public class Driver {
 
 	public static void main(String[] args) {
 		mainMenu();
@@ -39,16 +33,16 @@ public class TermDocumentIndexer {
 		while (true) {
 			System.out.println("\nPlease select an action from the options below: ");
 			System.out.println("*************************************************");
-			System.out.println("(a) Change Corpus Directory ");
+			System.out.println("(a) Change Corpus Directory [:index] ");
 			System.out.println("(b) Change Index Type ");
-			System.out.println("(c) Stem Token ");
+			System.out.println("(c) Stem Token [:stem] ");
 			System.out.println("(d) Normalize Token ");
-			System.out.println("(e) Top 1000 Vocabulary Tokens  ");
+			System.out.println("(e) Top 1000 Vocabulary Tokens [:vocab]  ");
 			System.out.println("(f) Top 1000 Index Postings ");
 			System.out.println("(g) Corpus Overview ");
 			System.out.println("(h) View Document ");
 			System.out.println("(i) Perform Search Query ");
-			System.out.println("(j) Quit ");
+			System.out.println("(j) Quit [:q]");
 			String selection = in.nextLine();
 
 			switch (selection) {
@@ -157,7 +151,10 @@ public class TermDocumentIndexer {
 		System.out.println("Please select the type of index you would like to build:");
 		System.out.println("***********************************\n");
 		System.out.println("(a) Positional Inverted Index ");
-		System.out.println("(b) Term Document Index ");
+		System.out.println("(b) Inverted Index ");
+		System.out.println("(c) Term Document Index ");
+		System.out.println("(d) Disk Positional Index ");
+
 		String indexSelect = in.nextLine();
 
 		Index index = null;
@@ -172,10 +169,17 @@ public class TermDocumentIndexer {
 				index = new InvertedIndex(vocabulary);
 				break;
 			}
+			case ("c"): {
+				index = new TermDocumentIndex(vocabulary, corpus.getCorpusSize());
+				break;
+			}
+			case ("d"): {
+				System.out.println("Error: This type of index has not been implemented yet. ");
+				index = null;
+				break;
+			}
 		}
-
 		return buildIndex(corpus, index);
-
 	}
 
 	// builds an index (any implementation of the Index interface) using a Document Corpus45
@@ -231,15 +235,17 @@ public class TermDocumentIndexer {
 			// use a boolean query parser to parse the string query into a single Query component before retrieving its postings
 			BooleanQueryParser parser = new BooleanQueryParser();
 			QueryComponent fullQuery = parser.parseQuery(query);
+			TokenProcessor hyphenTokenProcessor = new HyphenTokenProcessor();
+
 			// sort the list of postings and print results
-			queryPostings = fullQuery.getPostings(index);
+			queryPostings = fullQuery.getPostings(hyphenTokenProcessor, index);
 
 			if (queryPostings == null || queryPostings.contains(null) || queryPostings.size() < 1) {
 				System.out.println("No documents were found containing the query '" + query + "'");
 			}
 			else {
 				queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
-				showQueryResults(queryPostings, corpus, query);
+				viewQueryResults(queryPostings, corpus, query);
 				//viewDocument(corpus, index);
 //				String docChoice = "y";
 //				while (!Objects.equals(docChoice, "n")) {
@@ -256,7 +262,7 @@ public class TermDocumentIndexer {
 		System.out.println("Returning to main menu...");
 	}
 
-	private static void showQueryResults(List<Posting> results, DocumentCorpus corpus, String query) {
+	private static void viewQueryResults(List<Posting> results, DocumentCorpus corpus, String query) {
 		// initialize counter to keep track of total number of documents the query was found in
 
 		try {
@@ -279,7 +285,7 @@ public class TermDocumentIndexer {
 		catch (NullPointerException ex) {
 			System.out.println("Query failed. The corpus does not contain any documents matching the query '" + query + "'");
 		}
-		System.out.print("********************************END QUERY RESULTS**********************************\n");
+		System.out.print("**************************END QUERY RESULTS**********************************\n");
 		System.out.println();
 	}
 

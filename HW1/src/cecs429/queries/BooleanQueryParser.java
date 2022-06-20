@@ -1,5 +1,9 @@
 package cecs429.queries;
 
+import cecs429.text.AdvancedTokenProcessor;
+import cecs429.text.HyphenTokenProcessor;
+import cecs429.text.TokenProcessor;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -9,6 +13,7 @@ import java.util.List;
  * Does not handle phrase queries, NOT queries, NEAR queries, or wildcard queries... yet.
  */
 public class BooleanQueryParser {
+	private static TokenProcessor mProcessor;
 	/**
 	 * Identifies a portion of a string with a starting index and a length.
 	 */
@@ -28,10 +33,12 @@ public class BooleanQueryParser {
 	private static class Literal {
 		StringBounds bounds;
 		QueryComponent literalComponent;
+		//TokenProcessor processor;
 		
 		Literal(StringBounds bounds, QueryComponent literalComponent) {
 			this.bounds = bounds;
 			this.literalComponent = literalComponent;
+		//	this.processor = processor;
 		}
 	}
 	
@@ -40,7 +47,7 @@ public class BooleanQueryParser {
 	 */
 	public QueryComponent parseQuery(String query) {
 		int start = 0;
-		
+
 		// General routine: scan the query to identify a literal, and put that literal into a list.
 		//	Repeat until a + or the end of the query is encountered; build an AND query with each
 		//	of the literals found. Repeat the scan-and-build-AND-query phase for each segment of the
@@ -143,9 +150,8 @@ public class BooleanQueryParser {
 	private Literal findNextLiteral(String subquery, int startIndex) {
 		int subLength = subquery.length();
 		int lengthOut;
-		//initialize return literal
-		//Literal result;
-		
+		//TokenProcessor hyphenProcessor = new AdvancedTokenProcessor();
+
 		// Skip past white space.
 		while (subquery.charAt(startIndex) == ' ') {
 			++startIndex;
@@ -165,12 +171,10 @@ public class BooleanQueryParser {
 			// extract the individual terms from the phrase query into a list to build the PhraseLiteral
 			List<String> phraseTerms = Arrays.asList(phraseQuery.split(" "));
 			PhraseLiteral phraseLiteral = new PhraseLiteral(phraseTerms);
-
 			// use the phraseLiteral to build and return a Literal wrapped around the phrase query
-			Literal phraseWrapper = new Literal(phraseBounds, phraseLiteral);
+			Literal literalWrapper = new Literal(phraseBounds, phraseLiteral);
 		//	System.out.println("Testing the phrase literal instantiation: " + phraseLiteral.toString());
-
-			return phraseWrapper;
+			return literalWrapper;
 		}
 
 		// Locate the next space to find the end of this literal.

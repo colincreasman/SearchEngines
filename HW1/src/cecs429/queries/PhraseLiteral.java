@@ -5,78 +5,85 @@ import java.util.*;
 import cecs429.indexes.Index;
 import cecs429.indexes.Posting;
 import cecs429.text.AdvancedTokenProcessor;
+import cecs429.text.TokenProcessor;
 
 /**
  * Represents a phrase literal consisting of one or more terms that must occur in sequence.
  */
 public class PhraseLiteral implements QueryComponent {
 	// The list of individual terms in the phrase.
-	private List<String> mTerms;
-	private AdvancedTokenProcessor mProcessor;
+	private static List<QueryComponent> mComponents;
+	private static List<String> mPhraseTerms;
+	private static List<String> mProcessedTerms;
+
 	private HashSet<Integer> mDocIds;
 	private static List<Posting> mMerges;
-	private static List<Posting> mResults;
+	private static List<Posting> mPostings;
 
 	/**
 	 * Constructs a PhraseLiteral with the given individual phrase terms.
 	 */
-	public PhraseLiteral(List<String> terms) {
-		mProcessor = new AdvancedTokenProcessor();
-		mTerms = new ArrayList<>();
+	public PhraseLiteral(List<String> listTerms) {
+		//mComponents = new ArrayList<>();
+		mPhraseTerms = listTerms;
+		mProcessedTerms = new ArrayList<>();
 		mMerges = new ArrayList<>();
+		mPostings = new ArrayList<>();
 		mDocIds = new HashSet<>();
-		// before getting postings, each term in the list must be processed (without removing hyphens)
-		for (String t : terms) {
-			String processedTerm = mProcessor.processTokenWithHyphens(t);
-			mTerms.add(processedTerm);
-		}
 	}
 	
 	/**
 	 * Constructs a PhraseLiteral given a string with one or more individual terms separated by spaces.
 	 */
-	public PhraseLiteral(String terms) {
-		mTerms.addAll(Arrays.asList(terms.split(" ")));
+	public PhraseLiteral(String stringTerms) {
+		mProcessedTerms = new ArrayList<>();
 		mMerges = new ArrayList<>();
-		mResults = new ArrayList<>();
+		mPostings = new ArrayList<>();
 		mDocIds = new HashSet<>();
+
+		mPhraseTerms = Arrays.asList(stringTerms.split(" "));
+
+//		for (String t : listTerms) {
+//			QueryComponent comp = new TermLiteral(t);
+//			//String processedTerm = mProcessor.processTokenWithHyphens(t);
+//			mComponents.add(comp);
+//		}
 	}
 	
 	@Override
-	public List<Posting> getPostings(Index index) {
-		// initialize master list to hold all of the postings that pass each positional merge
-		//List<Posting> masterList = index.getPostings(mTerms.get(0));
-		//	List<Posting> firstList = index.getPostings(mTerms.get(0));
-		//HashSet<Integer> masterDocIds = new HashSet<>();
+	public List<Posting> getPostings(TokenProcessor processor, Index index) {
+		// process and normalize tokens into terms to use to search the index
+		for (String t : mPhraseTerms) {
+			List<String> currentTerms = processor.processToken(t);
+			mProcessedTerms.addAll((currentTerms));
+		}
+		//Collections.sort(mProcessedTerms);
 
 		// if there's only one term in the phrase literal, simply return its postings as if it was a single query component
-		if (mTerms.size() <= 1) {
-			mMerges = index.getPostings(mTerms.get(0));
+		if (mProcessedTerms.size() <= 1) {
+			mMerges = index.getPostings(mProcessedTerms.get(0));
 		} else {
 			// loop through the remaining terms in the phrase and perform the positionalMerge
-			for (int i = 1; i < mTerms.size(); i++) {
+			for (int i = 1; i < mProcessedTerms.size(); i++) {
 				List<Posting> previousPostings;
 				if (i == 1) {
-					previousPostings = index.getPostings(mTerms.get(i - 1));
+					previousPostings = index.getPostings(mProcessedTerms.get(0));
 				}
 				else {
 					previousPostings = mMerges;
 				}
 				// update the master list by positionally merging it with the current postings list
-				List<Posting> currentPostings = index.getPostings(mTerms.get(i));
+				List<Posting> currentPostings = index.getPostings(mProcessedTerms.get(i));
 				positionalMerge(previousPostings, currentPostings);
-
 			}
 		}
-
 		if (mMerges == null) {
 		//	System.out.println("No documents were found containing the phrase literal " + this );
 			return null;
 		}
 		else {
-
-			mResults = getResults(mMerges);
-			return mResults;
+			mPostings = mergePostings(mMerges);
+			return mPostings;
 		}
 	}
 
@@ -99,9 +106,8 @@ public class PhraseLiteral implements QueryComponent {
 				List<Integer> oldTermPositions = oldPostings.get(oldIndex).getTermPositions();
 				List<Integer> newTermPositions = newPostings.get(newIndex).getTermPositions();
 
-				// create lists of matching term locations for each original list
-				HashSet<Integer> oldMatches = new HashSet<>();
-				HashSet<Integer> newMatches = new HashSet<>();
+//				// create lists of matching term locations for each original list
+				List<Integer> matches = new ArrayList<>();
 
 				// starting at current top-level index of each list, iterate through their lists of the term positions using new indexes
 				int oldPositionsIndex = 0;
@@ -116,54 +122,46 @@ public class PhraseLiteral implements QueryComponent {
 
 					// success case occurs when the currentBottom location is one number higher than the currentTop location
 					if (newToOldMargin == 1) {
-						// however, the match would only be valid if there are enough positions before this point in newTermPositions to account for all the term(s) already in the query
-//						if ((newIndex == 0) || (newTermPositions.get(newPositionsIndex - 1) != newTermPositions.get(p)) {
-							// its possible to have many pairs of matching term positions among the two lists
-							// so for each pair of matches, store the location from the top list into its own list of matches and the location from the bottom into a separate list of matches
-							oldMatches.add(currentOldPosition);
-							newMatches.add(currentNewPosition); // note that we do NOT store (currentTop + 1) here; instead we store unmodified currentTop value that the match was found at
-							// combine both sets into a hashset to ensure there are no duplicates
-							//now convert the set of all matches back into a list
-							List<Integer> allMatches = new ArrayList<>();
-							allMatches.addAll(oldMatches);
-							allMatches.addAll(newMatches);
+						// its possible to have many pairs of matching term positions among the two lists
+						// so for each pair of matches, store the location from the top list into its own list of matches and the location from the bottom into a separate list of matches
+//						if (!matches.contains(currentOldPosition)) {
+//							matches.add(currentOldPosition);
+//						}
+//						if (!matches.contains(currentNewPosition)) {
+//							matches.add(currentNewPosition); // note that we do NOT store (currentTop + 1) here; instead we store unmodified currentTop value that the match was found at
+//						}
+						matches.add(currentNewPosition);
+						matches.add(currentOldPosition);
+						int currentDocId = newPostings.get(newIndex).getDocumentId();
+						Posting match = new Posting(currentDocId, matches);
 
-							int currentDocId = newPostings.get(newIndex).getDocumentId();
-							Posting match = new Posting(currentDocId, allMatches);
+						// try to merge the new Posting object with a Posting with its docId that has already been merged
+						if (mDocIds.contains(currentDocId)) {
 
+							// find the posting that already has this docId
+							Posting existing = mMerges.stream().filter(posting -> currentDocId == posting.getDocumentId()).findFirst().orElse(null);
+							// merge it with the match posting
+							Posting merge = match.merge(existing);
+							// must re-sort term positions after the merging
+							Collections.sort(merge.getTermPositions());
+							// now remove the existing posting and replace it with the merged posting
+							mMerges.remove(existing);
+							mMerges.add(merge);
+						//	System.out.println("mergePosting is null? " + mergePosting);
+						}
 
-//							// try to merge the new Posting object with a Posting with its docId that has already been merged
-//							try {
-							if (mDocIds.contains(currentDocId)) {
+						else {
+							// in this case, just add the current posting to the final list of results
+							mMerges.add(match);
+						}
 
-								// find the posting that already has this docId
-								Posting existing = mMerges.stream().filter(posting -> currentDocId == posting.getDocumentId()).findFirst().orElse(null);
-								// merge it with the match posting
-								Posting merge = match.merge(existing);
-								// must re-sort term positions after the merging
-								Collections.sort(merge.getTermPositions());
-								// now remove the existing posting and replace it with the merged posting
-								mMerges.remove(existing);
-								mMerges.add(merge);
-							//	System.out.println("mergePosting is null? " + mergePosting);
-							}
+						// re-sort the final list of merged postings by docId
+						mMerges.sort(Comparator.comparingInt(Posting::getDocumentId));
+						mDocIds.add(currentDocId);
 
-							// if
-//							catch (NullPointerException ex) {
-							else {
-								//System.out.println("The requested postings cannot be merged because they have different docId's. Adding a new Posting to the results list instead. \n ");
-
-								// in this case, just add the current posting to the final list of results
-								mMerges.add(match);
-							}
-
-							// re-sort the final list of merged postings by docId
-						    mMerges.sort(Comparator.comparingInt(Posting::getDocumentId));
-							mDocIds.add(currentDocId);
-
-						// increment both indexes regardless of if the matching was a true success or not
-							oldPositionsIndex++;
-							newPositionsIndex++;
+					// increment both indexes regardless of if the matching was a true success or not
+						oldPositionsIndex++;
+						newPositionsIndex++;
 					}
 					// now we must handle the remaining cases, in which a successful matching is not immediately found but is still possible
 					// the first (and easier) way is when the top's current term position is greater than the bottom's
@@ -192,7 +190,7 @@ public class PhraseLiteral implements QueryComponent {
 		//return mergedPostings;
 	}
 
-	public List<Posting> getResults(List<Posting> mergedPostings) {
+	public List<Posting> mergePostings(List<Posting> mergedPostings) {
 		List<Posting> results = new ArrayList<>();
 
 		for (Posting p: mergedPostings) {
@@ -205,7 +203,7 @@ public class PhraseLiteral implements QueryComponent {
 				int j = i - 1;
 
 				while ( (difference == 1) && (j < positions.size()) ) {
-					if (count >= mTerms.size()) {
+					if (count >= mPhraseTerms.size()) {
 						sequence.addAll(positions.subList(j - count + 1, j + 1));
 						// if a matching sequence is found, reset i and break
 						i = j + 1;
@@ -237,6 +235,6 @@ public class PhraseLiteral implements QueryComponent {
 
 	@Override
 	public String toString() {
-		return "\"" + String.join(" ", mTerms) + "\"";
+		return "\"" + String.join(" ", mProcessedTerms) + "\"";
 	}
 }

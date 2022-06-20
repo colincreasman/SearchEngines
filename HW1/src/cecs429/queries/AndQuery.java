@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import cecs429.indexes.Index;
 import cecs429.indexes.Posting;
 import cecs429.text.AdvancedTokenProcessor;
+import cecs429.text.TokenProcessor;
 
 import javax.imageio.ImageTranscoder;
 
@@ -15,25 +16,35 @@ import javax.imageio.ImageTranscoder;
  */
 public class AndQuery implements QueryComponent {
 	private final List<QueryComponent> mComponents;
-	private static HashSet<Integer> mDocIds;
-	private static List<Posting> mResults;
+	private static List<String> mProcessedTerms;
+//	private static HashSet<Integer> mDocIds;
+//	private static List<Posting> mResults;
 
 	public AndQuery(List<QueryComponent> components) {
 		mComponents = components;
-		mDocIds = new HashSet<>();
-		mResults = new ArrayList<>();
+//		mDocIds = new HashSet<>();
+//		mResults = new ArrayList<>();
+		mProcessedTerms = new ArrayList<>();
+
 	}
 
 	
 	@Override
-	public List<Posting> getPostings(Index index) {
-		// initialize a master postings list to which we will add all of the individual lists from each component after any necessary processing
-		List<Posting> masterPostingsList = mComponents.get(0).getPostings(index);
+	public List<Posting> getPostings(TokenProcessor processor, Index index) {
+		// process and normalize tokens into terms to use to search the index
+		for (QueryComponent c : mComponents) {
+			List<String> currentTerms = processor.processToken(c.toString());
+			mProcessedTerms.addAll(currentTerms);
+		}
+		//Collections.sort(mProcessedTerms);
+
+		// initialize a master postings list with the postings for the first processed term in the list
+		List<Posting> masterPostingsList = index.getPostings(mProcessedTerms.get(0));
 
 		//mResults = mComponents.get(0).getPostings(index);
 		try {
-			for (int i = 1; i < mComponents.size(); i++) {
-				masterPostingsList = intersect(masterPostingsList, mComponents.get(i).getPostings(index));
+			for (int i = 1; i < mProcessedTerms.size(); i++) {
+				masterPostingsList = intersect(masterPostingsList, index.getPostings(mProcessedTerms.get(i)));
 //				List<Posting> previousPostings;
 //				// for the first QueryComponent only, automatically add it to the master postings list and skip any AND processing
 //				if (i == 1) {
@@ -109,10 +120,12 @@ public class AndQuery implements QueryComponent {
 		}
 		return results;
 	}
-	
+
 	@Override
 	public String toString() {
-		return
-		 String.join(" ", mComponents.stream().map(c -> c.toString()).collect(Collectors.toList()));
+		// Returns a string of the form "[SUBQUERY] + [SUBQUERY] + [SUBQUERY]"
+		return "Query components: (" +
+				String.join(" + ", mComponents.stream().map(c -> c.toString()).collect(Collectors.toList()) + "\n Processed terms: (" + String.join(" + ", mProcessedTerms.stream().map(c -> c.toString()).collect(Collectors.toList())));
 	}
+
 }

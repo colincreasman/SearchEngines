@@ -36,16 +36,6 @@ public class AdvancedTokenProcessor implements TokenProcessor {
         // System.out.println("Testing processToken: " + stemmedTerms.toString());
         return stemmedTerms;
     }
-    // "note: do not perform the split on hyphens step on query literals; use the whole literal, including the hyphen"
-    public String processTokenWithHyphens(String token) {
-        // perform all of necessary processing functions on the single original token before removing hyphens
-        String token1 = fixNonAlphaNumerics(token);
-        String token2 = fixPunctuation(token1);
-        String token3 = fixCase(token2);
-        String stemmedTerm = stem(token3);
-        return stemmedTerm;
-
-    }
 
     // Removes all non-alphanumeric characters from the beginning and end of the token, but not the middle.
     public String fixNonAlphaNumerics(String token) {
