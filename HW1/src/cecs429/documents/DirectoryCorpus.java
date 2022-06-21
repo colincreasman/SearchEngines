@@ -25,6 +25,7 @@ public class DirectoryCorpus implements DocumentCorpus {
 	private Predicate<String> mFileFilter;
 	
 	private Path mDirectoryPath;
+	private String mPath;
 	
 	/**
 	 * Constructs a corpus over an absolute directory path.
@@ -34,6 +35,7 @@ public class DirectoryCorpus implements DocumentCorpus {
 	 * @see
 	 */
 	public DirectoryCorpus(Path directoryPath) {
+
 		this(directoryPath, s->true);
 	}
 	
@@ -137,7 +139,13 @@ public class DirectoryCorpus implements DocumentCorpus {
 
 	@Override
 	public String getPath() {
-		return mDirectoryPath.toString();
+		try {
+			return mDirectoryPath.toString();
+		}
+		catch (NullPointerException ex) {
+			ex.printStackTrace();
+			return ex.toString();
+		}
 	}
 	
 	/**

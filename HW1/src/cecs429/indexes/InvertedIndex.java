@@ -69,9 +69,10 @@ public class InvertedIndex implements Index {
      * Retrieves a list of Postings of documents that contain the given term.
      *
      * @param term
+     * @return
      */
     @Override
-    public HashMap<Integer, List<Integer>> getPostingsWithoutPositions(String term) {
+    public HashMap<Integer, Integer> getPostingsWithoutPositions(String term) {
         return null;
     }
 

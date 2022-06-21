@@ -23,9 +23,11 @@ public class Driver {
 	}
 
 	private static void gateway() {
-		DocumentCorpus corpus = null;
+		DocumentCorpus corpus = selectCorpusMenu();
+
 		Index index = null;
 		Scanner in = new Scanner(System.in);
+
 		while (true) {
 			System.out.println("\nPlease select one of the options below: ");
 			System.out.println("*************************************************");
@@ -35,26 +37,25 @@ public class Driver {
 
 			switch (choice) {
 				case "a": {
-					corpus = selectCorpusMenu();
 					index = selectIndexMenu(corpus);
-					break;
+					//continue;
 				}
 				case "b": {
-					// check if index has been built before entering query menu
-					corpus = selectCorpusMenu();
-					IndexDAO test = new DiskIndexDAO(corpus.getPath());
-
-
-					// check if there is an existing index on disk or in memory
-					if (test.hasExistingIndex()) {
-						System.out.println("An existing DiskPositionalIndex for this corpus has been found in the corpus directory. This on-disk index will be used for queries. ");
+					// check if the index is still null or already initialized
+					if (index == null) {
+						System.out.println("No in-memory index for the selected corpus was found. \n Searching for an on-disk Index instead...");
+						IndexDAO test = new DiskIndexDAO(corpus.getPath());
+						if (test.hasExistingIndex()) {
+							System.out.println("An existing on-disk index has been found in the corpus directory and will be used for queries. ");
+							mainMenu(index, corpus);
+							break;
+						} else {
+							System.out.println("No existing index for the selected corpus were found in memory nor on disk. Please build a new index before continuing. \n");
+						}
+					}
+					else {
+						System.out.println("An existing in-memory index for has been found in the corpus directory and will be used for queries. ");
 						mainMenu(index, corpus);
-					} else if (index != null) {
-						System.out.println("No on-disk index exists for this corpus directory, the existing in-memory index will be used for queries. ");
-						mainMenu(index, corpus);
-					} else {
-						System.out.println("There is currently no existing index on disk or in memory for the chosen corpus. Please try building an index before querying. ");
-						//index = selectIndexMenu(corpus);
 					}
 					break;
 				}
@@ -67,23 +68,29 @@ public class Driver {
 	}
 
 	private static DiskPositionalIndex buildDiskIndex(DocumentCorpus corpus) {
-		HashSet<String> vocabulary = new HashSet<>();
-		Index posIndex = new PositionalInvertedIndex(vocabulary);
-		System.out.println("Building the initial positional inverted index before writing to disk...");
-		posIndex = buildInMemoryIndex(corpus, posIndex);
 
 		// before building a new disk index, check if one already exists in the corpus directory
 		String indexDir = corpus.getPath();
 		DiskIndexDAO dao = new DiskIndexDAO(indexDir);
+		DiskPositionalIndex diskIndex = new DiskPositionalIndex(corpus);
 
-		// start timer
-		long start = System.currentTimeMillis();
+		// check if current on-disk data exists to decide to initialize or load
+		if (dao.hasExistingIndex()) {
+			// if on-disk data exists, laod the vocabulary into this object
+			diskIndex.loadVocabulary(corpus);
+		}
 
-		DiskPositionalIndex diskIndex = new DiskPositionalIndex(posIndex, dao);
+		// if no on-disk data exists, we need to initialize the in memory index and write it to disk
+		else {
+			// everything is done inside the single method, so we set the timers out here before and after calling it
+			long start = System.currentTimeMillis();
+			diskIndex.initializeInMemoryIndex(corpus);
+			long stop = System.currentTimeMillis();
+			double elapsedSeconds = (double) ((stop - start) / 1000.0);
+			System.out.println("Writing index to disk completed in " + elapsedSeconds + " seconds.");
+		}
 
-		long stop = System.currentTimeMillis();
-		double elapsedSeconds = (double) ((stop - start) / 1000.0);
-		System.out.println("Writing index to disk completed in " + elapsedSeconds + " seconds.");
+
 
 		return diskIndex;
 	}
@@ -245,8 +252,7 @@ public class Driver {
 			case "d": {
 				corpusPath += "test-corpus-txt";
 				corpus = DirectoryCorpus.loadTextDirectory(Paths.get(corpusPath), ".txt");
-				break;
-			}
+				break;}
 			case "e": {
 				System.out.println("Please enter the local path for your corpus directory: \n");
 				corpusPath = in.nextLine();
@@ -258,14 +264,6 @@ public class Driver {
 				break;
 			}
 		}
-//		DiskIndexDAO indexDAO = new DiskIndexDAO(corpusPath);
-//		String indexChoice;
-//		if (indexDAO.hasExistingIndex()) {
-//			System.out.println("This corpus directory already has DiskPositinalIndex data written to disk. Would you like to use the existing index or build a new one? (y/n) ");
-//			indexChoice = in.nextLine();
-//			if (indexChoice == "y") {
-//
-//			}
 		return corpus;
 	}
 

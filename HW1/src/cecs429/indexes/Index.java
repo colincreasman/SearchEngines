@@ -2,7 +2,6 @@ package cecs429.indexes;
 
 import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
 
 /**
  * An Index can retrieve postings for a term from a data structure associating terms and the documents
@@ -17,8 +16,9 @@ public interface Index {
 
 	/**
 	 * Retrieves a list of Postings of documents that contain the given term.
-	 */
-	HashMap<Integer, List<Integer>> getPostingsWithoutPositions(String term);
+     * @return
+     */
+	HashMap<Integer, Integer> getPostingsWithoutPositions(String term);
 
 	/**
 	 * A (sorted) list of all terms in the index vocabulary.

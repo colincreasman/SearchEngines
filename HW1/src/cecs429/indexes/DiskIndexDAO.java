@@ -1,36 +1,64 @@
 package cecs429.indexes;
 
 import java.io.*;
-import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
+
+import org.mapdb.*;
+import org.mapdb.BTreeMap;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.mapdb.Serializer;
+
 
 public class DiskIndexDAO implements IndexDAO {
-    PositionalInvertedIndex mPosIndex;
-    String mIndexPath;
-    String mPostingsPath;
-    String mDocWeightsPath;
-    File mPostingsBin;
-    File mDocWeightsBin;
-    List<Double> mByteLocations;
-    HashMap<String, Integer> mTermFrequencies; // maps each term to its tf(t,d) value
+    private PositionalInvertedIndex mPosIndex;
+    private String mIndexPath;
+    private String mPostingsPath;
+    private String mDocWeightsPath;
+    private String mDbPath;
+    private List<Long> mByteLocations;
+    private static DB indexDB;
+    private static BTreeMap<String, Long> termMap;
+    private HashMap<String, Integer> mTermFrequencies; // maps each term to its tf(t,d) value
 
     public DiskIndexDAO(String indexDir) {
         mIndexPath = indexDir + "/index";
         mByteLocations = new ArrayList<>();
-        mPostingsPath = mIndexPath + "/index/postings.bin";
-        mDocWeightsPath = mIndexPath + "/index/docWeights.bin";
-    }
+        mDbPath = mIndexPath + "\\termMap.db";
+        mPostingsPath = mIndexPath + "/postings.bin";
+        mDocWeightsPath = mIndexPath + "/docWeights.bin";
 
-    public DiskIndexDAO(PositionalInvertedIndex index) {
-        mPosIndex = index;
-        //mIndexPath = indexDir;
-        mByteLocations = new ArrayList<>();
+        // setup needed structures
+        indexDB = null;
+        termMap = null;
+
+        // create the index dir if it doesn't already exist
+        File dir = new File(mIndexPath);
+        if (!dir.exists()) {
+            dir.mkdir();
+        }
+
+        // try to initialize the db as a child file of the greater corpus path
+        try {
+            //create B+ tree for terms and addresses
+
+            //if (termMap == null || termMap.isEmpty()) {
+            File dbFile = new File(mDbPath);
+            if (!dbFile.exists()) {
+                indexDB = DBMaker.fileDB(mDbPath).make();
+                termMap = indexDB.treeMap("map")
+                        .keySerializer(Serializer.STRING)
+                        .valueSerializer(Serializer.LONG)
+                        .counterEnable()
+                        .createOrOpen();
+            }
+        }
+        catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 
     @Override
@@ -40,7 +68,7 @@ public class DiskIndexDAO implements IndexDAO {
         Path weights = Paths.get(mDocWeightsPath).toAbsolutePath();
 
         // only return true if all of the required files already exist
-        if (Files.exists(dir) && Files.exists(postings) && Files.exists(weights)) {
+        if (Files.exists(dir) && Files.exists(postings)) {
             return true;
         }
         else {
@@ -49,27 +77,33 @@ public class DiskIndexDAO implements IndexDAO {
     }
 
     @Override
-    public void createIndex() {
-        mPostingsBin = new File(mPostingsPath.toString());
-        mDocWeightsBin = new File(mDocWeightsPath.toString());
-    }
+    public List<Long> writeIndex(Index index, String path) {
 
-    @Override
-    public List<Double> writeIndex(Index index, String path) {
+        System.out.println("Writing index to disk...");
+
         try {
             // create the index dir
-           // File dir = new File(path);
-            // create the postings file
-            path += "/postings.bin";
+            File dir = new File(path);
+            if (!dir.exists()) {
+                dir.mkdir();
+            }
 
-            File postingsBin = new File(path);
+            // create the postings file
+            String postingsPath = path + "/postings.bin";
+
+            File postingsBin = new File(postingsPath);
             FileOutputStream fileStream = new FileOutputStream(postingsBin);
             DataOutputStream outStream = new DataOutputStream(fileStream);
+
 
             int byteCounter = 0; // keep a counter that increments by 4 bytes everytime the file is written to
             for (String term : index.getVocabulary()) {
                 // for every new term, add its byte position by converting the current value of byteCounter to an 8-byte double
-                mByteLocations.add((double) byteCounter);
+                long currLocation = (long) byteCounter;
+                mByteLocations.add(currLocation);
+
+                // we also need to write each new term to the RDB map, along with its byte location
+                writeTermAndLocation(term, currLocation);
 
                 List<Posting> currPostings = index.getPostings(term);
                 int docFrequency = currPostings.size(); // set up df(t) and assign it to the number of postings for the current term
@@ -113,31 +147,86 @@ public class DiskIndexDAO implements IndexDAO {
         return mByteLocations;
     }
 
-    /**
-     * Reads the raw Postings data from the datastore for a given term
-     * then converts the raw data to a list of Postings objects and returns them
-     * The conversion of Postings data is handled in each implementation depending on how it stores data
-     *
-     * @param index
-     * @param term
-     * @return
-     */
     @Override
-    public List<Posting> readPostings(Index index, String term) {
+    public void writeTermAndLocation(String term, long bytePosition) {
+        try {
+            termMap.put(term, bytePosition);
+            termMap.close();
+        }
+        catch (Exception ex) {
+            System.out.println("Failed to write the term '" + term + "' with a byte location of " + bytePosition + ". \n");
+            ex.printStackTrace();
+        }
+    }
+
+    // retrieves a single byte location matching the provided term from the RDB on disk
+    public long readLocationFromTerm(String term) {
+        long location = 0;
+        try {
+            location = termMap.get(term);
+            termMap.close();
+        }
+        catch (Exception ex) {
+            System.out.println("Failed to read the byte location of the term '" + term + "' \n");
+            ex.printStackTrace();
+        }
+        return location;
+    }
+    @Override
+    public String readTermFromLocation(long byteLocation) {
+        String term = "";
+        try {
+            if (termMap.containsValue(byteLocation)) {
+                for (Map.Entry<String, Long> entry : termMap.entrySet()) {
+                    if (Objects.equals(entry.getValue(), byteLocation)) {
+                        term = entry.getKey();
+                    }
+                }
+            }
+        }
+        catch (Exception ex) {
+            System.out.println("Failed to read the term at the byte location '" + byteLocation + "' \n");
+            ex.printStackTrace();
+        }
+        //termMap.close();
+        return term;
+    }
+
+    @Override
+    public List<Posting> readPostings(String term) {
         return null;
     }
 
-    /**
-     * Reads the raw tf(t,d) data from the persistent data store for a given term & docId
-     *
-     * @param index
-     * @param term
-     * @param docId
-     * @return the converted tf(t,d) data as a list of doubles
-     */
     @Override
-    public List<Integer> readTermDocFrequencies(Index index, String term, int docId) {
-        return null;
+    public int readTermDocFrequency(String term, int docId) {
+        int termDocFrequency = 0;
+
+        try (RandomAccessFile reader = new RandomAccessFile(mPostingsPath, "r")) {
+            long termLocation = readLocationFromTerm(term);
+            reader.seek((termLocation));
+            int totalDocs = reader.readInt(); // get tf(d) the amount of docs the term occurs in
+            // use tf(d) to iterate through all the documents the term appears in
+
+            int currentDoc = 0;
+            for (int i = 0; i < totalDocs; i++) {
+                // read the next docId and use it to increment the previous docId
+                currentDoc += reader.readInt();
+                // read the number of term positions in this doc - tf(t,d)
+                int docFrequency = reader.readInt();
+
+                // check each doc to find a match for the given docId
+                if(currentDoc == docId) {
+                    // if a match is found, use its docFrequency for the return and break
+                    termDocFrequency = docFrequency;
+                    break;
+                }
+            }
+        }
+
+        catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        return termDocFrequency;
     }
 
     /**
@@ -152,19 +241,9 @@ public class DiskIndexDAO implements IndexDAO {
         return null;
     }
 
-    /**
-     * reads the raw Ld data from docWeights.bin (or other implemented datastore) for a given docId
-     *
-     * @param index
-     * @param docId
-     * @return raw Ld data converted to Double
-     */
     @Override
-    public Double readDocWeight(Index index, int docId) {
-        return null;
+    public long readDocWeight(int docId) {
+        return 0;
     }
 
-    public String getIndexPath() {
-        return mIndexPath;
-    }
 }
