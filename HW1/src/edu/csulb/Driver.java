@@ -5,6 +5,8 @@ import cecs429.documents.DocumentCorpus;
 import cecs429.indexes.*;
 import cecs429.queries.BooleanQueryParser;
 import cecs429.queries.QueryComponent;
+import cecs429.queries.QueryParser;
+import cecs429.queries.RankedQueryParser;
 import cecs429.text.*;
 
 import java.io.BufferedReader;
@@ -79,7 +81,6 @@ public class Driver {
 			// if on-disk data exists, laod the vocabulary into this object
 			diskIndex.loadVocabulary(corpus);
 		}
-
 		// if no on-disk data exists, we need to initialize the in memory index and write it to disk
 		else {
 			// everything is done inside the single method, so we set the timers out here before and after calling it
@@ -89,9 +90,6 @@ public class Driver {
 			double elapsedSeconds = (double) ((stop - start) / 1000.0);
 			System.out.println("Writing index to disk completed in " + elapsedSeconds + " seconds.");
 		}
-
-
-
 		return diskIndex;
 	}
 
@@ -140,67 +138,63 @@ public class Driver {
 	// driver method to route user selections from the main menu
 	private static void mainMenu(Index index, DocumentCorpus corpus) {
 		Scanner in = new Scanner(System.in);
-//		// setup the initial corpus
-//		// setup the initial index
-//		Index index = index;
+
 		// loop until user wants to quit
 		while (true) {
 			System.out.println("\nPlease select an action from the options below: ");
 			System.out.println("*************************************************");
 			System.out.println("(a) Change Corpus Directory [:index] ");
-			System.out.println("(b) Change Index Type ");
-			System.out.println("(c) Stem Token [:stem] ");
-			System.out.println("(d) Normalize Token ");
-			System.out.println("(e) Top 1000 Vocabulary Tokens [:vocab]  ");
-			System.out.println("(f) Top 1000 Index Postings ");
-			System.out.println("(g) Corpus Overview ");
-			System.out.println("(h) View Document ");
-			System.out.println("(i) Perform Search Query ");
+			System.out.println("(b) Begin Querying in Boolean Retrieval Mode");
+			System.out.println("(c) Begin Querying in Ranked Retrieval Mode");
+			System.out.println("(d) Stem a Token [:stem] ");
+			System.out.println("(e) Normalize a Token ");
+			System.out.println("(f) View Top 1000 Vocabulary Terms [:vocab] ");
+			System.out.println("(g) View Top 1000 Index Postings");
+			System.out.println("(h) View Corpus Overview ");
+			System.out.println("(i) View a Document ");
 			System.out.println("(j) Quit [:q]");
 			String selection = in.nextLine();
 
 			switch (selection) {
 				case "a": {
 					// reset the current corpusPath by asking user to choose a new one
-					corpus = selectCorpusMenu();
-					// need to rebuild index after choosing a new corpus
-					index = selectIndexMenu(corpus);
+					gateway();
 					break;
 				}
 				// display index selection menu again
 				case "b": {
-					// reset the current index by asking user to choose a new one
-					index = selectIndexMenu(corpus);
+					QueryParser boolParser = new BooleanQueryParser();
+					processQuery(corpus, index, boolParser);
 					break;
 				}
 				case "c": {
-					viewStemmedToken();
+					QueryParser rankedParser = new RankedQueryParser();
+					processQuery(corpus, index, rankedParser);
 					break;
 				}
 				case "d": {
-					viewNormalizedToken();
+					viewStemmedToken();
 					break;
 				}
 				case "e": {
-					viewVocabulary(index);
+					viewNormalizedToken();
 					break;
 				}
 				case "f": {
-					viewIndex(index);
+					viewVocabulary(index);
 					break;
 				}
 				case "g": {
-					viewCorpusOverview(corpus);
+					viewIndex(index);
 					break;
 				}
 				case "h": {
-					viewDocument(corpus, index);
-					System.out.println("Returning to main menu...");
+					viewCorpusOverview(corpus);
 					break;
 				}
 				case "i": {
-					// TODO: move input gathering to inside method
-					processQuery(corpus, index);
+					viewDocument(corpus, index);
+					//System.out.println("Returning to main menu...");
 					break;
 				}
 				case "j": {
@@ -208,12 +202,14 @@ public class Driver {
 					System.exit(0);
 				}
 				default: {
-					System.out.println("Error: User input does not match any of of the available options. ");
+					System.out.println("Error: Please try again with one of the options listed. ");
 					break;
 				}
 			}
 		}
 	}
+
+
 
 	private static DocumentCorpus selectCorpusMenu() {
 		Scanner in = new Scanner(System.in);
@@ -296,7 +292,7 @@ public class Driver {
 			}
 			case ("d"): {
 				//System.out.println("Error: This type of index has not been implemented yet. ");
-				//index = new DiskPositionalIndex(
+				index = new DiskPositionalIndex(corpus);
 				onDisk = true;
 				break;
 			}
@@ -313,21 +309,31 @@ public class Driver {
 		}
 	}
 
-	private static void processQuery(DocumentCorpus corpus, Index index) {
+	private static void processQuery(DocumentCorpus corpus, Index index, QueryParser parser) {
 		Scanner in = new Scanner(System.in);
 		String choice = "y";
+		TokenProcessor queryProcessor;
+
+//		boolean isRanked = (parser instanceof RankedQueryParser); // flag to detect if querying in boolean mode or ranked retrieval mode
+		if (parser instanceof RankedQueryParser) {
+			queryProcessor = new AdvancedTokenProcessor();
+		}
+		else if (parser instanceof BooleanQueryParser) {
+			queryProcessor = new HyphenTokenProcessor();
+		}
+		else {
+			queryProcessor = new BasicTokenProcessor();
+		}
 
 		while (!choice.equals("n")) {
 			System.out.println("Please enter your search query: ");
 			String query = in.nextLine();
 			List<Posting> queryPostings = new ArrayList<>();
-			// use a boolean query parser to parse the string query into a single Query component before retrieving its postings
-			BooleanQueryParser parser = new BooleanQueryParser();
+
 			QueryComponent fullQuery = parser.parseQuery(query);
-			TokenProcessor hyphenTokenProcessor = new HyphenTokenProcessor();
 
 			// sort the list of postings and print results
-			queryPostings = fullQuery.getPostings(hyphenTokenProcessor, index);
+			queryPostings = fullQuery.getPostings(queryProcessor, index);
 
 			if (queryPostings == null || queryPostings.contains(null) || queryPostings.size() < 1) {
 				System.out.println("No documents were found containing the query '" + query + "'");

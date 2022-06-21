@@ -1,9 +1,5 @@
 package cecs429.queries;
 
-import cecs429.text.AdvancedTokenProcessor;
-import cecs429.text.HyphenTokenProcessor;
-import cecs429.text.TokenProcessor;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -12,7 +8,7 @@ import java.util.List;
  * Parses boolean queries according to the base requirements of the CECS 429 project.
  * Does not handle phrase queries, NOT queries, NEAR queries, or wildcard queries... yet.
  */
-public class BooleanQueryParser {
+public class BooleanQueryParser implements QueryParser {
 	//private static TokenProcessor mProcessor;
 	/**
 	 * Identifies a portion of a string with a starting index and a length.
@@ -45,6 +41,7 @@ public class BooleanQueryParser {
 	/**
 	 * Given a boolean query, parses and returns a tree of QueryComponents representing the query.
 	 */
+	@Override
 	public QueryComponent parseQuery(String query) {
 		int start = 0;
 

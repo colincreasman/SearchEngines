@@ -6,7 +6,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
-import org.mapdb.*;
 import org.mapdb.BTreeMap;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
@@ -15,51 +14,27 @@ import org.mapdb.Serializer;
 
 public class DiskIndexDAO implements IndexDAO {
     private PositionalInvertedIndex mPosIndex;
-    private String mIndexPath;
-    private String mPostingsPath;
-    private String mDocWeightsPath;
-    private String mDbPath;
-    private List<Long> mByteLocations;
-    private static DB indexDB;
-    private static BTreeMap<String, Long> termMap;
+    private static String mIndexPath;
+    private static String mPostingsPath;
+    private static String mDocWeightsPath;
+    private static String mDbPath;
+    private static List<Long> mByteLocations;
     private HashMap<String, Integer> mTermFrequencies; // maps each term to its tf(t,d) value
 
-    public DiskIndexDAO(String indexDir) {
-        mIndexPath = indexDir + "/index";
-        mByteLocations = new ArrayList<>();
-        mDbPath = mIndexPath + "\\termMap.db";
+    public DiskIndexDAO(String corpusPath) {
+        mIndexPath = corpusPath + "/index";
+        mDbPath = mIndexPath + "/termsMap.db";
         mPostingsPath = mIndexPath + "/postings.bin";
         mDocWeightsPath = mIndexPath + "/docWeights.bin";
-
-        // setup needed structures
-        indexDB = null;
-        termMap = null;
+        mByteLocations = new ArrayList<>();
 
         // create the index dir if it doesn't already exist
-        File dir = new File(mIndexPath);
-        if (!dir.exists()) {
-            dir.mkdir();
-        }
-
-        // try to initialize the db as a child file of the greater corpus path
-        try {
-            //create B+ tree for terms and addresses
-
-            //if (termMap == null || termMap.isEmpty()) {
-            File dbFile = new File(mDbPath);
-            if (!dbFile.exists()) {
-                indexDB = DBMaker.fileDB(mDbPath).make();
-                termMap = indexDB.treeMap("map")
-                        .keySerializer(Serializer.STRING)
-                        .valueSerializer(Serializer.LONG)
-                        .counterEnable()
-                        .createOrOpen();
-            }
-        }
-        catch (Exception ex) {
-            ex.printStackTrace();
+        File indexDir = new File(mIndexPath);
+        if (!indexDir.exists()) {
+            indexDir.mkdir();
         }
     }
+
 
     @Override
     public boolean hasExistingIndex() {
@@ -76,67 +51,106 @@ public class DiskIndexDAO implements IndexDAO {
         }
     }
 
+
     @Override
-    public List<Long> writeIndex(Index index, String path) {
+    public List<Long> writeIndex(Index index, String corpusPath) {
+        File indexDir = new File(corpusPath + "/index");
+        // make sure there is no current index folder in the given path before indexing
+        if (indexDir.exists()) {
+            // if there's already a folder, delete it and its contents
+            indexDir.delete();
+        }
+        // now that we know there's no current index dir in this path, make the directory and set up the individual file paths within it
+        indexDir.mkdir();
+        mDbPath = indexDir + "/termsMap.db";
+        mPostingsPath = indexDir + "/postings.bin";
 
-        System.out.println("Writing index to disk...");
+        // initialize necessary structs for the results list and the DB writers
+        List<Long> results = new ArrayList<>();
+        DB termsDb = null;
+        BTreeMap<String, Long> termsMap = null;
 
+        // try to initialize the db as a child file of the overall index directory
         try {
-            // create the index dir
-            File dir = new File(path);
-            if (!dir.exists()) {
-                dir.mkdir();
+            // if possible, create a B+ tree that mapes all the on-disk terms to their byte locations
+            termsDb = DBMaker.fileDB(mDbPath).make();
+            termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
+                    .counterEnable()
+                    .createOrOpen();
+
+            // try to make a new .bin file using the mPostingsPath set at construction
+            File postingsBin = new File(mPostingsPath);
+            // make sure there is no other postings.bin file already in index the directory before trying to write a new one
+            if (postingsBin.exists()) {
+                postingsBin.delete();
             }
-
-            // create the postings file
-            String postingsPath = path + "/postings.bin";
-
-            File postingsBin = new File(postingsPath);
+            // now use it to create an output stream to allowing us to write to the new file
             FileOutputStream fileStream = new FileOutputStream(postingsBin);
             DataOutputStream outStream = new DataOutputStream(fileStream);
 
+            // start a byte counter at 0 that will increment by 4 bytes everytime something new is written to the file
+            // alternatively, we can get the byte location of each term by calling .size() on the output file for every new term - "returns the current number of bytes written to the output stream so far"
+            // initialize both approaches to 0 before counting any terms
+            long bytesByCount = 0;
+            long bytesBySize = 0;
 
-            int byteCounter = 0; // keep a counter that increments by 4 bytes everytime the file is written to
             for (String term : index.getVocabulary()) {
-                // for every new term, add its byte position by converting the current value of byteCounter to an 8-byte double
-                long currLocation = (long) byteCounter;
-                mByteLocations.add(currLocation);
-
-                // we also need to write each new term to the RDB map, along with its byte location
-                writeTermAndLocation(term, currLocation);
+                // reassign bytesBySize everytime a new term is iterated
+                bytesBySize = outStream.size();
 
                 List<Posting> currPostings = index.getPostings(term);
-                int docFrequency = currPostings.size(); // set up df(t) and assign it to the number of postings for the current term
-                int docId = currPostings.get(0).getDocumentId(); // for the first doc only, write the docId as-is
-                outStream.writeInt(docFrequency); // write df(t) to disk as-is
+                // set up df(t) using number of postings for the current term, then  write it to the file
+                int docFrequency = currPostings.size();
+                outStream.writeInt(docFrequency);
+                bytesByCount += 4; // whenever a 4-byte int is written to the file, increment the byteCounter by 4 to account for the 4 bytes used to write the integer
 
-                // whenever something is written to the file, increment the byteCounter by 4 to account for the 4 bytes used to write the integer
-                byteCounter += 4;
+                // comparing the two to find the more accurate approach
+                System.out.println("Comparing the current values from both byte approaches for accuracy: \n bytesByCount = " + bytesByCount +"\n bytesBySize = " + bytesBySize);
 
+                // TODO: once tested, replace this arg with whichever of the two approaches is more accurate
+                mByteLocations.add(bytesByCount);
+
+                // we also need to write the current term and byte location to the RDB B+ tree
+                // since the db and map were already initiated above, simply add the vals to the map using .put()
+                termsMap.put(term, bytesByCount);
+
+                // for the first of the current term's postings, we can take its docId as-is without using gaps
+                int docId = currPostings.get(0).getDocumentId();
+
+                // now go through each posting for the given term
                 for (int i = 0; i < currPostings.size(); i++) {
-                    int termFrequency = currPostings.get(i).getTermPositions().size();// tf(t,d)
+                    // setup vars for the current posting's tf(t,d) value and its list of term locations
+                    int termFrequency = currPostings.get(i).getTermPositions().size(); // tf(t,d)
                     List<Integer> positions = currPostings.get(i).getTermPositions();
 
-                    // for every posting after the first, re-assign the docId to the difference between itself and the previous docId
+                    // if this is not the first posting for a given term, the docId must be re-assigned using the gap between itself and the previous docId
                     if (i > 0) {
-                        docId -= currPostings.get(i - 1).getDocumentId();
+                        int oldId = currPostings.get(i - 1).getDocumentId();
+                        docId = docId - oldId;
                     }
 
-                    // write the docId and tf(t,d) to the file
+                    // write the current docId and tf(t,d) values to the file
                     outStream.writeInt(docId);
+                    bytesByCount += 4;
+                    // still need to increment the byte counter everytime something is written
                     outStream.writeInt(termFrequency);
+                    bytesByCount += 4;
 
-                    // for the first positions only, write as-is
+
+                    // setup the currPosition var that will be written to disk on for each term position
+                    // just like the docIds above, initialize currPosition BEFORE iterating through the list by assigning it to the first term position as-is
                     int currPosition = positions.get(0);
 
-                    // now write the term positions by iterating through them and finding the gaps
+                    // now handle the remaining term positions by finding the gaps between each subsequent position
                     for (int j = 0; j < positions.size(); j++) {
                         // for every position after the first, re-assign it to the difference between itself and the previous position
                         if (j > 0) {
-                            currPosition -= positions.get(j - 1);
+                            int oldPosition = positions.get(j - 1);
+                            currPosition = currPosition - oldPosition;
                         }
-                        // write the updated position to the file
+                        // write the updated position to the file and increment the byte counter
                         outStream.writeInt(currPosition);
+                        bytesByCount += 4;
                     }
                 }
             }
@@ -144,90 +158,178 @@ public class DiskIndexDAO implements IndexDAO {
         catch (IOException ex) {
             ex.printStackTrace();
         }
+        termsDb.close();
         return mByteLocations;
     }
 
+
     @Override
-    public void writeTermAndLocation(String term, long bytePosition) {
+    public void writeTermData(String term, long bytePosition) {
+        // initialize necessary structs
+        DB termsDb = null;
+        BTreeMap<String, Long> termsMap = null;
+
+        // try to initialize the db as a child file of the overall index directory
         try {
-            termMap.put(term, bytePosition);
-            termMap.close();
+            // if possible, create a B+ tree that mapes all the on-disk terms to their byte locations
+            termsDb = DBMaker.fileDB(mDbPath).make();
+            termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
+                    .counterEnable()
+                    .createOrOpen();
+
+            // now we can write the term and its location to disk by simply calling put() on the map
+            termsMap.put(term, bytePosition);
+
         }
         catch (Exception ex) {
             System.out.println("Failed to write the term '" + term + "' with a byte location of " + bytePosition + ". \n");
             ex.printStackTrace();
         }
+        termsDb.close();
     }
 
-    // retrieves a single byte location matching the provided term from the RDB on disk
-    public long readLocationFromTerm(String term) {
-        long location = 0;
+    @Override
+    public List<String> readVocabulary(String indexDir) {
+        // first check if the given path for indexDir has the necessary files in it
+        String dbPath = indexDir += "/mapTerms.db";
+
+        // initialize necessary structs
+        List<String> results = new ArrayList<>();
+        DB termsDb = null;
+        BTreeMap<String, Long> termsMap = null;
+
+        // try to initialize the db as a child file of the overall index directory
         try {
-            location = termMap.get(term);
-            termMap.close();
+            // if possible open the existing B+ tree that maps all the currently written on-disk terms to their byte locations
+            termsDb = DBMaker.fileDB(mDbPath).make();
+            termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
+                    .counterEnable()
+                    .open(); // since this is a read-only function, we need to open the map, not openOrClose
         }
         catch (Exception ex) {
-            System.out.println("Failed to read the byte location of the term '" + term + "' \n");
-            ex.printStackTrace();
+            System.out.println("Error reading from on disk index: No on-disk B+ tree was found in the provided index directory");
+            return null;
         }
-        return location;
-    }
-    @Override
-    public String readTermFromLocation(long byteLocation) {
-        String term = "";
         try {
-            if (termMap.containsValue(byteLocation)) {
-                for (Map.Entry<String, Long> entry : termMap.entrySet()) {
-                    if (Objects.equals(entry.getValue(), byteLocation)) {
-                        term = entry.getKey();
-                    }
-                }
+            // extract the list of all terms from the map B+ tree as an in-memory List iterator
+            Iterator<String> termsOnDisk = termsMap.keyIterator();
+
+            // now we can add all the on-disk terms to an in-memory return value by extracting terms from the iterator until the stream ends
+            while (termsOnDisk.hasNext()) {
+                results.add(termsOnDisk.next());
             }
         }
         catch (Exception ex) {
-            System.out.println("Failed to read the term at the byte location '" + byteLocation + "' \n");
             ex.printStackTrace();
         }
-        //termMap.close();
-        return term;
+
+        termsDb.close();
+        return results;
     }
 
+
     @Override
-    public List<Posting> readPostings(String term) {
-        return null;
+    public List<Long> readByteLocations(Index index) {
+        // initialize necessary structs
+        List<Long> results = new ArrayList<>();
+        DB termsDb = null;
+        BTreeMap<String, Long> termsMap = null;
+
+        // try to initialize the db as a child file of the overall index directory
+        try {
+            // if possible, create a B+ tree that mapes all the on-disk terms to their byte locations
+            termsDb = DBMaker.fileDB(mDbPath).make();
+            termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
+                    .counterEnable()
+                    .createOrOpen();
+
+            // in order to extract the byte positions of all the terms in the vocabulary, we have to iterate through the map by its keys using a String iterator
+            Iterator<String> termsOnDisk = termsMap.keyIterator();
+
+            // now we can add all the on-disk terms to an in-memory return value by extracting terms from the iterator until the stream ends
+            while (termsOnDisk.hasNext()) {
+                // now we can extract the byte locations by simply getting the values mapped to by each term in the original term map
+                String term = termsOnDisk.toString();
+                results.add(termsMap.get(term));
+            }
+        }
+
+        catch (Exception ex) {
+            ex.printStackTrace();
+        }
+
+        termsDb.close();
+        return results;
     }
+
 
     @Override
     public int readTermDocFrequency(String term, int docId) {
+        // initialize necessary vars for results and structs to read from the termsDB
+        List<Long> results = new ArrayList<>();
         int termDocFrequency = 0;
+        long byteLocation = 0;
+        DB termsDb = null;
+        BTreeMap<String, Long> termsMap = null;
 
-        try (RandomAccessFile reader = new RandomAccessFile(mPostingsPath, "r")) {
-            long termLocation = readLocationFromTerm(term);
-            reader.seek((termLocation));
-            int totalDocs = reader.readInt(); // get tf(d) the amount of docs the term occurs in
-            // use tf(d) to iterate through all the documents the term appears in
+        // try to initialize the db as a child file of the overall index directory
+        try {
+            // if possible, create a B+ tree that maps all the on-disk terms to their byte locations
+            termsDb = DBMaker.fileDB(mDbPath).make();
+            termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
+                    .counterEnable()
+                    .createOrOpen();
 
-            int currentDoc = 0;
-            for (int i = 0; i < totalDocs; i++) {
-                // read the next docId and use it to increment the previous docId
-                currentDoc += reader.readInt();
-                // read the number of term positions in this doc - tf(t,d)
-                int docFrequency = reader.readInt();
+            //  after successfully loading the on-disk terms map, we can quickly get the byte position of the given term by simply calling .get() on the termsMap
+            byteLocation = termsMap.get(term);
 
-                // check each doc to find a match for the given docId
-                if(currentDoc == docId) {
-                    // if a match is found, use its docFrequency for the return and break
-                    termDocFrequency = docFrequency;
-                    break;
+            // now that we know the byte location for the term, try to open a fileReader on the postings.bin file
+            try (RandomAccessFile reader = new RandomAccessFile(mPostingsPath, "r")) {
+                // start by seeking to the byte location of the term - this is where all of its postings data begins
+                // now we can easily find any other postings data we need by incrementing the necessary amount of bytes from that intial position
+                reader.seek(byteLocation);
+
+                // first get tf(d) (the amount of docs the term occurs in) which should be at the exact byte indicated by the termLocation
+                int totalDocs = reader.readInt();
+
+                // before iterating through all the term's docs, initialize the first docId to 0
+                // this allows it to accurately represent every subsequent docId by continually incrementing with the gap size as we iterate
+                int currentDocId = 0;
+
+                // now we can use that tf(d) value find the rest of the term's data
+                for (int i = 0; i < totalDocs; i++) {
+                    // read the next docId and use it to increment the gap betweem the previous docId
+                    currentDocId += reader.readInt();
+                    // the next byte should hold the number of term positions within this doc (tf(t,d))
+                    int docFrequency = reader.readInt();
+
+                    // we only want the tf(t,d) value of the target docId specified in the args
+                    // check each doc to find a match for that docId
+                    if (currentDocId == docId) {
+                        // if a match is found, use only that tf(t,d) value for the return and break
+                        termDocFrequency = docFrequency;
+                        break;
+                    }
                 }
             }
+            catch (IOException ex) {
+                ex.printStackTrace();
+            }
         }
-
-        catch (IOException ex) {
+        catch (Exception ex) {
             ex.printStackTrace();
         }
+
+        termsDb.close();
         return termDocFrequency;
     }
+
+
+    @Override
+    public long readDocWeight(int docId) {
+        return 0;
+    }
+
 
     /**
      * reads only the set of all docId's in the given term's postings
@@ -240,10 +342,4 @@ public class DiskIndexDAO implements IndexDAO {
     public List<Integer> readDocIds(Index index, String term) {
         return null;
     }
-
-    @Override
-    public long readDocWeight(int docId) {
-        return 0;
-    }
-
 }

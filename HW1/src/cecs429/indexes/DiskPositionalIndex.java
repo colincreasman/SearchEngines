@@ -4,6 +4,7 @@ import cecs429.documents.Document;
 import cecs429.documents.DocumentCorpus;
 import cecs429.text.AdvancedTokenProcessor;
 import cecs429.text.EnglishTokenStream;
+import org.mapdb.BTreeMap;
 
 import java.util.*;
 
@@ -25,10 +26,13 @@ public class DiskPositionalIndex implements Index {
     }
 
     // builds an in-memory positional inverted index and calculates tf(t,d) data while processing the tokens of each doc
+    //TODO: update so that it takes in a tokenProcessor arg to allow different types of processing at runtime
     public void initializeInMemoryIndex(DocumentCorpus corpus) {
-        //
+        mDocWeights = new HashMap<>();
+        mByteLocations = new ArrayList<>();
         List<String> vocab = new ArrayList<>();
         mIndex = new PositionalInvertedIndex(vocab);
+
         System.out.println("Indexing corpus in memory...");
         // start timer
         long start = System.currentTimeMillis();
@@ -44,66 +48,74 @@ public class DiskPositionalIndex implements Index {
             Iterable<String> tokens = stream.getTokens();
 
             // setup hashmap to store all the terms and found in the current doc and their frequencies within the doc
-            HashMap<String, Integer> termFrequencies = new HashMap<>(); // maps docId -> tf(t,d)
+            HashMap<String, Integer> termFrequenciesPerDoc = new HashMap<>(); // maps docId -> tf(t,d)
 
             for (String token : tokens) {
                 // process each token into a term(s)
                 List<String> terms = processor.processToken(token);
 
+                // iterate through each term while keeping a running total of all the times it is found in the current doc
+                int currentTermCount;
                 for (String term : terms) {
-                    // for each normalized term, initialize its frequency counter to 1 before trying to retrieve it from the map
-                    int termCounter = 1;
+                    // with each new normalized term, reset its  count to 1 before trying to retrieve it from the map
+                    currentTermCount = 1;
 
+                    // now check if there's already an existing count  for this term in the results hashmap
                     try {
-                        termCounter = termFrequencies.get(term);
-                        // if the exception isn't thrown, this term must already be in the map
-                        int updatedCounter = termCounter + 1;
-                        // update the term's frequency to increment by 1
-                        termFrequencies.replace(term, termCounter, updatedCounter);
+                        // if found, reassign the count to whatever is currently in the results
+                        currentTermCount = termFrequenciesPerDoc.get(term);
+
+                        // increment the count by 1 to account for this occurence
+                        int updatedTermCount = currentTermCount + 1;
+                        // now replace the original count in the results map with the updated count
+                        termFrequenciesPerDoc.replace(term, currentTermCount, updatedTermCount);
                     }
 
-                    // catch null values to find terms that havent been counted yet
+                    // catch null values to still count terms that haven't been added to the results map yet
                     catch (NullPointerException ex) {
-                        // since this term hasn't been counted yet, put it into the hashmap with an initial frequency of 1
-                        termFrequencies.put(term, termCounter);
+                        // since this term hasn't been counted yet, put it into the hashmap with the unmodified val of currentTermCount (should still be 1)
+                        termFrequenciesPerDoc.put(term, currentTermCount);
                     }
 
+                    // after handling all the term-doc data, we still need to add each term into the index
                     finally {
                         mIndex.addTerm(term, d.getId(), position);
                     }
                 }
-
                 //TODO: update this in main too
                 // only increment the position when moving on to a new token
                 // if normalizing a token produces more than one term, they will all be posted at the same position
                 position += 1;
-
-                // use the final hashmap of tf(t,d) vals for this doc to find its normalized weight and add it to the static map of docWeights
-                long docWeight = getNormalizedWeight(termFrequencies);
-                mDocWeights.put(d.getId(), docWeight);
-
             }
+            // after processing and counting all of the tokens in the current doc, we can now use the final hashmap of tf(t,d) vals to each of its terms to find the aggregate normalized weight
+            long docWeight = getNormalizedWeight(termFrequenciesPerDoc);
+            // now add this doc's docId and Ld value to the overall map of docWeights per doc
+            mDocWeights.put(d.getId(), docWeight);
         }
+
         long stop = System.currentTimeMillis();
         long elapsedSeconds = (long) ((stop - start) / 1000.0);
         System.out.println("Finished indexing the in-memory positional index in approximately " + elapsedSeconds + " seconds.");
-        // now write that index to disk
+
+        // now write that index to disk and save the returned byte positions into the static object field for them
         mByteLocations = mIndexDAO.writeIndex(mIndex, mPath);
     }
 
     // builds the index's vocabulary by reading its terms from the existing on-disk index data
     public void loadVocabulary(DocumentCorpus corpus) {
+        String indexDir = corpus + "/index";
         mVocabulary = new ArrayList<>();
-        // easiest way to load all terms in the vocabulary is by reading from the relational DB/Tree map that stores terms and their byte positions as an iterator
-        for (Long l : mByteLocations) {
-            try {
-                String currTerm = mIndexDAO.readTermFromLocation(l);
-                mVocabulary.add(currTerm);
-            }
-            catch (Exception ex) {
-                System.out.println("Failed to read the term at byte location: " + l +"\n");
-                ex.printStackTrace();
-            }
+        List<String> unsorted = mIndexDAO.readVocabulary(indexDir);
+
+        try {
+            mVocabulary.addAll(unsorted);
+            // sort
+            Collections.sort(mVocabulary);
+
+        }
+
+        catch (NullPointerException ex) {
+            System.out.println("Failed to load vocabulary index because the DiskIndexDAO could not find any B+ tree files in the given corpus directory. ");
         }
     }
 
@@ -159,8 +171,6 @@ public class DiskPositionalIndex implements Index {
 
         // get the list of docIds for the term
         List<Integer> docs = mIndexDAO.readDocIds(mIndex, term);
-
-
 
         // get the list of tf(t,d) values for each doc
         for (Integer d : docs) {
