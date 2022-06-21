@@ -18,4 +18,9 @@ public interface DocumentCorpus {
 	 * Returns the document with the given document ID.
 	 */
 	Document getDocument(int id);
+
+	/**
+	 * Returns the absolute path of the corpus directory as a string
+	 */
+	String getPath();
 }

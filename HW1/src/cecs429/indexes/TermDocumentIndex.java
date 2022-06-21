@@ -56,6 +56,16 @@ public class TermDocumentIndex implements Index {
 		return results;
 	}
 
+	/**
+	 * Retrieves a list of Postings of documents that contain the given term.
+	 *
+	 * @param term
+	 */
+	@Override
+	public HashMap<Integer, List<Integer>> getPostingsWithoutPositions(String term) {
+		return null;
+	}
+
 	public List<String> getVocabulary() {
 		return Collections.unmodifiableList(mVocabulary);
 	}

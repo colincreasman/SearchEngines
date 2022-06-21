@@ -10,10 +10,8 @@ public class PositionalInvertedIndex implements Index {
         mVocabulary = new ArrayList<String>();
         mVocabulary.addAll(vocabulary);
         Collections.sort(mVocabulary);
-
         mIndex = new HashMap<>();
     }
-
     /**
      * Adds a term to the index using the document it occurs in
      * and the list of integer positions where it occurs
@@ -22,7 +20,6 @@ public class PositionalInvertedIndex implements Index {
      * @param documentId
      * @param termPosition
      */
-
     public void addTerm(String term, int documentId, int termPosition) {
         // first check if the term is already in the index by trying to access its postings in the index
         List<Posting> postingsInIndex = mIndex.get(term);
@@ -73,6 +70,16 @@ public class PositionalInvertedIndex implements Index {
         List<Posting> postings = mIndex.get(term);
 
         return postings;
+    }
+
+    /**
+     * Retrieves a list of Postings of documents that contain the given term.
+     *
+     * @param term
+     */
+    @Override
+    public HashMap<Integer, List<Integer>> getPostingsWithoutPositions(String term) {
+        return null;
     }
 
     /**

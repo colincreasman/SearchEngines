@@ -13,7 +13,7 @@ import java.util.List;
  * Does not handle phrase queries, NOT queries, NEAR queries, or wildcard queries... yet.
  */
 public class BooleanQueryParser {
-	private static TokenProcessor mProcessor;
+	//private static TokenProcessor mProcessor;
 	/**
 	 * Identifies a portion of a string with a starting index and a length.
 	 */

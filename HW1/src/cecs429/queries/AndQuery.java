@@ -45,17 +45,6 @@ public class AndQuery implements QueryComponent {
 		try {
 			for (int i = 1; i < mProcessedTerms.size(); i++) {
 				masterPostingsList = intersect(masterPostingsList, index.getPostings(mProcessedTerms.get(i)));
-//				List<Posting> previousPostings;
-//				// for the first QueryComponent only, automatically add it to the master postings list and skip any AND processing
-//				if (i == 1) {
-//					previousPostings = mComponents.get(0).getPostings(index);
-//				}
-//				// for every other query component after that, update the master posting list by AND-ing it with the current component's postings list
-//				else {
-//					previousPostings = mResults;
-//				}
-//				List<Posting> currentPostings = mComponents.get(i).getPostings(index);
-//				intersect(previousPostings, currentPostings);
 			}
 			return masterPostingsList;
 		}
@@ -83,27 +72,6 @@ public class AndQuery implements QueryComponent {
 
 			// if they are equal, merge the two postings and add to the results
 			if (topDocId == bottomDocId) {
-//				// merge the postings of the current docId from both lists
-//				Posting match = top.get(i).merge(bottom.get(j));
-//				Collections.sort(match.getTermPositions());
-//				// check if there is already a posting with this docId in the results
-//				if (mDocIds.contains(topDocId)) {
-//					// find the posting that already has this docId
-//					Posting existing = mResults.stream().filter(posting -> topDocId == posting.getDocumentId()).findFirst().orElse(null);
-//					// merge it with the match posting
-//					Posting merge = match.merge(existing);
-//					// must re-sort term positions after the merging
-//					Collections.sort(merge.getTermPositions());
-//					// now remove the existing posting and replace it with the merged posting
-//					mResults.remove(existing);
-//					mResults.add(merge);
-//				} else {
-//					mResults.add(match);
-//				}
-//				mResults.sort(Comparator.comparingInt(Posting::getDocumentId));
-//				// add the docId to the set of added docId's
-//				mDocIds.add(topDocId);
-				// try to find an existing posting with the current docId
 				Posting match = (top.get(i).merge(bottom.get(j)));
 				Collections.sort(match.getTermPositions());
 				results.add(match);

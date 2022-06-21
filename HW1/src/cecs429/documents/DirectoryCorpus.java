@@ -134,6 +134,11 @@ public class DirectoryCorpus implements DocumentCorpus {
 	public Document getDocument(int id) {
 		return mDocuments.get(id);
 	}
+
+	@Override
+	public String getPath() {
+		return mDirectoryPath.toString();
+	}
 	
 	/**
 	 * Registers a factory method for loading documents of the given file extension. By default, a corpus

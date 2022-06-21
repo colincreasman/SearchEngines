@@ -8,7 +8,10 @@ import cecs429.queries.QueryComponent;
 import cecs429.text.*;
 
 import java.io.BufferedReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.SQLOutput;
 import java.util.*;
 
 import static java.lang.String.format;
@@ -16,16 +19,123 @@ import static java.lang.String.format;
 public class Driver {
 
 	public static void main(String[] args) {
-		mainMenu();
+		gateway();
+	}
+
+	private static void gateway() {
+		DocumentCorpus corpus = null;
+		Index index = null;
+		Scanner in = new Scanner(System.in);
+		while (true) {
+			System.out.println("\nPlease select one of the options below: ");
+			System.out.println("*************************************************");
+			System.out.println("(a) Build New Index");
+			System.out.println("(b) Query Existing Index");
+			String choice = in.nextLine();
+
+			switch (choice) {
+				case "a": {
+					corpus = selectCorpusMenu();
+					index = selectIndexMenu(corpus);
+					break;
+				}
+				case "b": {
+					// check if index has been built before entering query menu
+					corpus = selectCorpusMenu();
+					IndexDAO test = new DiskIndexDAO(corpus.getPath());
+
+
+					// check if there is an existing index on disk or in memory
+					if (test.hasExistingIndex()) {
+						System.out.println("An existing DiskPositionalIndex for this corpus has been found in the corpus directory. This on-disk index will be used for queries. ");
+						mainMenu(index, corpus);
+					} else if (index != null) {
+						System.out.println("No on-disk index exists for this corpus directory, the existing in-memory index will be used for queries. ");
+						mainMenu(index, corpus);
+					} else {
+						System.out.println("There is currently no existing index on disk or in memory for the chosen corpus. Please try building an index before querying. ");
+						//index = selectIndexMenu(corpus);
+					}
+					break;
+				}
+				default: {
+					System.out.println("Error: User input does not match any of of the available options. ");
+					break;
+				}
+			}
+		}
+	}
+
+	private static DiskPositionalIndex buildDiskIndex(DocumentCorpus corpus) {
+		HashSet<String> vocabulary = new HashSet<>();
+		Index posIndex = new PositionalInvertedIndex(vocabulary);
+		System.out.println("Building the initial positional inverted index before writing to disk...");
+		posIndex = buildInMemoryIndex(corpus, posIndex);
+
+		// before building a new disk index, check if one already exists in the corpus directory
+		String indexDir = corpus.getPath();
+		DiskIndexDAO dao = new DiskIndexDAO(indexDir);
+
+		// start timer
+		long start = System.currentTimeMillis();
+
+		DiskPositionalIndex diskIndex = new DiskPositionalIndex(posIndex, dao);
+
+		long stop = System.currentTimeMillis();
+		double elapsedSeconds = (double) ((stop - start) / 1000.0);
+		System.out.println("Writing index to disk completed in " + elapsedSeconds + " seconds.");
+
+		return diskIndex;
+	}
+
+	// builds an index (any in-memory implementation of the Index interface) using a Document Corpus45
+	private static Index buildInMemoryIndex(DocumentCorpus corpus, Index index) {
+		System.out.println("Indexing corpus...");
+		// start timer
+		long start = System.currentTimeMillis();
+
+		AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
+
+		// THEN, do the loop again! But instead of inserting into the HashSet, add terms to the index with addPosting.
+		for (Document d : corpus.getDocuments()) {
+			//System.out.println("here");
+			// Tokenize the document's content by constructing an EnglishTokenStream around the document's content.
+			EnglishTokenStream stream = new EnglishTokenStream(d.getContent());
+
+			// initialize a counter to keep track of the term positions of tokens found within each document
+			int position = 0;
+			// retrieve tokens from the doc as an iterable
+			Iterable<String> tokens = stream.getTokens();
+			for (String token : tokens) {
+				// process each token into a term(s)
+				List<String> terms = processor.processToken(token);
+				for (String term : terms) {
+					if (index instanceof PositionalInvertedIndex) {
+						// add the term(s) to the index based off its type
+						index.addTerm(term, d.getId(), position);
+					}
+					else {
+						index.addTerm(term, d.getId());
+					}
+					// keep track of the position of each token as we iterate through the document
+					position += 1;
+				}
+			}
+		}
+
+		long stop = System.currentTimeMillis();
+		double elapsedSeconds = (double) ((stop - start) / 1000.0);
+		System.out.println("Indexing completed in approximately " + elapsedSeconds + " seconds.");
+
+		return index;
 	}
 
 	// driver method to route user selections from the main menu
-	private static void mainMenu() {
+	private static void mainMenu(Index index, DocumentCorpus corpus) {
 		Scanner in = new Scanner(System.in);
-		// setup the initial corpus
-		DocumentCorpus corpus = selectCorpusMenu();
-		// setup the initial index
-		Index index = selectIndexMenu(corpus);
+//		// setup the initial corpus
+//		// setup the initial index
+//		Index index = index;
 		// loop until user wants to quit
 		while (true) {
 			System.out.println("\nPlease select an action from the options below: ");
@@ -90,6 +200,10 @@ public class Driver {
 					System.out.println("Quitting the application - Goodbye!");
 					System.exit(0);
 				}
+				default: {
+					System.out.println("Error: User input does not match any of of the available options. ");
+					break;
+				}
 			}
 		}
 	}
@@ -139,14 +253,26 @@ public class Driver {
 				corpus = DirectoryCorpus.loadTextOrJsonDirectory(Paths.get(corpusPath));
 				break;
 			}
+			default: {
+				System.out.println("Error: User input does not match any of of the available options. ");
+				break;
+			}
 		}
+//		DiskIndexDAO indexDAO = new DiskIndexDAO(corpusPath);
+//		String indexChoice;
+//		if (indexDAO.hasExistingIndex()) {
+//			System.out.println("This corpus directory already has DiskPositinalIndex data written to disk. Would you like to use the existing index or build a new one? (y/n) ");
+//			indexChoice = in.nextLine();
+//			if (indexChoice == "y") {
+//
+//			}
 		return corpus;
 	}
 
 	private static Index selectIndexMenu(DocumentCorpus corpus) {
 		Scanner in = new Scanner(System.in);
-		System.out.println("Please select the type of index you would like to build:");
-		System.out.println("***********************************\n");
+		System.out.println("Please select the type of index you would like to use to query the corpus:");
+		System.out.println("******************************************\n");
 		System.out.println("(a) Positional Inverted Index ");
 		System.out.println("(b) Inverted Index ");
 		System.out.println("(c) Term Document Index ");
@@ -156,7 +282,7 @@ public class Driver {
 
 		Index index = null;
 		HashSet<String> vocabulary = new HashSet<>();
-
+		boolean onDisk = false;
 		switch (indexSelect) {
 			case ("a"): {
 				index = new PositionalInvertedIndex(vocabulary);
@@ -171,54 +297,22 @@ public class Driver {
 				break;
 			}
 			case ("d"): {
-				System.out.println("Error: This type of index has not been implemented yet. ");
-				index = null;
+				//System.out.println("Error: This type of index has not been implemented yet. ");
+				//index = new DiskPositionalIndex(
+				onDisk = true;
+				break;
+			}
+			default: {
+				System.out.println("Error: User input does not match any of of the available options. ");
 				break;
 			}
 		}
-		return buildIndex(corpus, index);
-	}
 
-	// builds an index (any implementation of the Index interface) using a Document Corpus45
-	private static Index buildIndex(DocumentCorpus corpus, Index index) {
-		System.out.println("Indexing corpus...");
-		// start timer
-		long start = System.currentTimeMillis();
-
-		AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
-
-		// THEN, do the loop again! But instead of inserting into the HashSet, add terms to the index with addPosting.
-		for (Document d : corpus.getDocuments()) {
-			//System.out.println("here");
-			// Tokenize the document's content by constructing an EnglishTokenStream around the document's content.
-			EnglishTokenStream stream = new EnglishTokenStream(d.getContent());
-
-			// initialize a counter to keep track of the term positions of tokens found within each document
-			int position = 0;
-			// retrieve tokens from the doc as an iterable
-			Iterable<String> tokens = stream.getTokens();
-			for (String token : tokens) {
-				// process each token into a term(s)
-				List<String> terms = processor.processToken(token);
-				for (String term : terms) {
-					if (index instanceof PositionalInvertedIndex) {
-						// add the term(s) to the index based off its type
-						index.addTerm(term, d.getId(), position);
-					}
-					else {
-						index.addTerm(term, d.getId());
-					}
-					// keep track of the position of each token as we iterate through the document
-					position += 1;
-				}
-			}
+		if (onDisk) {
+			return buildDiskIndex(corpus);
+		} else {
+			return buildInMemoryIndex(corpus, index);
 		}
-
-		long stop = System.currentTimeMillis();
-		double elapsedSeconds = (double) ((stop - start) / 1000.0);
-		System.out.println("Indexing completed in approximately " + elapsedSeconds + " seconds.");
-
-		return index;
 	}
 
 	private static void processQuery(DocumentCorpus corpus, Index index) {
@@ -420,6 +514,10 @@ public class Driver {
 					type = "Advanced Token Processor";
 					break;
 				}
+				default: {
+					System.out.println("Error: User input does not match any of of the available options. ");
+					break;
+				}
 			}
 			System.out.println("Please enter the token to normalize: ");
 			String token = in.nextLine();
@@ -490,6 +588,8 @@ public class Driver {
 		System.out.println("*******************END CORPUS*********************\n");
 		System.out.println("Returning to main menu...");
 	}
+
+
 
 }
 

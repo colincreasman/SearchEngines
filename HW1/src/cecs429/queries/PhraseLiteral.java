@@ -42,12 +42,6 @@ public class PhraseLiteral implements QueryComponent {
 		//mDocIds = new HashSet<>();
 
 		mPhraseTerms = Arrays.asList(stringTerms.split(" "));
-
-//		for (String t : listTerms) {
-//			QueryComponent comp = new TermLiteral(t);
-//			//String processedTerm = mProcessor.processTokenWithHyphens(t);
-//			mComponents.add(comp);
-//		}
 	}
 	
 	@Override
