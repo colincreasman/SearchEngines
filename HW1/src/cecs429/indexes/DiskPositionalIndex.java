@@ -82,7 +82,6 @@ public class DiskPositionalIndex implements Index {
                         mIndex.addTerm(term, d.getId(), position);
                     }
                 }
-                //TODO: update this in main too
                 // only increment the position when moving on to a new token
                 // if normalizing a token produces more than one term, they will all be posted at the same position
                 position += 1;

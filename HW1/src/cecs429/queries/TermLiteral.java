@@ -42,8 +42,6 @@ public class TermLiteral implements QueryComponent {
 			System.out.println("No documents were found containing the term literal '" + mTerm + "'");
 			return null;
 		}
-
-
 	}
 	
 	@Override
