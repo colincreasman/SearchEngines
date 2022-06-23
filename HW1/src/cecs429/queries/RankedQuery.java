@@ -4,6 +4,7 @@ import cecs429.documents.Document;
 import cecs429.indexes.Index;
 import cecs429.indexes.Posting;
 import cecs429.text.TokenProcessor;
+import static edu.csulb.Driver.ActiveConfiguration.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,6 +31,17 @@ public class RankedQuery implements QueryComponent {
      */
     @Override
     public List<Posting> getPostings(TokenProcessor processor, Index index) {
+        // loop through each term in the query (mTerms)
+        for (String term : mTerms) {
+            // retrieve tf(t,d) and wqt from postings.bin
+            HashMap<Integer, Double> termData = indexDao.
+
+            // now go through the list each docId and tf(t,d) in the current term's postings using getPostingsWithoutPositions()
+            // initialize the accumulator to some value before looping
+            // retrieve wdt from postings.bin
+
+
+        }
         return null;
     }
 

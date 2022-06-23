@@ -5,13 +5,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import static edu.csulb.Driver.ActiveConfiguration.*;
 
-import cecs429.documents.DirectoryCorpus;
 import org.mapdb.BTreeMap;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.mapdb.Serializer;
-
 
 public class DiskIndexDAO implements IndexDAO {
     private PositionalInvertedIndex mPosIndex;
@@ -20,7 +19,7 @@ public class DiskIndexDAO implements IndexDAO {
     private static String mDocWeightsPath;
     private static String mDbPath;
     private static List<Long> mByteLocations;
-    private HashMap<String, Integer> mTermFrequencies; // maps each term to its tf(t,d) value
+    private HashMap<String, Integer> mTermLocations; // maps each term to its byte location in postings.bin
 
     public DiskIndexDAO(String corpusPath) {
         mIndexPath = corpusPath + "/index";
@@ -45,15 +44,15 @@ public class DiskIndexDAO implements IndexDAO {
         // only return true if all of the required files already exist
         if (Files.exists(dir) && Files.exists(postings)) {
             return true;
-        }
-        else {
+        } else {
             return false;
         }
     }
 
-
     @Override
     public List<Long> writeIndex(Index index, String corpusPath) {
+        Collections.sort(mPosIndex.getVocabulary());
+
         File indexDir = new File(corpusPath + "/index");
         // make sure there is no current index folder in the given path before indexing
         if (indexDir.exists()) {
@@ -96,7 +95,6 @@ public class DiskIndexDAO implements IndexDAO {
             for (String term : index.getVocabulary()) {
 
                 List<Posting> currPostings = index.getPostings(term);
-                // set up df(t) using number of postings for the current term, then  write it to the file
                 int docFrequency = currPostings.size();
                 outStream.writeInt(docFrequency);
 
@@ -104,9 +102,8 @@ public class DiskIndexDAO implements IndexDAO {
                 termsMap.put(term, bytesByCount);
 
                 bytesByCount += 4; // whenever a 4-byte int is written to the file, increment the byteCounter by 4 to account for the 4 bytes used to write the integer
-
-                // TODO: once tested, replace this arg with whichever of the two approaches is more accurate
                 mByteLocations.add(bytesByCount);
+
                 // for the first of the current term's postings, we can take its docId as-is without using gaps
                 int docId = currPostings.get(0).getDocumentId();
 
@@ -125,10 +122,15 @@ public class DiskIndexDAO implements IndexDAO {
                     // write the current docId and tf(t,d) values to the file
                     outStream.writeInt(docId);
                     bytesByCount += 4;
-                    // still need to increment the byte counter everytime something is written
+
+                    // TODO: get the w(d,t) value of the current term and doc by calling calculateTermWeight(termFrequency), then write it to disk right here (after writing the docId but before the tf(t,d)
+                    double termWeight = calculateTermWeight(termFrequency);
+                    outStream.writeDouble(termWeight);
+                    // increment byte position by 8 to account for the 8 bytes used for termWeight
+                    bytesByCount += 8;
+
                     outStream.writeInt(termFrequency);
                     bytesByCount += 4;
-
 
                     // setup the currPosition var that will be written to disk on for each term position
                     // just like the docIds above, initialize currPosition BEFORE iterating through the list by assigning it to the first term position as-is
@@ -147,14 +149,41 @@ public class DiskIndexDAO implements IndexDAO {
                     }
                 }
             }
-        }
-        catch (IOException ex) {
+        } catch (IOException ex) {
             ex.printStackTrace();
         }
         termsDb.close();
         return mByteLocations;
     }
 
+    // calculates the weight of a term in a given doc using the formula w(d,t) = 1 + ln(tf,td)
+    private double calculateTermWeight(int termFrequency) {
+        double weight = 0.0;
+
+        switch (weightingScheme) {
+            // the default scheme uses the formula w(d,t) = 1 + ln(tf,td)
+            case Default: {
+                weight = 1 + Math.log(termFrequency);
+                break;
+            }
+
+            // TODO: implement the rest of these!
+            case TF_IDF: {
+                break;
+            }
+            case Okapi: {
+
+            }
+            case Wacky: {
+                break;
+            }
+            default: {
+                System.out.println("Error: Selected weighting scheme has not been implemented yet");
+                break;
+            }
+        }
+        return weight;
+    }
 
     @Override
     public void writeTermLocations(String term, long bytePosition) {
@@ -173,8 +202,7 @@ public class DiskIndexDAO implements IndexDAO {
             // now we can write the term and its location to disk by simply calling put() on the map
             termsMap.put(term, bytePosition);
 
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             System.out.println("Failed to write the term '" + term + "' with a byte location of " + bytePosition + ". \n");
             ex.printStackTrace();
         }
@@ -193,8 +221,7 @@ public class DiskIndexDAO implements IndexDAO {
             // if possible open the existing B+ tree that maps all the currently written on-disk terms to their byte locations
             termsDb = DBMaker.fileDB(mDbPath).make();
             termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG).open(); // since this is a read-only function, we need to open the map, not openOrClose
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             System.out.println("Error reading from on disk index: No on-disk B+ tree was found in the provided index directory");
             return null;
         }
@@ -206,8 +233,7 @@ public class DiskIndexDAO implements IndexDAO {
             while (termsOnDisk.hasNext()) {
                 results.add(termsOnDisk.next());
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             ex.printStackTrace();
         }
 
@@ -216,46 +242,25 @@ public class DiskIndexDAO implements IndexDAO {
     }
 
 
-    @Override
-    public List<Long> readTermLocations() {
-        // initialize necessary structs
-        List<Long> results = new ArrayList<>();
-        DB termsDb = null;
-        BTreeMap<String, Long> termsMap = null;
-
-        // try to initialize the db as a child file of the overall index directory
-        try {
-            // if possible, create a B+ tree that mapes all the on-disk terms to their byte locations
-            termsDb = DBMaker.fileDB(mDbPath).make();
-            termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
-                    .counterEnable()
-                    .createOrOpen();
-
-            // in order to extract the byte positions of all the terms in the vocabulary, we have to iterate through the map by its keys using a String iterator
-            Iterator<String> termsOnDisk = termsMap.keyIterator();
-
-            // now we can add all the on-disk terms to an in-memory return value by extracting terms from the iterator until the stream ends
-            while (termsOnDisk.hasNext()) {
-                // now we can extract the byte locations by simply getting the values mapped to by each term in the original term map
-                String term = termsOnDisk.toString();
-                results.add(termsMap.get(term));
-            }
-        }
-
-        catch (Exception ex) {
-            ex.printStackTrace();
-        }
-
-        termsDb.close();
-        return results;
-    }
-
-
+    /**
+     * Reads the raw tf(t,d) data from the persistent data store for a given term & docId
+     *
+     * @param term
+     * @param docId
+     * @return the converted tf(t,d) data as a list of doubles
+     */
     @Override
     public int readTermDocFrequency(String term, int docId) {
+        return 0;
+    }
+
+    // for a given term, list of all the docIds and their termDocWeights
+    @Override
+    public HashMap<Integer, Double> readTermData(String term) {
         // initialize necessary vars for results and structs to read from the termsDB
-        List<Long> results = new ArrayList<>();
+        HashMap<Integer, Double> results = new HashMap<>();
         int termDocFrequency = 0;
+        double termDocWeight = 0.0;
         long byteLocation = 0;
         DB termsDb = null;
         BTreeMap<String, Long> termsMap = null;
@@ -286,48 +291,48 @@ public class DiskIndexDAO implements IndexDAO {
 
                 // now we can use that tf(d) value find the rest of the term's data
                 for (int i = 0; i < totalDocs; i++) {
+                    if (i == 0) {
+                        // for the first value only, read the doc ID as-is with no gaps
+                        currentDocId = reader.readInt();
+                    }
+
                     // read the next docId and use it to increment the gap betweem the previous docId
                     currentDocId += reader.readInt();
-                    // the next byte should hold the number of term positions within this doc (tf(t,d))
-                    int docFrequency = reader.readInt();
 
-                    // we only want the tf(t,d) value of the target docId specified in the args
-                    // check each doc to find a match for that docId
-                    if (currentDocId == docId) {
-                        // if a match is found, use only that tf(t,d) value for the return and break
-                        termDocFrequency = docFrequency;
-                        break;
-                    }
+                    // read the next term weight directly from the current reader position (they are not written as gaps)
+                    double currentWeight = reader.readDouble();
+
+                    // add the current docId and weight to the results before jumping to the next posting
+                    results.put(currentDocId, currentWeight);
+
+                    // increment the counter by 8 to account for the 8bytes read for the weight
+                    reader.skipBytes(4);
+
+                    // increment the gap counter for docId by 4 to account for the 4 bytes read for the tf(t,d)
+                    int totalPositions = reader.readInt();
+
+                    // next jump ahead by the 4 * (number of terms) to get to the next docId
+                    reader.skipBytes(4 * totalPositions);
                 }
-            }
-            catch (IOException ex) {
+            } catch (IOException ex) {
                 ex.printStackTrace();
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             ex.printStackTrace();
         }
 
         termsDb.close();
-        return termDocFrequency;
+        return results;
     }
-
-
-    @Override
-    public long readDocWeight(int docId) {
-        return 0;
-    }
-
 
     /**
-     * reads only the set of all docId's in the given term's postings
+     * reads the raw Ld data from docWeights.bin (or other implemented datastore) for a given docId
      *
-     * @param index
-     * @param term
-     * @return
+     * @param docId
+     * @return raw Ld data converted to Double
      */
     @Override
-    public List<Integer> readDocIds(Index index, String term) {
-        return null;
+    public double readDocWeight(int docId) {
+        return 0;
     }
 }

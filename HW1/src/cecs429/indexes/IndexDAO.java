@@ -2,6 +2,7 @@ package cecs429.indexes;
 
 import org.mapdb.BTreeMap;
 
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -29,8 +30,6 @@ public interface IndexDAO {
     List<String> readVocabulary();
 
 
-    List<Long> readTermLocations();
-
     /**
      * Reads the raw tf(t,d) data from the persistent data store for a given term & docId
      *
@@ -40,14 +39,9 @@ public interface IndexDAO {
      */
     int readTermDocFrequency(String term, int docId);
 
-    /**
-     * reads only the set of all docId's in the given term's postings
-     *
-     * @param term
-     * @return
-     */
-    List<Integer> readDocIds(Index index, String term);
 
+    // for a given term, list of all the docIds and their termDocWeights
+    HashMap<Integer, Double> readTermData(String term);
 
     /**
      * reads the raw Ld data from docWeights.bin (or other implemented datastore) for a given docId
@@ -55,5 +49,6 @@ public interface IndexDAO {
      * @param docId
      * @return raw Ld data converted to Double
      */
-    long readDocWeight(int docId);
+    double readDocWeight(int docId);
+
 }

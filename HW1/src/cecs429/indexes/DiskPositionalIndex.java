@@ -160,16 +160,16 @@ public class DiskPositionalIndex implements Index {
     public HashMap<Integer, Integer> getPostingsWithoutPositions(String term) {
         HashMap<Integer, Integer> results = new HashMap<>();
 
-        // get the list of docIds for the term
-        List<Integer> docs = indexDao.readDocIds(mIndexInMemory, term);
+//        // get the list of docIds for the term
+//        List<Integer> docs = indexDao.readDocIds(mIndexInMemory, term);
 
-        // get the list of tf(t,d) values for each doc
-        for (Integer d : docs) {
-            Integer frequency = indexDao.readTermDocFrequency(term, d);
-            // add components into final hashmap
-            results.put(d, frequency);
-        }
-        // for a ranked retrieval, we only need the tf(t,d) values for all the documents containing the term
+//        // get the list of tf(t,d) values for each doc
+//        for (Integer d : docs) {
+//            Integer frequency = indexDao.readTermDocFrequency(term, d);
+//            // add components into final hashmap
+//            results.put(d, frequency);
+//        }
+//        // for a ranked retrieval, we only need the tf(t,d) values for all the documents containing the term
         return results;
     }
 
