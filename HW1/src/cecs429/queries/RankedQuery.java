@@ -55,8 +55,8 @@ public class RankedQuery implements QueryComponent {
                 // retrieve the necessary variables from the current posting
                 int docFrequency = postings.size(); // dft
                 double fraction = (double) mCorpusSize / docFrequency;
-                double queryTermWeight = Math.log(1 + fraction); // w(q,t)
-                double docTermWeight = currPosting.getmTermWeight();
+                double queryTermWeight = calculateTermWeight(docFrequency); // w(q,t)
+                double docTermWeight = currPosting.getTermWeight();
                 double increment = queryTermWeight * docTermWeight;
                 double currAcc = 0;
                 int currDoc = currPosting.getDocumentId();
@@ -111,4 +111,7 @@ public class RankedQuery implements QueryComponent {
         List<Posting> results = mRankedPostings.stream().toList();
         return results;
     }
-}
+
+
+
+

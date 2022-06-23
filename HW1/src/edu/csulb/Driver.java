@@ -86,6 +86,7 @@ public class Driver {
 			if (indexDao != null) {
 				hasDiskIndex = indexDao.hasExistingIndex();
 			}
+			weightingScheme = Default;
 		}
 
 		public static ActiveConfiguration getInstance() {
@@ -274,14 +275,14 @@ public class Driver {
 				break;
 			}
 			case "c": {
-				corpusPath += "test-activeCorpus-json";
+				corpusPath += "test-corpus-json";
 				path = Paths.get(corpusPath).toAbsolutePath();
 
 				ext = ".json";
 				break;
 			}
 			case "d": {
-				corpusPath += "test-activeCorpus-txt";
+				corpusPath += "test-corpus-txt";
 				path = Paths.get(corpusPath).toAbsolutePath();
 
 				ext = ".txt";
@@ -297,7 +298,7 @@ public class Driver {
 			}
 			default: {
 				System.out.println("Error: User input does not match any of of the available options. ");
-				break;
+				return selectCorpusMenu();
 			}
 		}
 
@@ -483,8 +484,8 @@ public class Driver {
 		Scanner in = new Scanner(System.in);
 
 		if (activeIndex != null && indexType == type) {
-			System.out.println("**** Warning **** An activeIndex of the type '" + type + "' already exists in memory for the current activeCorpus - Building a new activeIndex will overwrite any existing activeIndex in memory. ");
-			System.out.println("\n Would you like to continue building the new activeIndex ('y') or use the current activeIndex in memory ('n') ? ");
+			System.out.println("**** Warning **** An activeIndex of the type '" + type + "' already exists in memory for the current corpus - Building a new index will overwrite any existing index in memory. ");
+			System.out.println("\n Would you like to continue building the index in-memory ('y') or use the current activeIndex in memory ('n') ? ");
 
 			if (!Objects.equals(in.nextLine(), "n")) {
 				System.out.println("Ok - the current build process will be terminated and the existing activeIndex will be used instead. ");
@@ -527,7 +528,8 @@ public class Driver {
 				if (hasDiskIndex) {
 					System.out.println("There is already an existing activeIndex written to disk in the current activeCorpus directory. ");
 					System.out.println("  -- Would you like to overwrite the existing on-disk data while building the new activeIndex? \n ");
-					System.out.println("**** WARNING **** \n Choosing this option will require significantly more indexing time because a new in-memory activeIndex must be built from scratch and written to disk before continuing the build process \n ***************** ");
+					System.out.println("**** WARNING **** \n Choosing this option will require significantly more indexing time because a new in-memory activeIndex must be built from scratch and written to disk before continuing the build process \n ***************** \n ");
+
 					System.out.println("\n Please enter 'y' to overwrite the existing activeIndex or 'n' to continue building with on-disk data: ");
 					// check if the user wants to use the existing data or overwrite it
 					if (Objects.equals(in.nextLine(), "y")) {
@@ -537,18 +539,22 @@ public class Driver {
 							System.out.println("Overwrite confirmed - The current on-disk activeIndex will be wiped and overwritten during initialization of the new activeIndex ");
 							diskIndex.initializeInMemoryIndex();
 						}
+						else {
+							System.out.println("Overwrite canceled - Continuing the build process using the existing index data found on disk... \n ");
+							diskIndex.load();
+						}
 					}
 
 					else {
-						System.out.println("Ok - Building activeIndex from existing data on disk. ");
+						System.out.println("Ok - Continuing the build process using the existing index data found on disk... \n ");
 						diskIndex.load();
 					}
 				}
 
 				// if no on-disk activeIndex is found, initialize a new in memory and write it to disk
 				else {
-					System.out.println("No on-disk activeIndex was found in the current activeCorpus directory. \n " +
-							"Building activeIndex from a new in-memory activeIndex that will be built from scratch and written to disk in the current activeCorpus directory. ");
+					System.out.println("No exising index data was found in the current corpus directory. \n " +
+							"A new index will be built in memory and written to disk in the current corpus directory...\n");
 					diskIndex.initializeInMemoryIndex();
 				}
 				activeIndex = diskIndex;
@@ -556,7 +562,8 @@ public class Driver {
 			}
 
 			default: {
-				System.out.println("Error: Could not build an activeIndex of the type '" + type + "' because it has not been implemented yet. Please try again with a different activeIndex type. ");
+				System.out.println("Error: Could not build the index of type '" + type + "' because it has not been implemented yet. Please try again with a different index type. ");
+				activeIndex = selectIndexMenu();
 				break;
 			}
 		}

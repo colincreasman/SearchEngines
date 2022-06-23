@@ -13,7 +13,7 @@ import org.mapdb.DBMaker;
 import org.mapdb.Serializer;
 
 public class DiskIndexDAO implements IndexDAO {
-    private PositionalInvertedIndex mPosIndex;
+  //  private PositionalInvertedIndex mPosIndex;
     private static String mIndexPath;
     private static String mPostingsPath;
     private static String mDocWeightsPath;
@@ -51,9 +51,9 @@ public class DiskIndexDAO implements IndexDAO {
 
     @Override
     public List<Long> writeIndex(Index index, String corpusPath) {
-        Collections.sort(mPosIndex.getVocabulary());
+        Collections.sort(index.getVocabulary());
 
-        File indexDir = new File(corpusPath + "/index");
+        File indexDir = new File(mIndexPath);
         // make sure there is no current index folder in the given path before indexing
         if (indexDir.exists()) {
             // if there's already a folder, delete it and its contents
@@ -61,31 +61,33 @@ public class DiskIndexDAO implements IndexDAO {
         }
         // now that we know there's no current index dir in this path, make the directory and set up the individual file paths within it
         indexDir.mkdir();
-        mDbPath = indexDir + "/termsMap.db";
-        mPostingsPath = indexDir + "/postings.bin";
+
+        // try to make a new .bin file using the mPostingsPath set at construction
+        File postingsBin = new File(mPostingsPath);
+        // make sure there is no other postings.bin file already in index the directory before trying to write a new one
+        if (postingsBin.exists()) {
+            postingsBin.delete();
+        }
+
+        File docWeightsBin = new File(mDocWeightsPath);
+        // make sure there is no other docWeights.bin file already in index the directory before trying to write a new one
+        if (docWeightsBin.exists()) {
+            docWeightsBin.delete();
+        }
 
         // initialize necessary structs for the results list and the DB writers
         List<Long> results = new ArrayList<>();
-        DB termsDb = null;
-        BTreeMap<String, Long> termsMap = null;
 
         // try to initialize the db as a child file of the overall index directory
         try {
-            // if possible, create a B+ tree that mapes all the on-disk terms to their byte locations
-            termsDb = DBMaker.fileDB(mDbPath).make();
-            termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
+            // set up a  B+ tree that maps all the on-disk terms to their byte locations
+            DB termsDb = DBMaker.fileDB(mDbPath).make();
+            BTreeMap<String, Long> termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
                     .counterEnable()
                     .createOrOpen();
 
-            // try to make a new .bin file using the mPostingsPath set at construction
-            File postingsBin = new File(mPostingsPath);
-            // make sure there is no other postings.bin file already in index the directory before trying to write a new one
-            if (postingsBin.exists()) {
-                postingsBin.delete();
-            }
-            // now use it to create an output stream to allowing us to write to the new file
-            FileOutputStream fileStream = new FileOutputStream(postingsBin);
-            DataOutputStream outStream = new DataOutputStream(fileStream);
+            // setup output streams for postings.bin and docWeights.bin
+            FileOutputStream postingsStream = new FileOutputStream(postingsBin);DataOutputStream postingsOut = new DataOutputStream(postingsStream);
 
             // start a byte counter at 0 that will increment by 4 bytes everytime something new is written to the file
             // alternatively, we can get the byte location of each term by calling .size() on the output file for every new term - "returns the current number of bytes written to the output stream so far"
@@ -93,15 +95,14 @@ public class DiskIndexDAO implements IndexDAO {
             long bytesByCount = 0;
 
             for (String term : index.getVocabulary()) {
-
                 List<Posting> currPostings = index.getPostings(term);
                 int docFrequency = currPostings.size();
-                outStream.writeInt(docFrequency);
 
                 // we also need to write the current term and byte location to the RDB B+ tree by adding the vals to the map using .put()
                 termsMap.put(term, bytesByCount);
-
+                postingsOut.writeInt(docFrequency);
                 bytesByCount += 4; // whenever a 4-byte int is written to the file, increment the byteCounter by 4 to account for the 4 bytes used to write the integer
+
                 mByteLocations.add(bytesByCount);
 
                 // for the first of the current term's postings, we can take its docId as-is without using gaps
@@ -116,20 +117,20 @@ public class DiskIndexDAO implements IndexDAO {
                     // if this is not the first posting for a given term, the docId must be re-assigned using the gap between itself and the previous docId
                     if (i > 0) {
                         int oldId = currPostings.get(i - 1).getDocumentId();
-                        docId = docId - oldId;
+                        docId += oldId;
                     }
 
                     // write the current docId and tf(t,d) values to the file
-                    outStream.writeInt(docId);
+                    postingsOut.writeInt(docId);
                     bytesByCount += 4;
 
                     // TODO: get the w(d,t) value of the current term and doc by calling calculateTermWeight(termFrequency), then write it to disk right here (after writing the docId but before the tf(t,d)
-                    double termWeight = calculateTermWeight(termFrequency);
-                    outStream.writeDouble(termWeight);
+                    double termWeight = calculateTermDocWeight(termFrequency);
+                    postingsOut.writeDouble(termWeight);
                     // increment byte position by 8 to account for the 8 bytes used for termWeight
                     bytesByCount += 8;
 
-                    outStream.writeInt(termFrequency);
+                    postingsOut.writeInt(termFrequency);
                     bytesByCount += 4;
 
                     // setup the currPosition var that will be written to disk on for each term position
@@ -144,29 +145,26 @@ public class DiskIndexDAO implements IndexDAO {
                             currPosition = currPosition - oldPosition;
                         }
                         // write the updated position to the file and increment the byte counter
-                        outStream.writeInt(currPosition);
+                        postingsOut.writeInt(currPosition);
                         bytesByCount += 4;
                     }
                 }
             }
-        } catch (IOException ex) {
+            termsDb.close();
+        }
+        catch (IOException ex) {
             ex.printStackTrace();
         }
-        termsDb.close();
         return mByteLocations;
     }
 
     @Override
     public void writeTermLocation(String term, long bytePosition) {
-        // initialize necessary structs
-        DB termsDb = null;
-        BTreeMap<String, Long> termsMap = null;
-
         // try to initialize the db as a child file of the overall index directory
         try {
             // if possible, create a B+ tree that mapes all the on-disk terms to their byte locations
-            termsDb = DBMaker.fileDB(mDbPath).make();
-            termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
+            DB termsDb = DBMaker.fileDB(mDbPath).make();
+            BTreeMap<String, Long> termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
                     .counterEnable()
                     .createOrOpen();
 
@@ -181,50 +179,62 @@ public class DiskIndexDAO implements IndexDAO {
     }
 
     @Override
-    public void writeDocWeight(int docId, double weight) {
-        // initialize necessary structs
-        DB termsDb = null;
-        BTreeMap<Integer, Double> termsMap = null;
-
-        // try to initialize the db as a child file of the overall index directory
+    public void writeDocWeights(HashMap<Integer,Double> weightsMap) {
+        // try to initialize the docWeights file as a child file of the overall index directory
         try {
-            // if possible, create a B+ tree that mapes all the on-disk terms to their byte locations
-            termsDb = DBMaker.fileDB(mDocWeightsPath).make();
-            termsMap = termsDb.treeMap("map").keySerializer(Serializer.INTEGER).valueSerializer(Serializer.DOUBLE)
-                    .counterEnable()
-                    .createOrOpen();
+            File docWeightsBin = new File(mDocWeightsPath);
+            // make sure there is no other docWeights.bin file already in index the directory before trying to write a new one
+            if (docWeightsBin.exists()) {
+                docWeightsBin.delete();
+            }
 
-            // now we can write the term and its location to disk by simply calling put() on the map
-            termsMap.put(docId, weight);
+            FileOutputStream docWeightsStream = new FileOutputStream(postingsBin);
+            DataOutputStream docWeightsOut = new DataOutputStream(docWeightsStream);
 
-        } catch (Exception ex) {
+            int gapId = 0;
+            for (int currId : weightsMap.keySet()
+            ) {
+                gapId = gapId + (currId - gapId);
+                // only write AFTER updating the gap
+                docWeightsOut.writeInt(gapId);
+            }
+        }
+//                // for the first term only, write the gapId as-is without updating it with the current doc
+//                if (gapId == 0) {
+//                    docWeightsOut.writeInt(gapId);
+//                    gapId += currId; // ONLY DO THIS FOR THE FIRST TERM because its zero
+//                }
+//                // use the gapId to write the remaining docIds
+//                else {
+//                    // increment gapId by the difference between itself and the next docId
+//                    gapId = gapId + (currId - gapId);
+//                    // only write AFTER updating the gap
+//                    docWeightsOut.writeInt(currId)
+        catch (Exception ex) {
             ex.printStackTrace();
         }
-        termsDb.close();
     }
 
     @Override
     public HashMap<Integer, Double> readDocWeights() {
-
         HashMap<Integer, Double> results = new HashMap<>();
         double weight = 0.0;
-        // initialize necessary structs
-        DB termsDb = null;
-        BTreeMap<Integer, Double> termsMap = null;
-
         // try to initialize the db as a child file of the overall index directory
         try {
             // if possible, create a B+ tree that mapes all the on-disk terms to their byte locations
-            termsDb = DBMaker.fileDB(mDocWeightsPath).make();
-            termsMap = termsDb.treeMap("map").keySerializer(Serializer.INTEGER).valueSerializer(Serializer.DOUBLE)
+            // if possible, create a B+ tree that maps all the on-disk terms to their byte locations
+            DB weightsDB = DBMaker.fileDB().make();
+            BTreeMap<Integer, Double> weightsMap = weightsDB.treeMap("map").keySerializer(Serializer.INTEGER).valueSerializer(Serializer.DOUBLE)
                     .counterEnable()
                     .open();
 
-            for (int id : termsMap.keySet()) {
-                results.put(id, termsMap.get(id));
+            for (int id : weightsMap.keySet()) {
+                results.put(id, weightsMap.get(id));
             }
-            termsDb.close();
-        } catch (Exception ex) {
+
+            weightsDB.close();
+        }
+        catch (Exception ex) {
             System.out.println("Failed to read the doc weights from disk. # '");
             ex.printStackTrace();
         }
@@ -233,15 +243,11 @@ public class DiskIndexDAO implements IndexDAO {
 
     public HashMap<String, Long> readTermLocations() {
         HashMap<String, Long> results = new HashMap<>();
-        // initialize necessary structs
-        DB termsDb = null;
-        BTreeMap<String, Long> termsMap = null;
-
         // try to initialize the db as a child file of the overall index directory
         try {
-            // if possible, create a B+ tree that mapes all the on-disk terms to their byte locations
-            termsDb = DBMaker.fileDB(mDbPath).make();
-            termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
+            // if possible, create a B+ tree that maps all the on-disk terms to their byte locations
+            DB termsDb = DBMaker.fileDB(mDbPath).make();
+            BTreeMap<String, Long> termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
                     .counterEnable()
                     .createOrOpen();
 
@@ -269,23 +275,19 @@ public class DiskIndexDAO implements IndexDAO {
             // if possible open the existing B+ tree that maps all the currently written on-disk terms to their byte locations
             termsDb = DBMaker.fileDB(mDbPath).make();
             termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG).open(); // since this is a read-only function, we need to open the map, not openOrClose
-        } catch (Exception ex) {
-            System.out.println("Error reading from on disk index: No on-disk B+ tree was found in the provided index directory");
-            return null;
-        }
-        try {
+
             // extract the list of all terms from the map B+ tree as an in-memory List iterator
             Iterator<String> termsOnDisk = termsMap.keyIterator();
-
             // now we can add all the on-disk terms to an in-memory return value by extracting terms from the iterator until the stream ends
             while (termsOnDisk.hasNext()) {
                 results.add(termsOnDisk.next());
             }
-        } catch (Exception ex) {
-            ex.printStackTrace();
+            termsDb.close();
         }
-
-        termsDb.close();
+        catch (Exception ex) {
+            System.out.println("Error reading from on disk index: No on-disk B+ tree was found in the provided index directory");
+            return null;
+        }
         return results;
     }
 
@@ -313,11 +315,12 @@ public class DiskIndexDAO implements IndexDAO {
 
             // now we can use that tf(d) value find the rest of the term's data
             for (int i = 0; i < totalDocs; i++) {
+                // for the first value only, read the doc ID as-is with no gaps
                 if (i == 0) {
-                    // for the first value only, read the doc ID as-is with no gaps
                     currentDocId = reader.readInt();
-                } else {
-                    // read the next docId and use it to increment the gap betweem the previous docId
+                }
+                // otherwise, read the next docId and use it to increment the gap between itself and the previous docId
+                else {
                     currentDocId += reader.readInt();
                 }
 
@@ -330,22 +333,24 @@ public class DiskIndexDAO implements IndexDAO {
                 // next jump ahead by the 4 * (number of terms) to get to the next docId
                 reader.skipBytes(4 * currTermFrequency);
 
-                Posting currPosting = new Posting(currentDocId, currTermFrequency);
+                Posting currPosting = new Posting(currentDocId, currentWeight, currTermFrequency);
                 results.add(currPosting);
             }
-        } catch (IOException ex) {
+        }
+        catch (IOException ex) {
             ex.printStackTrace();
         }
         return results;
     }
 
     // calculates the weight of a term in a given doc using the formula w(d,t) = 1 + ln(tf,td)
-    private double calculateTermWeight(int termFrequency) {
+    private double calculateTermDocWeight(int termDocFrequency) {
         double weight = 0.0;
 
         switch (weightingScheme) {
             // the default scheme uses the formula w(d,t) = 1 + ln(tf,td)
             case Default: {
+                double termFrequency = (double) termDocFrequency;
                 weight = 1 + Math.log(termFrequency);
                 break;
             }
@@ -367,6 +372,4 @@ public class DiskIndexDAO implements IndexDAO {
         }
         return weight;
     }
-
-
 }

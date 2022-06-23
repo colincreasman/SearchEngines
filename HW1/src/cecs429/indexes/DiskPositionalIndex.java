@@ -87,7 +87,7 @@ public class DiskPositionalIndex implements Index {
                 termPosition += 1;
             }
             // after processing and counting all of the tokens in the current doc, we can now use the final hashmap of tf(t,d) vals to each of its terms to find the aggregate normalized weight
-            double docWeight = getNormalizedWeight(termFrequenciesPerDoc);
+            double docWeight = calculateDocWeight(termFrequenciesPerDoc);
             // now add this doc's docId and Ld value to the overall map of docWeights per doc
             mDocWeights.put(d.getId(), docWeight);
             indexDao.writeDocWeight(d.getId(), docWeight);
@@ -116,6 +116,9 @@ public class DiskPositionalIndex implements Index {
             //mDocWeights = indexDao.readDocWeights();
             //       mTermLocations = indexDao.readTermLocations()}
 
+            //TODO: load the byte locations from disk
+
+
         } catch (NullPointerException ex) {
             System.out.println("Failed to load vocabulary index because the DiskIndexDAO could not find any B+ tree files in the given corpus directory. ");
         }
@@ -123,7 +126,7 @@ public class DiskPositionalIndex implements Index {
 
 
     // uses the hashmap of terms and their tf(t,d) values to calculate the Euclidean Normalized document weights of of the given doc and return them all as a list of Doubles
-    public double getNormalizedWeight(HashMap<String, Integer> frequencies) {
+    public double calculateDocWeight(HashMap<String, Integer> frequencies) {
         double finalWeight;
         double weightSums = 0;
 

@@ -116,15 +116,15 @@ public class Posting implements Comparator<Posting> {
 			return mDocumentId + ":" +mTermPositions.toString();
 	}
 
-	public int getmPositionsCount() {
+	public int getPositionsCount() {
 		return mPositionsCount;
 	}
 
-	public double getmTermWeight() {
+	public double getTermWeight() {
 		return mTermWeight;
 	}
 
-	public double getmDocWeight() {
+	public double getDocWeight() {
 		return mDocWeight;
 	}
 
