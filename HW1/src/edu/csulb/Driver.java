@@ -75,6 +75,9 @@ public class Driver {
 		private static ActiveConfiguration instance;
 
 		private ActiveConfiguration() {
+			if (indexDao != null) {
+				hasDiskIndex = indexDao.hasExistingIndex();
+			}
 		}
 
 		public static ActiveConfiguration getInstance() {
@@ -181,7 +184,7 @@ public class Driver {
 			switch (choice) {
 				case "a": {
 					ActiveConfiguration.runMode = Build;
-					ActiveConfiguration.corpus = selectCorpusMenu();
+					ActiveConfiguration.setCorpus(selectCorpusMenu());
 					// once the corpus is selected, get the user's index selection over the chosen corpus
 					ActiveConfiguration.index = selectIndexMenu(ActiveConfiguration.corpus);
 					ActiveConfiguration.queryMode = selectQueryModeMenu();
@@ -366,7 +369,6 @@ public class Driver {
 				System.out.println("Error: User input does not match any of of the available options. " + ex + "\n Please try again with one of the options listed. ");
 				return null;
 			}
-
 		}
 	}
 
@@ -450,30 +452,6 @@ public class Driver {
 			}
 		}
 
-//	private static DiskPositionalIndex buildDiskIndex(DocumentCorpus corpus) {
-//
-//			// before building a new disk index, check if one already exists in the corpus directory
-//			String indexDir = corpus.getPath();
-//			DiskIndexDAO dao = new DiskIndexDAO(indexDir);
-//			DiskPositionalIndex diskIndex = new DiskPositionalIndex(corpus);
-//
-//			// check if current on-disk data exists to decide to initialize or load
-//			if (dao.hasExistingIndex()) {
-//				// if on-disk data exists, laod the vocabulary into this object
-//				diskIndex.loadVocabulary(corpus);
-//			}
-//			// if no on-disk data exists, we need to initialize the in memory index and write it to disk
-//			else {
-//				// everything is done inside the single method, so we set the timers out here before and after calling it
-//				long start = System.currentTimeMillis();
-//				diskIndex.initializeInMemoryIndex(corpus);
-//				long stop = System.currentTimeMillis();
-//				double elapsedSeconds = (stop - start) / 1000.0;
-//				System.out.println("Writing index to disk completed in " + elapsedSeconds + " seconds.");
-//			}
-//			return diskIndex;
-//		}
-
 	// builds an index (any implementation of the Index interface) using a Document Corpus
 	private static Index buildIndex(IndexType type) {
 		Scanner in = new Scanner(System.in);
@@ -487,7 +465,7 @@ public class Driver {
 			}
 
 			else {
-				System.out.println("Ok - the existing index will be wiped from memory while the new index is built. \n (Note that any on-disk data for the existing index will still be preserved on disk regardless.");
+				System.out.println("Ok - the existing index will be wiped from memory while the new index is built. \n (Note that any on-disk data for the existing index will still be preserved.");
 			}
 		}
 
@@ -518,10 +496,31 @@ public class Driver {
 				DiskPositionalIndex diskIndex = new DiskPositionalIndex(ActiveConfiguration.corpus);
 
 				// Instead, just call initialize() which does the equivalent work but by reading the on-disk data instead
-				diskIndex.initializeInMemoryIndex(ActiveConfiguration.corpus);
+				// but first check if the index is already written to disk for this corpus
+				if (ActiveConfiguration.hasDiskIndex) {
+					System.out.println("An index has already been written to disk in the curren corpus directory. Would you to overwrite the existing on-disk data when building the new index? \n (Note: This will require significantly more indexing time to initialize a new in-memory index in memory and write it to disk.) ");
+
+					// check if the user wants to use the existing data or overwrite it
+					if (Objects.equals(in.nextLine(), "y")) {
+						System.out.println("Ok - A new in-memory index will be used to build the index and overwrite the existing files on disk. ");
+						diskIndex.initializeInMemoryIndex(ActiveConfiguration.corpus);
+					}
+
+					else {
+						System.out.println("Ok - Building the index by loading existing data from the disk. ");
+						diskIndex.loadIndexOnDisk(ActiveConfiguration.corpus);
+					}
+				}
+
+				// if no on-disk index is found, initialize a new in memory and write it to disk
+				else {
+					System.out.println("No on-disk index was found in the current corpus directory. Initializing a new in-memory index and writing to disk. ");
+					diskIndex.initializeInMemoryIndex(ActiveConfiguration.corpus);
+				}
 				activeIndex = diskIndex;
 				break;
 			}
+
 			default: {
 				System.out.println("Could not instantiate an index of the type '" + type + "' because it has not been implemented yet. Please try again with one of the options listed. ");
 				break;
@@ -564,6 +563,7 @@ public class Driver {
 				}
 			}
 		}
+
 		long stop = System.currentTimeMillis();
 		double elapsedSeconds = (stop - start) / 1000.0;
 		System.out.println("Indexing completed in approximately " + elapsedSeconds + " seconds.");

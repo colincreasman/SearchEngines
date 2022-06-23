@@ -13,7 +13,7 @@ public class DiskPositionalIndex implements Index {
     private static Index mIndex;
     private static IndexDAO mIndexDAO;
     private static String mPath;
-    private static HashMap<Integer, Long> mDocWeights;
+    private static HashMap<Integer, Double> mDocWeights;
     private static List<Long> mByteLocations;
     private static DocumentCorpus mCorpus;
 
@@ -22,7 +22,6 @@ public class DiskPositionalIndex implements Index {
         mCorpus = corpus;
         mPath = corpus.getPath();
         mIndexDAO = new DiskIndexDAO(mPath);
-
     }
 
     // builds an in-memory positional inverted index and calculates tf(t,d) data while processing the tokens of each doc
@@ -87,7 +86,7 @@ public class DiskPositionalIndex implements Index {
                 position += 1;
             }
             // after processing and counting all of the tokens in the current doc, we can now use the final hashmap of tf(t,d) vals to each of its terms to find the aggregate normalized weight
-            long docWeight = getNormalizedWeight(termFrequenciesPerDoc);
+            double docWeight = getNormalizedWeight(termFrequenciesPerDoc);
             // now add this doc's docId and Ld value to the overall map of docWeights per doc
             mDocWeights.put(d.getId(), docWeight);
         }
@@ -100,8 +99,8 @@ public class DiskPositionalIndex implements Index {
         mByteLocations = mIndexDAO.writeIndex(mIndex, mPath);
     }
 
-    // builds the index's vocabulary by reading its terms from the existing on-disk index data
-    public void loadVocabulary(DocumentCorpus corpus) {
+    // gets the index's vocabulary, term locations, and doc weights by reading them from the existing on-disk index data
+    public void loadIndexOnDisk(DocumentCorpus corpus) {
         String indexDir = corpus + "/index";
         mVocabulary = new ArrayList<>();
         List<String> unsorted = mIndexDAO.readVocabulary(indexDir);
@@ -120,20 +119,21 @@ public class DiskPositionalIndex implements Index {
 
 
     // uses the hashmap of terms and their tf(t,d) values to calculate the Euclidean Normalized document weights of of the given doc and return them all as a list of Doubles
-    public long getNormalizedWeight(HashMap<String, Integer> frequencies) {
-        long finalWeight;
-        long weightSums = 0;
+    public double getNormalizedWeight(HashMap<String, Integer> frequencies) {
+        double finalWeight;
+        double weightSums = 0;
 
         for (String term : frequencies.keySet()) {
             // cast to string then convert back to double to prevent truncating
-            String ogLog = String.valueOf(Math.log(frequencies.get(term)));
-            long dubLog = Long.parseLong(ogLog);
-            long squareLog = (long) Math.pow(dubLog, 2.0);
-            long basicWeight = 1 + squareLog; //w(t,d) = 1 + ln(tf(t,d)
+//            String ogLog = String.valueOf(Math.log(frequencies.get(term)));
+//            long dubLog = Long.parseLong(ogLog);
+            double dubLog = Math.log(frequencies.get(term));
+            dubLog = Math.pow(dubLog, 2.0);
+            Double basicWeight = 1 + dubLog; //w(t,d) = 1 + ln(tf(t,d)
             weightSums += basicWeight;
         }
 
-        finalWeight = (long) Math.sqrt(weightSums);
+        finalWeight = Math.sqrt(weightSums);
         return finalWeight;
     }
 
