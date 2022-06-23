@@ -6,6 +6,12 @@ import cecs429.text.AdvancedTokenProcessor;
 import cecs429.text.EnglishTokenStream;
 import static edu.csulb.Driver.ActiveConfiguration.*;
 import org.mapdb.BTreeMap;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.mapdb.Serializer;
+
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.util.*;
 
 public class DiskPositionalIndex implements Index {
@@ -13,7 +19,9 @@ public class DiskPositionalIndex implements Index {
     private static Index mIndexInMemory;
     private static String mPath;
     private static HashMap<Integer, Double> mDocWeights;
-    private static List<Long> mTermLocations;
+    private static List<Long> mByteLocations;
+    private static HashMap<String, Long> mTermLocations;
+    private static HashMap<String, List<Posting>> mBasicTermPostings;
 
     public DiskPositionalIndex(DocumentCorpus corpus) {
         mPath = corpus.getPath();
@@ -21,9 +29,7 @@ public class DiskPositionalIndex implements Index {
         mVocabulary = new ArrayList<>();
         mIndexInMemory = new PositionalInvertedIndex(mVocabulary);
         mDocWeights = new HashMap<>();
-        mTermLocations = new ArrayList<>();
-
-
+        mTermLocations = new HashMap<>();
     }
 
     // builds an in-memory positional inverted index and calculates tf(t,d) data while processing the tokens of each doc
@@ -84,6 +90,7 @@ public class DiskPositionalIndex implements Index {
             double docWeight = getNormalizedWeight(termFrequenciesPerDoc);
             // now add this doc's docId and Ld value to the overall map of docWeights per doc
             mDocWeights.put(d.getId(), docWeight);
+            indexDao.writeDocWeight(d.getId(), docWeight);
         }
 
         long stop = System.currentTimeMillis();
@@ -91,20 +98,25 @@ public class DiskPositionalIndex implements Index {
         System.out.println("Finished indexing the in-memory index in approximately " + elapsedSeconds + " seconds.");
 
         // now write that index to disk and save the returned byte positions into the static object field for them
-        mTermLocations = indexDao.writeIndex(mIndexInMemory, mPath);
+        mByteLocations = indexDao.writeIndex(mIndexInMemory, mPath);
+        Collections.sort(mByteLocations);
+        Collections.sort(mIndexInMemory.getVocabulary());
+        mVocabulary = mIndexInMemory.getVocabulary();
     }
 
     // gets the index's vocabulary, term locations, and doc weights by reading them from the existing on-disk index data
     public void load() {
         List<String> unsorted = indexDao.readVocabulary();
 
+        //  HashMap<Integer, Double> docWeights = new HashMap<>();
         try {
             mVocabulary.addAll(unsorted);
             // sort
             Collections.sort(mVocabulary);
-        }
+            //mDocWeights = indexDao.readDocWeights();
+            //       mTermLocations = indexDao.readTermLocations()}
 
-        catch (NullPointerException ex) {
+        } catch (NullPointerException ex) {
             System.out.println("Failed to load vocabulary index because the DiskIndexDAO could not find any B+ tree files in the given corpus directory. ");
         }
     }
@@ -136,46 +148,36 @@ public class DiskPositionalIndex implements Index {
      */
     @Override
     public List<Posting> getPostings(String term) {
-        if (mTermLocations == null) {
-            System.out.println("Cannot retrieve postings because no on-disk index data was found. ");
-            return null;
+        List<Posting> results = new ArrayList<>();
+
+        if (mVocabulary == null) {
+            System.out.println("Could not retrieve postings because  no vocabulary data has been loaded for the current index. \n Loading vocabulary from disk now...");
+            load();
         }
-        // if the list of byte positions is non null, we know there must be on disk data
-        else {
-           // w(q,t) = ln(1 + N/df(t)
-            //
-            // read the df(t) and tf(t,d) values of each term
 
+        long byteLocation = mByteLocations.get(mVocabulary.indexOf(term));
 
-            // use each byte position to
+        return indexDao.readPostings(byteLocation);
 
-        }
-        return null;
     }
 
     // queries the persistent RDB to retrieve only the docId's from given term's postings as well as each doc's corresponding tf(t,d) value
     // returns results in a HashMap linking each docId to its tf(t,d)
     //TODO: set up RDB reading here
     @Override
-    public HashMap<Integer, Integer> getPostingsWithoutPositions(String term) {
-        HashMap<Integer, Integer> results = new HashMap<>();
+    public List<Posting> getPostingsWithoutPositions(String term) {
+        List<Posting> results = new ArrayList<>();
 
-//        // get the list of docIds for the term
-//        List<Integer> docs = indexDao.readDocIds(mIndexInMemory, term);
+        if (mVocabulary == null) {
+            System.out.println("Could not retrieve postings because  no vocabulary data has been loaded for the current index. \n Loading vocabulary from disk now...");
+            load();
+        }
 
-//        // get the list of tf(t,d) values for each doc
-//        for (Integer d : docs) {
-//            Integer frequency = indexDao.readTermDocFrequency(term, d);
-//            // add components into final hashmap
-//            results.put(d, frequency);
-//        }
-//        // for a ranked retrieval, we only need the tf(t,d) values for all the documents containing the term
-        return results;
+        long byteLocation = mByteLocations.get(mVocabulary.indexOf(term));
+
+        return indexDao.readPostings(byteLocation);
     }
 
-    public List<Posting> getPostings(Index index, String term) {
-        return null;
-    }
 
     /**
      * A (sorted) list of all terms in the index vocabulary.

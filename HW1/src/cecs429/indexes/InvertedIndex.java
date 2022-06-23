@@ -72,7 +72,7 @@ public class InvertedIndex implements Index {
      * @return
      */
     @Override
-    public HashMap<Integer, Integer> getPostingsWithoutPositions(String term) {
+    public List<Posting> getPostingsWithoutPositions(String term) {
         return null;
     }
 

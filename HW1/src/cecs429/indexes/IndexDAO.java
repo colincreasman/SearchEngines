@@ -23,32 +23,21 @@ public interface IndexDAO {
      */
     List<Long> writeIndex(Index index, String datastore);
 
+    void writeTermLocation(String term, long bytePosition);
 
-    void writeTermLocations(String term, long location);
+    void writeDocWeight(int docId, double weight);
 
+    HashMap<Integer, Double> readDocWeights();
 
     List<String> readVocabulary();
 
 
-    /**
-     * Reads the raw tf(t,d) data from the persistent data store for a given term & docId
-     *
-     * @param term
-     * @param docId
-     * @return the converted tf(t,d) data as a list of doubles
-     */
-    int readTermDocFrequency(String term, int docId);
 
+    HashMap<String, Long> readTermLocations();
 
-    // for a given term, list of all the docIds and their termDocWeights
-    HashMap<Integer, Double> readTermData(String term);
-
-    /**
-     * reads the raw Ld data from docWeights.bin (or other implemented datastore) for a given docId
-     *
-     * @param docId
-     * @return raw Ld data converted to Double
-     */
-    double readDocWeight(int docId);
-
+    // reads select postings data from the disk to return a list of postings,
+    // each constructed with vals for its docId and docWeights
+    // all other postings data will be handled in the getPostings() method calling this one
+    // initialize necessary vars for results and structs to read from the termsDB
+    List<Posting> readPostings(long byteLocation);
 }

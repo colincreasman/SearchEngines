@@ -156,37 +156,8 @@ public class DiskIndexDAO implements IndexDAO {
         return mByteLocations;
     }
 
-    // calculates the weight of a term in a given doc using the formula w(d,t) = 1 + ln(tf,td)
-    private double calculateTermWeight(int termFrequency) {
-        double weight = 0.0;
-
-        switch (weightingScheme) {
-            // the default scheme uses the formula w(d,t) = 1 + ln(tf,td)
-            case Default: {
-                weight = 1 + Math.log(termFrequency);
-                break;
-            }
-
-            // TODO: implement the rest of these!
-            case TF_IDF: {
-                break;
-            }
-            case Okapi: {
-
-            }
-            case Wacky: {
-                break;
-            }
-            default: {
-                System.out.println("Error: Selected weighting scheme has not been implemented yet");
-                break;
-            }
-        }
-        return weight;
-    }
-
     @Override
-    public void writeTermLocations(String term, long bytePosition) {
+    public void writeTermLocation(String term, long bytePosition) {
         // initialize necessary structs
         DB termsDb = null;
         BTreeMap<String, Long> termsMap = null;
@@ -207,6 +178,83 @@ public class DiskIndexDAO implements IndexDAO {
             ex.printStackTrace();
         }
         termsDb.close();
+    }
+
+    @Override
+    public void writeDocWeight(int docId, double weight) {
+        // initialize necessary structs
+        DB termsDb = null;
+        BTreeMap<Integer, Double> termsMap = null;
+
+        // try to initialize the db as a child file of the overall index directory
+        try {
+            // if possible, create a B+ tree that mapes all the on-disk terms to their byte locations
+            termsDb = DBMaker.fileDB(mDocWeightsPath).make();
+            termsMap = termsDb.treeMap("map").keySerializer(Serializer.INTEGER).valueSerializer(Serializer.DOUBLE)
+                    .counterEnable()
+                    .createOrOpen();
+
+            // now we can write the term and its location to disk by simply calling put() on the map
+            termsMap.put(docId, weight);
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        termsDb.close();
+    }
+
+    @Override
+    public HashMap<Integer, Double> readDocWeights() {
+
+        HashMap<Integer, Double> results = new HashMap<>();
+        double weight = 0.0;
+        // initialize necessary structs
+        DB termsDb = null;
+        BTreeMap<Integer, Double> termsMap = null;
+
+        // try to initialize the db as a child file of the overall index directory
+        try {
+            // if possible, create a B+ tree that mapes all the on-disk terms to their byte locations
+            termsDb = DBMaker.fileDB(mDocWeightsPath).make();
+            termsMap = termsDb.treeMap("map").keySerializer(Serializer.INTEGER).valueSerializer(Serializer.DOUBLE)
+                    .counterEnable()
+                    .open();
+
+            for (int id : termsMap.keySet()) {
+                results.put(id, termsMap.get(id));
+            }
+            termsDb.close();
+        } catch (Exception ex) {
+            System.out.println("Failed to read the doc weights from disk. # '");
+            ex.printStackTrace();
+        }
+        return results;
+    }
+
+    public HashMap<String, Long> readTermLocations() {
+        HashMap<String, Long> results = new HashMap<>();
+        // initialize necessary structs
+        DB termsDb = null;
+        BTreeMap<String, Long> termsMap = null;
+
+        // try to initialize the db as a child file of the overall index directory
+        try {
+            // if possible, create a B+ tree that mapes all the on-disk terms to their byte locations
+            termsDb = DBMaker.fileDB(mDbPath).make();
+            termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
+                    .counterEnable()
+                    .createOrOpen();
+
+            // now we can write the term and its location to disk by simply calling put() on the map
+            for (String term : termsMap.keySet()) {
+                results.put(term, termsMap.get(term));
+            }
+            termsDb.close();
+        }
+        catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return results;
     }
 
     @Override
@@ -241,98 +289,84 @@ public class DiskIndexDAO implements IndexDAO {
         return results;
     }
 
-
-    /**
-     * Reads the raw tf(t,d) data from the persistent data store for a given term & docId
-     *
-     * @param term
-     * @param docId
-     * @return the converted tf(t,d) data as a list of doubles
-     */
+    // reads select postings data from the disk to return a list of postings,
+    // each constructed with vals for its docId and docWeights
+    // all other postings data will be handled in the getPostings() method calling this one
+    // initialize necessary vars for results and structs to read from the termsDB
     @Override
-    public int readTermDocFrequency(String term, int docId) {
-        return 0;
-    }
-
-    // for a given term, list of all the docIds and their termDocWeights
-    @Override
-    public HashMap<Integer, Double> readTermData(String term) {
-        // initialize necessary vars for results and structs to read from the termsDB
-        HashMap<Integer, Double> results = new HashMap<>();
+    public List<Posting> readPostings(long byteLocation) {
         int termDocFrequency = 0;
         double termDocWeight = 0.0;
-        long byteLocation = 0;
-        DB termsDb = null;
-        BTreeMap<String, Long> termsMap = null;
+        List<Posting> results = new ArrayList<>();
 
-        // try to initialize the db as a child file of the overall index directory
-        try {
-            // if possible, create a B+ tree that maps all the on-disk terms to their byte locations
-            termsDb = DBMaker.fileDB(mDbPath).make();
-            termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
-                    .counterEnable()
-                    .createOrOpen();
+        try (RandomAccessFile reader = new RandomAccessFile(mPostingsPath, "r")) {
+            // start by seeking to the byte location of the term - this is where all of its postings data begins
+            // now we can easily find any other postings data we need by incrementing the necessary amount of bytes from that initial position
+            reader.seek(byteLocation);
 
-            //  after successfully loading the on-disk terms map, we can quickly get the byte position of the given term by simply calling .get() on the termsMap
-            byteLocation = termsMap.get(term);
+            // first get tf(d) (the amount of docs the term occurs in) which should be at the exact byte indicated by the termLocation
+            int totalDocs = reader.readInt();
 
-            // now that we know the byte location for the term, try to open a fileReader on the postings.bin file
-            try (RandomAccessFile reader = new RandomAccessFile(mPostingsPath, "r")) {
-                // start by seeking to the byte location of the term - this is where all of its postings data begins
-                // now we can easily find any other postings data we need by incrementing the necessary amount of bytes from that intial position
-                reader.seek(byteLocation);
+            // before iterating through all the term's docs, initialize the first docId to 0
+            // this allows it to accurately represent every subsequent docId by continually incrementing with the gap size as we iterate
+            int currentDocId = 0;
 
-                // first get tf(d) (the amount of docs the term occurs in) which should be at the exact byte indicated by the termLocation
-                int totalDocs = reader.readInt();
-
-                // before iterating through all the term's docs, initialize the first docId to 0
-                // this allows it to accurately represent every subsequent docId by continually incrementing with the gap size as we iterate
-                int currentDocId = 0;
-
-                // now we can use that tf(d) value find the rest of the term's data
-                for (int i = 0; i < totalDocs; i++) {
-                    if (i == 0) {
-                        // for the first value only, read the doc ID as-is with no gaps
-                        currentDocId = reader.readInt();
-                    }
-
+            // now we can use that tf(d) value find the rest of the term's data
+            for (int i = 0; i < totalDocs; i++) {
+                if (i == 0) {
+                    // for the first value only, read the doc ID as-is with no gaps
+                    currentDocId = reader.readInt();
+                } else {
                     // read the next docId and use it to increment the gap betweem the previous docId
                     currentDocId += reader.readInt();
-
-                    // read the next term weight directly from the current reader position (they are not written as gaps)
-                    double currentWeight = reader.readDouble();
-
-                    // add the current docId and weight to the results before jumping to the next posting
-                    results.put(currentDocId, currentWeight);
-
-                    // increment the counter by 8 to account for the 8bytes read for the weight
-                    reader.skipBytes(4);
-
-                    // increment the gap counter for docId by 4 to account for the 4 bytes read for the tf(t,d)
-                    int totalPositions = reader.readInt();
-
-                    // next jump ahead by the 4 * (number of terms) to get to the next docId
-                    reader.skipBytes(4 * totalPositions);
                 }
-            } catch (IOException ex) {
-                ex.printStackTrace();
+
+                // read the next term weight directly from the current reader position (they are not written as gaps)
+                double currentWeight = reader.readDouble();
+
+                // increment the gap counter for docId by 4 to account for the 4 bytes read for the tf(t,d)
+                int currTermFrequency = reader.readInt();
+
+                // next jump ahead by the 4 * (number of terms) to get to the next docId
+                reader.skipBytes(4 * currTermFrequency);
+
+                Posting currPosting = new Posting(currentDocId, currTermFrequency);
+                results.add(currPosting);
             }
-        } catch (Exception ex) {
+        } catch (IOException ex) {
             ex.printStackTrace();
         }
-
-        termsDb.close();
         return results;
     }
 
-    /**
-     * reads the raw Ld data from docWeights.bin (or other implemented datastore) for a given docId
-     *
-     * @param docId
-     * @return raw Ld data converted to Double
-     */
-    @Override
-    public double readDocWeight(int docId) {
-        return 0;
+    // calculates the weight of a term in a given doc using the formula w(d,t) = 1 + ln(tf,td)
+    private double calculateTermWeight(int termFrequency) {
+        double weight = 0.0;
+
+        switch (weightingScheme) {
+            // the default scheme uses the formula w(d,t) = 1 + ln(tf,td)
+            case Default: {
+                weight = 1 + Math.log(termFrequency);
+                break;
+            }
+
+            // TODO: implement the rest of these!
+            case TF_IDF: {
+                break;
+            }
+            case Okapi: {
+
+            }
+            case Wacky: {
+                break;
+            }
+            default: {
+                System.out.println("Error: Selected weighting scheme has not been implemented yet");
+                break;
+            }
+        }
+        return weight;
     }
+
+
 }

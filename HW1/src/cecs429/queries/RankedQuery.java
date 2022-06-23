@@ -6,21 +6,22 @@ import cecs429.indexes.Posting;
 import cecs429.text.TokenProcessor;
 import static edu.csulb.Driver.ActiveConfiguration.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 public class RankedQuery implements QueryComponent {
+    private final int K_TERMS = 10;
     private List<String> mTerms;
     private List<String> mProcessedTerms;
-    private HashMap<String,List<Double>> mAccumulators;
-    private int mCorpusSize;
+    private HashMap<Integer, Double> mDocWeights;
+    private PriorityQueue<Posting> mRankedPostings;
+    private HashMap<Integer, Double> mRankMap;
 
-    public RankedQuery(List<String> terms, int corpusSize) {
+    private int mCorpusSize = activeCorpus.getCorpusSize();
+
+    public RankedQuery(List<String> terms) {
         mTerms = terms;
         mProcessedTerms = new ArrayList<>();
-        mAccumulators = new HashMap<>();
-        mCorpusSize = corpusSize;
+        // mRankedPostings = new HashMap<>();
     }
 
     /**
@@ -31,24 +32,83 @@ public class RankedQuery implements QueryComponent {
      */
     @Override
     public List<Posting> getPostings(TokenProcessor processor, Index index) {
-        // loop through each term in the query (mTerms)
+
+        Comparator<Posting> compareByAccumulator = Comparator.comparingInt(Posting::getDocumentId);
+        //  Comparator<Posting> comparByDocId = Comparator.comparingDouble(Posting::getAccumulator);
+
+        // initialize the queue to sort by accumulators
+        mRankedPostings = new PriorityQueue<>(compareByAccumulator);
+        mRankMap = new HashMap<>();
+
+        // process query terms with the passed in processor before ranking
         for (String term : mTerms) {
-            // retrieve tf(t,d) and wqt from postings.bin
-            HashMap<Integer, Double> termData = indexDao.
-
-            // now go through the list each docId and tf(t,d) in the current term's postings using getPostingsWithoutPositions()
-            // initialize the accumulator to some value before looping
-            // retrieve wdt from postings.bin
-
-
+            mProcessedTerms.addAll(processor.processToken(term));
         }
-        return null;
-    }
 
-    // calculates the document-term weight [W(d,t)] and query-term weights [W(q,t)] of the provided term
-    // uses the product of both weights to return a value that can be used to increment the accumulator for this document
-    public double getAccumulatorIncrement(Document doc, String term) {
+        // loop through each processed term in the query (mTerms)
+        for (String term : mProcessedTerms) {
 
-        return 0.0;
+            List<Posting> postings = index.getPostingsWithoutPositions(term);
+            Posting currPosting = postings.get(0);
+
+            for (int i = 0; i < postings.size(); i++) {
+                // retrieve the necessary variables from the current posting
+                int docFrequency = postings.size(); // dft
+                double fraction = (double) mCorpusSize / docFrequency;
+                double queryTermWeight = Math.log(1 + fraction); // w(q,t)
+                double docTermWeight = currPosting.getmTermWeight();
+                double increment = queryTermWeight * docTermWeight;
+                double currAcc = 0;
+                int currDoc = currPosting.getDocumentId();
+
+                if (mRankMap.isEmpty()) {
+                    currPosting.increaseAccumulator(increment);
+                    mRankMap.put(currDoc, currPosting.getAccumulator());
+                    //       mRankedPostings.add(currPosting);
+                }
+
+                // check if the current head (should have the max docId at this time)
+                else {
+                    // try to update the current acc in the map
+                    try {
+                        double newAcc = mRankMap.get(currDoc) + increment;
+                        mRankMap.replace(currDoc, newAcc);
+                        // if the current docId has already been added, we remove it from the accumulators queue and replace it with the updated value
+                        // increment the posting's accumulator before adding it back it
+                        //    mRankedPostings.remove();
+                        currPosting.increaseAccumulator(increment);
+                        //  mRankedPostings.add(currPosting);
+                    } catch (NullPointerException ex) {
+                        // if the key is null in the rank map, there has yet to be added an acc for this docId
+                        currPosting.increaseAccumulator(increment);
+                        mRankMap.put(currDoc, currPosting.getAccumulator());
+                        //mRankedPostings.add(currPosting);
+                    }
+                }
+            }
+        }
+
+        // retrieve all doc weights written to disk
+        mDocWeights = indexDao.readDocWeights();
+        // now go through the final map of accumulators and divide each one by the Ld value for its doc
+        for (int docId : mRankMap.keySet()) {
+            // defaults acc to 0
+            Posting postingRank = new Posting(docId);
+            double weight = mDocWeights.get(docId);
+
+            if (mRankMap.get(docId) != 0) {
+                double finalRank = mRankMap.get(docId) / weight;
+                postingRank.increaseAccumulator(finalRank);
+            }
+
+            mRankedPostings.add(postingRank);
+
+            // continually remove the smallest element for every added term after the K_TERMS limit is reached
+            if (mRankedPostings.size() > K_TERMS) {
+                mRankedPostings.poll();
+            }
+        }
+        List<Posting> results = mRankedPostings.stream().toList();
+        return results;
     }
 }

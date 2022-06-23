@@ -623,7 +623,7 @@ public class Driver {
 			String query = in.nextLine();
 			List<Posting> queryPostings = new ArrayList<>();
 			QueryComponent fullQuery = parser.parseQuery(query);
-				// sort the list of postings and print results
+			// sort the list of postings and print results
 			queryPostings = fullQuery.getPostings(processor, activeIndex);
 				if (queryPostings == null || queryPostings.contains(null) || queryPostings.size() < 1) {
 
@@ -657,7 +657,14 @@ public class Driver {
 			for (Posting p : results) {
 				System.out.println(count + ") Title: '" + activeCorpus.getDocument(p.getDocumentId()).getTitle() + "' ");
 				System.out.println("    - DocId: " + p.getDocumentId());
-				System.out.println("    - Query Term Positions: " + p.getTermPositions().toString());
+
+				if (queryMode == Ranked) {
+					System.out.println("    - Final Accumulator Value: " + p.getAccumulator());
+				}
+				else if (queryMode == Boolean) {
+					System.out.println("    - Query Term Positions: " + p.getTermPositions().toString());
+				}
+
 				if (count != results.size()) {
 					System.out.println();
 				}

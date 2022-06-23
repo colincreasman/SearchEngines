@@ -1,14 +1,26 @@
 package cecs429.indexes;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.util.*;
+import java.util.Comparator;
+
 
 /**
  * A Posting encapsulates a document ID associated a list of term positions within the document
  */
-public class Posting {
+public class Posting implements Comparator<Posting> {
 	private int mDocumentId;
-	private int mPositionsCount;
 	private List<Integer> mTermPositions;
+	private int mPositionsCount; //same as tf(d)
+	private static double mAccumulator;
+	// additional field used only in postings for ranked retrievals
+	private double mTermWeight; // wdt
+	private double mDocWeight; // Ld
+
+
+
+
 
 	/**
 	 * Simple constructor for making a posting with only a documentId at the time of initialization
@@ -17,6 +29,7 @@ public class Posting {
 	public Posting(int documentId) {
 		mDocumentId = documentId;
 		mTermPositions = new ArrayList<>();
+		mAccumulator = 0;
 	}
 	/**
 	 * Overloaded constructor for making a posting with only a single termPosition at the time of initialization
@@ -27,6 +40,8 @@ public class Posting {
 		mDocumentId = documentId;
 		mTermPositions = new ArrayList<>();
 		mTermPositions.add(termPosition);
+		mAccumulator = 0;
+
 	}
 	/**
 	 * Overloaded constructor for making a posting with only a a list of termPosition at the time of initialization
@@ -37,6 +52,24 @@ public class Posting {
 		mDocumentId = documentId;
 		mTermPositions = termPositions;
 		//Collections.sort(mTermPositions);
+		mPositionsCount = termPositions.size();
+		mAccumulator = 0;
+
+	}
+
+	/**
+	 * Overloaded constructor for positionless postings in ranked retrieval
+	 * includes additional fields for doc/term weights and
+	 * @param documentId
+	 * @param termWeight
+	 * @param termFrequency
+	 */
+	public Posting(int documentId, double termWeight, int termFrequency) {
+		mDocumentId = documentId;
+		mTermWeight = termWeight;
+		mPositionsCount = termFrequency;
+//		mDocWeight = docWeight;
+		mAccumulator = 0;
 	}
 	
 	public int getDocumentId() {
@@ -82,4 +115,32 @@ public class Posting {
 	public String toString() {
 			return mDocumentId + ":" +mTermPositions.toString();
 	}
+
+	public int getmPositionsCount() {
+		return mPositionsCount;
+	}
+
+	public double getmTermWeight() {
+		return mTermWeight;
+	}
+
+	public double getmDocWeight() {
+		return mDocWeight;
+	}
+
+	public void increaseAccumulator(double acc) {
+		mAccumulator += acc;
+	}
+
+	public double getAccumulator() {
+		return mAccumulator;
+	}
+
+	@Override
+	public int compare(Posting p1, Posting p2) {
+		int doc1 = p1.getDocumentId();
+		int doc2 = p2.getDocumentId();
+		return doc1 - doc2;
+	}
 }
+
