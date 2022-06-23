@@ -4,45 +4,41 @@ import cecs429.documents.Document;
 import cecs429.documents.DocumentCorpus;
 import cecs429.text.AdvancedTokenProcessor;
 import cecs429.text.EnglishTokenStream;
+import static edu.csulb.Driver.ActiveConfiguration.*;
 import org.mapdb.BTreeMap;
-
 import java.util.*;
 
 public class DiskPositionalIndex implements Index {
     private static List<String> mVocabulary;
-    private static Index mIndex;
-    private static IndexDAO mIndexDAO;
+    private static Index mIndexInMemory;
     private static String mPath;
     private static HashMap<Integer, Double> mDocWeights;
-    private static List<Long> mByteLocations;
-    private static DocumentCorpus mCorpus;
-
+    private static List<Long> mTermLocations;
 
     public DiskPositionalIndex(DocumentCorpus corpus) {
-        mCorpus = corpus;
         mPath = corpus.getPath();
-        mIndexDAO = new DiskIndexDAO(mPath);
+        // initialize the in-memory positional index WITHOUT changing the ActiveConfiguration's in-memory index which is the current DiskIndex being built
+        mVocabulary = new ArrayList<>();
+        mIndexInMemory = new PositionalInvertedIndex(mVocabulary);
+        mDocWeights = new HashMap<>();
+        mTermLocations = new ArrayList<>();
+
+
     }
 
     // builds an in-memory positional inverted index and calculates tf(t,d) data while processing the tokens of each doc
     //TODO: update so that it takes in a tokenProcessor arg to allow different types of processing at runtime
-    public void initializeInMemoryIndex(DocumentCorpus corpus) {
-        mDocWeights = new HashMap<>();
-        mByteLocations = new ArrayList<>();
-        List<String> vocab = new ArrayList<>();
-        mIndex = new PositionalInvertedIndex(vocab);
-
-        System.out.println("Indexing corpus in memory...");
+    public void initializeInMemoryIndex() {
+        System.out.println("Now indexing the current corpus with a temporary in-memory index instance...");
         // start timer
         long start = System.currentTimeMillis();
-
         AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
 
-        for (Document d : corpus.getDocuments()) {
+        for (Document d : activeCorpus.getDocuments()) {
             // get doc Content
             EnglishTokenStream stream = new EnglishTokenStream(d.getContent());
             // initialize a counter to keep track of the term positions of tokens found within each document
-            int position = 0;
+            int termPosition = 0;
             // retrieve tokens from the doc as an iterable
             Iterable<String> tokens = stream.getTokens();
 
@@ -54,10 +50,9 @@ public class DiskPositionalIndex implements Index {
                 List<String> terms = processor.processToken(token);
 
                 // iterate through each term while keeping a running total of all the times it is found in the current doc
-                int currentTermCount;
                 for (String term : terms) {
                     // with each new normalized term, reset its  count to 1 before trying to retrieve it from the map
-                    currentTermCount = 1;
+                    int currentTermCount = 1;
 
                     // now check if there's already an existing count  for this term in the results hashmap
                     try {
@@ -78,12 +73,12 @@ public class DiskPositionalIndex implements Index {
 
                     // after handling all the term-doc data, we still need to add each term into the index
                     finally {
-                        mIndex.addTerm(term, d.getId(), position);
+                        mIndexInMemory.addTerm(term, d.getId(), termPosition);
                     }
                 }
                 // only increment the position when moving on to a new token
                 // if normalizing a token produces more than one term, they will all be posted at the same position
-                position += 1;
+                termPosition += 1;
             }
             // after processing and counting all of the tokens in the current doc, we can now use the final hashmap of tf(t,d) vals to each of its terms to find the aggregate normalized weight
             double docWeight = getNormalizedWeight(termFrequenciesPerDoc);
@@ -93,23 +88,20 @@ public class DiskPositionalIndex implements Index {
 
         long stop = System.currentTimeMillis();
         long elapsedSeconds = (long) ((stop - start) / 1000.0);
-        System.out.println("Finished indexing the in-memory positional index in approximately " + elapsedSeconds + " seconds.");
+        System.out.println("Finished indexing the in-memory index in approximately " + elapsedSeconds + " seconds.");
 
         // now write that index to disk and save the returned byte positions into the static object field for them
-        mByteLocations = mIndexDAO.writeIndex(mIndex, mPath);
+        mTermLocations = indexDao.writeIndex(mIndexInMemory, mPath);
     }
 
     // gets the index's vocabulary, term locations, and doc weights by reading them from the existing on-disk index data
-    public void loadIndexOnDisk(DocumentCorpus corpus) {
-        String indexDir = corpus + "/index";
-        mVocabulary = new ArrayList<>();
-        List<String> unsorted = mIndexDAO.readVocabulary(indexDir);
+    public void load() {
+        List<String> unsorted = indexDao.readVocabulary();
 
         try {
             mVocabulary.addAll(unsorted);
             // sort
             Collections.sort(mVocabulary);
-
         }
 
         catch (NullPointerException ex) {
@@ -144,7 +136,7 @@ public class DiskPositionalIndex implements Index {
      */
     @Override
     public List<Posting> getPostings(String term) {
-        if (mByteLocations == null) {
+        if (mTermLocations == null) {
             System.out.println("Cannot retrieve postings because no on-disk index data was found. ");
             return null;
         }
@@ -169,11 +161,11 @@ public class DiskPositionalIndex implements Index {
         HashMap<Integer, Integer> results = new HashMap<>();
 
         // get the list of docIds for the term
-        List<Integer> docs = mIndexDAO.readDocIds(mIndex, term);
+        List<Integer> docs = indexDao.readDocIds(mIndexInMemory, term);
 
         // get the list of tf(t,d) values for each doc
         for (Integer d : docs) {
-            Integer frequency = mIndexDAO.readTermDocFrequency(term, d);
+            Integer frequency = indexDao.readTermDocFrequency(term, d);
             // add components into final hashmap
             results.put(d, frequency);
         }
@@ -190,7 +182,7 @@ public class DiskPositionalIndex implements Index {
      */
     @Override
     public List<String> getVocabulary() {
-        return null;
+        return mVocabulary;
     }
 
     @Override

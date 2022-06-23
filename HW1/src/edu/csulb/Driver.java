@@ -17,15 +17,12 @@ import java.nio.file.Paths;
 import java.sql.SQLOutput;
 import java.util.*;
 
-import static edu.csulb.Driver.RunMode.Build;
-import static edu.csulb.Driver.RunMode.Query;
-import static edu.csulb.Driver.RunMode.Quit;
-import static edu.csulb.Driver.QueryMode.Boolean;
-import static edu.csulb.Driver.QueryMode.Ranked;
-import static edu.csulb.Driver.IndexType.Inverted;
-import static edu.csulb.Driver.IndexType.TermDocument;
-import static edu.csulb.Driver.IndexType.PositionalInverted;
-import static edu.csulb.Driver.IndexType.DiskPositional;
+import static edu.csulb.Driver.ActiveConfiguration.*;
+import static edu.csulb.Driver.RunMode.*;
+import static edu.csulb.Driver.QueryMode.*;
+import static edu.csulb.Driver.WeightingScheme.*;
+import static edu.csulb.Driver.IndexType.*;
+
 
 public class Driver {
 	/**
@@ -45,7 +42,7 @@ public class Driver {
 	}
 
 	/**
-	 * enum wrapper for all the currently supported index types; can be extended to allow additional modes in the future
+	 * enum wrapper for all the currently supported activeIndex types; can be extended to allow additional modes in the future
 	 */
 	public enum IndexType {
 		Inverted,
@@ -53,6 +50,17 @@ public class Driver {
 		PositionalInverted,
 		DiskPositional
 	}
+
+	/**
+	 * enum wrapper for all the currently supported weighting schemes for ranked retrievals; can be extended to allow additional modes in the future
+	 */
+	public enum WeightingScheme {
+		Default,
+		TF_IDF,
+		Okapi,
+		Wacky
+	}
+
 
 	/**
 	 * A simple singleton to encapsulate static instances of every object/variable that will be selected, updated, or otherwise needed for the app's core functionality during a given runtime
@@ -64,15 +72,15 @@ public class Driver {
 	 * Mutators will only update the fields' values while still referencing the same static instances while actively running
 	 */
 	public static class ActiveConfiguration {
-		public static DocumentCorpus corpus;
-		public static Index index;
+		public static DocumentCorpus activeCorpus;
+		public static Index activeIndex;
 		public static RunMode runMode;
 		public static QueryMode queryMode;
+		public static WeightingScheme weightingScheme;
 		public static IndexType indexType;
 		public static IndexDAO indexDao;
-		public static boolean hasDiskIndex; // boolean flag indicating the presence of on-disk index data
-
-		private static ActiveConfiguration instance;
+		public static boolean hasDiskIndex; // boolean flag indicating the presence of on-disk activeIndex data
+		private static ActiveConfiguration instance; // singleton instance
 
 		private ActiveConfiguration() {
 			if (indexDao != null) {
@@ -91,80 +99,55 @@ public class Driver {
 			return instance;
 		}
 
-		public static DocumentCorpus getCorpus() {
-			return corpus;
-		}
-
 		public static void setCorpus(DocumentCorpus docCorpus) {
-			// whenever a new active corpus is assigned, use its path to create the active indexDAO
+			// whenever a new active activeCorpus is assigned, use its path to create the active indexDAO
 			indexDao = new DiskIndexDAO(docCorpus.getPath());
-			corpus = docCorpus;
-
-			// now use the new indexDao to determine if there is an on-disk index for the given corpus
+			activeCorpus = docCorpus;
+			// now use the new indexDao to determine if there is an on-disk activeIndex for the given activeCorpus
 			hasDiskIndex = indexDao.hasExistingIndex();
 		}
-
-		public static Index getIndex() {
-			return index;
-		}
-
-		public static void setIndex(Index index) {
-			ActiveConfiguration.index = index;
-		}
-
-		public static RunMode getRunMode() {
-			return runMode;
-		}
-
+		
 		public static void setRunMode(RunMode runMode) {
 			if (runMode == Quit) {
 				System.out.println("Quitting the application - Goodbye!");
 				System.exit(0);
 			}
 			else {
-				ActiveConfiguration.runMode = runMode;
+				runMode = runMode;
 			}
 		}
 
-		public static QueryMode getQueryMode() {
-			return queryMode;
+		public static void setActiveIndex(Index activeIndex) {
+			ActiveConfiguration.activeIndex = activeIndex;
 		}
 
 		public static void setQueryMode(QueryMode queryMode) {
-
 			ActiveConfiguration.queryMode = queryMode;
 		}
 
-		public static IndexDAO getIndexDao() {
-			return indexDao;
+		public static void setWeightingScheme(WeightingScheme weightingScheme) {
+			ActiveConfiguration.weightingScheme = weightingScheme;
+		}
+
+		public static void setIndexType(IndexType indexType) {
+			ActiveConfiguration.indexType = indexType;
 		}
 
 		public static void setIndexDao(IndexDAO indexDao) {
 			ActiveConfiguration.indexDao = indexDao;
 		}
 
-		public static boolean hasDiskIndex() {
-			return ActiveConfiguration.indexDao.hasExistingIndex();
-		}
-
-		public static void setDiskIndexStatus(boolean isOnDisk) {
-			ActiveConfiguration.hasDiskIndex = isOnDisk;
-		}
-
-		public static IndexType getIndexType() {
-			return indexType;
-		}
-
-		public static void setIndexType(IndexType indexType) {
-			ActiveConfiguration.indexType = indexType;
+		public static void setHasDiskIndex(boolean hasDiskIndex) {
+			ActiveConfiguration.hasDiskIndex = hasDiskIndex;
 		}
 	}
-
+	
+	
 	// instantiate global config instance
-	public static ActiveConfiguration config = ActiveConfiguration.getInstance();
+	public static final ActiveConfiguration config = getInstance();
 
 	public static void main(String[] args) {
-		while (ActiveConfiguration.runMode != Quit) {
+		while (runMode != Quit) {
 			selectRunModeMenu();
 		}
 	}
@@ -175,74 +158,74 @@ public class Driver {
 
 		while (true) {
 			System.out.println("\nPlease select a run mode from the options below: ");
-			System.out.println("*************************************************************************************");
-			System.out.println("(a) Build Mode - Build a new index for a specified corpus ");
-			System.out.println("(b) Query Mode - Query a corpus with an existing index ");
+			System.out.println("*************************************************");
+			System.out.println("(a) Build Mode - Build a new index ");
+			System.out.println("(b) Query Mode - Query an existing index ");
 			System.out.println("(c) Quit Application");
 			String choice = in.nextLine();
 
 			switch (choice) {
 				case "a": {
-					ActiveConfiguration.runMode = Build;
-					ActiveConfiguration.setCorpus(selectCorpusMenu());
-					// once the corpus is selected, get the user's index selection over the chosen corpus
-					ActiveConfiguration.index = selectIndexMenu(ActiveConfiguration.corpus);
-					ActiveConfiguration.queryMode = selectQueryModeMenu();
+					runMode = Build;
+					setCorpus(selectCorpusMenu());
+					// once the activeCorpus is selected, get the user's activeIndex selection over the chosen activeCorpus
+					activeIndex = selectIndexMenu();
+					queryMode = selectQueryModeMenu();
 					mainMenu();
 					break;
 				}
 
 				case "b": {
-					// get user's chosen corpus before checking if index exists
-					ActiveConfiguration.corpus = selectCorpusMenu();
+					// get user's chosen activeCorpus before checking if activeIndex exists
+					activeCorpus = selectCorpusMenu();
 
-					//  check for on-disk index first
-					if (ActiveConfiguration.hasDiskIndex) {
-						System.out.println("An existing index was found written to disk in the corpus directory '" + ActiveConfiguration.corpus.getPath() + "'\n");
-						System.out.println("Would you like to continue to Query Mode using this index? (y/n) ");
+					//  check for on-disk activeIndex first
+					if (hasDiskIndex) {
+						System.out.println("An existing activeIndex was found written to disk in the activeCorpus directory '" + activeCorpus.getPath() + "'\n");
+						System.out.println("Would you like to continue to Query Mode using this activeIndex? (y/n) ");
 
 						if (Objects.equals(in.nextLine(), "y")) {
 							System.out.println("Redirecting to Query Mode...");
-							ActiveConfiguration.runMode = Query;
+							runMode = Query;
 							break;
 						}
 
 						else {
-							System.out.println("Ok, disregarding the on-disk index...");
+							System.out.println("Ok, disregarding the on-disk activeIndex...");
 						}
 					}
 
 					else {
-						System.out.println("No existing index was found on disk for the selected corpus. You must switch to another corpus with an existing index or build a new index altogether before entering Query Mode. \n");
-						ActiveConfiguration.runMode = Build;
+						System.out.println("No existing activeIndex was found on disk for the selected activeCorpus. You must switch to another activeCorpus with an existing activeIndex or build a new activeIndex altogether before entering Query Mode. \n");
+						runMode = Build;
 					}
 
-					// now check for in-mem index
-					if (ActiveConfiguration.index == null) {
-						System.out.println("No existing index was found in memory for the selected corpus. \n Checking for an on-disk index...");
+					// now check for in-mem activeIndex
+					if (activeIndex == null) {
+						System.out.println("No existing activeIndex was found in memory for the selected activeCorpus. \n Checking for an on-disk activeIndex...");
 					}
 
 					else {
-						System.out.println("An existing index was found in memory for the corpus directory '" + ActiveConfiguration.corpus.getPath() + "'\n");
-						System.out.println("Would you like to continue to Query Mode with the found index? (y/n) ");
+						System.out.println("An existing activeIndex was found in memory for the activeCorpus directory '" + activeCorpus.getPath() + "'\n");
+						System.out.println("Would you like to continue to Query Mode with the found activeIndex? (y/n) ");
 
 						if (Objects.equals(in.nextLine(), "y")) {
 							System.out.println("Redirecting to Query Mode...");
-							ActiveConfiguration.runMode = Query;
-							ActiveConfiguration.queryMode = selectQueryModeMenu();
+							runMode = Query;
+							queryMode = selectQueryModeMenu();
 							mainMenu();
 						}
 
 						else {
 							System.out.println("Ok - Redirecting to Build Mode...");
-							ActiveConfiguration.runMode = Build;
+							runMode = Build;
 						}
 					}
 					break;
 				}
 
 				case "c": {
-					ActiveConfiguration.setRunMode(Quit);
+					setRunMode(Quit);
 					break;
 				}
 
@@ -257,8 +240,8 @@ public class Driver {
 	private static DocumentCorpus selectCorpusMenu() {
 		Scanner in = new Scanner(System.in);
 
-		// ask the user for corpus directory
-		System.out.println("Please select a corpus from the options below: ");
+		// ask the user for activeCorpus directory
+		System.out.println("Please select a activeCorpus from the options below: ");
 		System.out.println("**********************************************\n");
 		System.out.println("(a) National Parks Websites");
 		System.out.println("(b) Moby Dick - First 10 Chapters");
@@ -268,34 +251,46 @@ public class Driver {
 
 		// setup starter path prefix
 		String corpusPath = "/Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/";
-		//DocumentCorpus corpus;
+		Path path = Paths.get(corpusPath);
+		//DocumentCorpus activeCorpus;
 		// use .txt as the default extension
 		String ext = ".txt";
+
 		String selection = in.nextLine();
 
 		switch (selection) {
 			case "a": {
 				corpusPath += "all-nps-sites-extracted";
+				path = Paths.get(corpusPath).toAbsolutePath();
 				// only update the ext string when not using .txt files
 				ext = ".json";
 				break;
 			}
 			case "b": {
 				corpusPath += "MobyDick10Chapters";
+				path = Paths.get(corpusPath).toAbsolutePath();
+
+				ext = ".txt";
 				break;
 			}
 			case "c": {
-				corpusPath += "test-corpus-json";
+				corpusPath += "test-activeCorpus-json";
+				path = Paths.get(corpusPath).toAbsolutePath();
+
 				ext = ".json";
 				break;
 			}
 			case "d": {
-				corpusPath += "test-corpus-txt";
+				corpusPath += "test-activeCorpus-txt";
+				path = Paths.get(corpusPath).toAbsolutePath();
+
+				ext = ".txt";
 				break;
 			}
 			case "e": {
-				System.out.println("Please enter the custom  path for your corpus directory: \n");
+				System.out.println("Please enter the custom  path for your activeCorpus directory: \n");
 				corpusPath = in.nextLine();
+				path = Paths.get(corpusPath).toAbsolutePath();
 				// flag ext to an empty string so we know to load either ext type
 				ext = "";
 				break;
@@ -306,29 +301,24 @@ public class Driver {
 			}
 		}
 
-		// now use the updated corpusPath to construct an actual Path
-		Path path = Paths.get(corpusPath).toAbsolutePath();
-
-		// now return the corpus after loading files into it according to the final ext value
+		// now return the activeCorpus after loading files into it according to the final ext value
 		if (ext.equals(".txt")) {
 			return DirectoryCorpus.loadTextDirectory(path, ext);
 		}
 		else if (ext.equals(".json")) {
 			return DirectoryCorpus.loadJsonDirectory(path, ext);
 		}
-
 		// if no ext was assigned allow both types to be loaded (could happen with a custom directory
 		else {
 			return DirectoryCorpus.loadTextOrJsonDirectory(path);
 		}
 	}
 
-	private static Index selectIndexMenu(DocumentCorpus corpus) {
-		ActiveConfiguration.corpus = corpus;
+	private static Index selectIndexMenu() {
 
 		while (true) {
 			Scanner in = new Scanner(System.in);
-			System.out.println("Please select the type of index you would like to build for your corpus: ");
+			System.out.println("Please select the type of activeIndex you would like to build for your activeCorpus: ");
 			System.out.println("******************************************\n");
 			System.out.println("(1) Inverted Index ");
 			System.out.println("(2) Term Document Index ");
@@ -336,19 +326,19 @@ public class Driver {
 			System.out.println("(4) Disk Positional Index ");
 
 			int selection = in.nextInt();
-			// if the selection matches one of the number options provided, we should be able to just directly assign the index type via enum ID
+			// if the selection matches one of the number options provided, we should be able to just directly assign the activeIndex type via enum ID
 			try {
 				// decrement by 1 since the enums start at 0
-				ActiveConfiguration.indexType = IndexType.values()[selection - 1];
+				indexType = IndexType.values()[selection - 1];
 				break;
 			}
 
 			// any exception will be due to a user input that doesn't match one of the available options, so keep looping them through the menu until they do
-			catch (Exception ex) {
+			catch (InputMismatchException ex) {
 				System.out.println("Error: User input does not match any of of the available options. " + ex);
 			}
 		}
-		return buildIndex(ActiveConfiguration.indexType);
+		return buildIndex(indexType);
 	}
 
 	private static QueryMode selectQueryModeMenu() {
@@ -357,12 +347,44 @@ public class Driver {
 		while (true) {
 			System.out.println("\nPlease select a querying mode from the options below: ");
 			System.out.println("*************************************************************************************");
-			System.out.println("(1) Boolean Retrieval ");
-			System.out.println("(2) Ranked Retrieval ");
+			int count = 0;
+			for (QueryMode mode : QueryMode.values())  {
+				count += 1;
+				System.out.println("(" + count + ")" + mode.toString() + "\n");
+			}
 			int choice = in.nextInt();
+
+			// if ranked retrieval is chosen, have them chose one of the available weighting schemes
+			if (choice == 0) {
+				weightingScheme = selectWeightMenu();
+			}
 
 			try {
 				return QueryMode.values()[choice - 1];
+			}
+
+			catch (Exception ex) {
+				System.out.println("Error: User input does not match any of of the available options. " + ex + "\n Please try again with one of the options listed. ");
+				return null;
+			}
+		}
+	}
+
+	private static WeightingScheme selectWeightMenu() {
+		Scanner in = new Scanner(System.in);
+
+		while (true) {
+			System.out.println("\nPlease select a weighting scheme for ranked retrieval from options below: ");
+			System.out.println("*************************************************************************************");
+			int count = 0;
+			for (WeightingScheme weightingScheme : WeightingScheme.values()) {
+				count += 1;
+				System.out.println("(" + count + ")" + weightingScheme.toString() + "\n");
+			}
+			int choice = in.nextInt();
+
+			try {
+				return WeightingScheme.values()[choice - 1];
 			}
 
 			catch (Exception ex) {
@@ -380,68 +402,72 @@ public class Driver {
 			while (true) {
 				System.out.println("\nPlease select an action from the options below: ");
 				System.out.println("*************************************************");
-				System.out.println("(a) Change Corpus Directory and Index [:index] ");
+				System.out.println("(a) Change Corpus Directory and Index [:activeIndex] ");
 				System.out.println("(b) Change Query Mode ");
-				System.out.println("(c) Change Run Mode ");
-				System.out.println("(d) Begin Querying in " + ActiveConfiguration.queryMode + " Retrieval Mode");
-				System.out.println("(e) Stem a Token [:stem] ");
-				System.out.println("(f) Normalize a Token ");
-				System.out.println("(g) View Top 1000 Vocabulary Terms [:vocab] ");
-				System.out.println("(h) View Top 1000 Index Postings");
-				System.out.println("(i) View Corpus Overview ");
-				System.out.println("(j) View a Document ");
-				System.out.println("(k) Quit Application [:q]");
+				System.out.println("(c) Change Weighting Scheme (Ranked Retrieval Only) ");
+				System.out.println("(d) Change Run Mode ");
+				System.out.println("(e) Begin Querying in " + queryMode + " Retrieval Mode");
+				System.out.println("(f) Stem a Token [:stem] ");
+				System.out.println("(g) Normalize a Token ");
+				System.out.println("(h) View Top 1000 Vocabulary Terms [:vocab] ");
+				System.out.println("(i) View Top 1000 Index Postings");
+				System.out.println("(j) View Corpus Overview ");
+				System.out.println("(k) View a Document ");
+				System.out.println("(l) Quit Application [:q]");
 
 				String selection = in.nextLine();
 
 				switch (selection) {
 					case "a": {
 						// reset the current corpusPath by asking user to choose a new one
-						ActiveConfiguration.corpus = selectCorpusMenu();
-						// then create a new index on the new corpus
-						ActiveConfiguration.index = selectIndexMenu(ActiveConfiguration.corpus);
+						activeCorpus = selectCorpusMenu();
+						// then create a new activeIndex on the new activeCorpus
+						activeIndex = selectIndexMenu();
 						break;
 					}
 					case "b": {
-						ActiveConfiguration.queryMode = selectQueryModeMenu();
+						queryMode = selectQueryModeMenu();
 						break;
 					}
 					case "c": {
+						weightingScheme = selectWeightMenu();
+					}
+					case "d": {
 						selectRunModeMenu();
 						break;
 					}
-					// display index selection menu again
-					case "d": {
-						processQuery(ActiveConfiguration.corpus, ActiveConfiguration.index);
-						break;
-					}
+					// display activeIndex selection menu again
 					case "e": {
-						viewStemmedToken();
+						processQuery();
 						break;
 					}
 					case "f": {
-						viewNormalizedToken();
+						viewStemmedToken();
 						break;
 					}
 					case "g": {
-						viewVocabulary(ActiveConfiguration.index);
+						viewNormalizedToken();
 						break;
 					}
 					case "h": {
-						viewPostings(ActiveConfiguration.index);
+						viewVocabulary();
 						break;
 					}
 					case "i": {
-						viewCorpusOverview(ActiveConfiguration.corpus);
+						viewPostings();
 						break;
 					}
 					case "j": {
-						viewDocument(ActiveConfiguration.corpus, ActiveConfiguration.index);
-						//System.out.println("Returning to main menu...");
+						viewCorpusOverview();
 						break;
 					}
 					case "k": {
-						ActiveConfiguration.setRunMode(Quit);
+						viewDocument();
+						//System.out.println("Returning to main menu...");
+						break;
+					}
+					case "l": {
+						setRunMode(Quit);
 						break;
 					}
 					default: {
@@ -452,24 +478,25 @@ public class Driver {
 			}
 		}
 
-	// builds an index (any implementation of the Index interface) using a Document Corpus
+	// builds an activeIndex (any implementation of the Index interface) using a Document Corpus
 	private static Index buildIndex(IndexType type) {
 		Scanner in = new Scanner(System.in);
 
-		if (ActiveConfiguration.index != null && ActiveConfiguration.indexType == type) {
-			System.out.println("Warning: An index of the type '" + type + "' already exists for the current corpus - Building a new index will overwrite the existing index and wipe its data. \n Would you like to continue building the index or use the existing index instead? (y/n)");
+		if (activeIndex != null && indexType == type) {
+			System.out.println("**** Warning **** An activeIndex of the type '" + type + "' already exists in memory for the current activeCorpus - Building a new activeIndex will overwrite any existing activeIndex in memory. ");
+			System.out.println("\n Would you like to continue building the new activeIndex ('y') or use the current activeIndex in memory ('n') ? ");
 
-			if (!Objects.equals(in.nextLine(), "y")) {
-				System.out.println("Ok - the current build process will be terminated and the exising index will be used instead. ");
-				return ActiveConfiguration.index;
+			if (!Objects.equals(in.nextLine(), "n")) {
+				System.out.println("Ok - the current build process will be terminated and the existing activeIndex will be used instead. ");
+				return activeIndex;
 			}
 
 			else {
-				System.out.println("Ok - the existing index will be wiped from memory while the new index is built. \n (Note that any on-disk data for the existing index will still be preserved.");
+				System.out.println("Ok - The current activeIndex in-memory will be overwritten to build the new activeIndex. \n (Note that any existing on-disk data for the activeIndex will still be preserved.");
 			}
 		}
 
-		System.out.println("Building a new " + type.toString() + "Index from the corpus directory \n'" + ActiveConfiguration.corpus.getPath() + "'\n This may take a minute...");
+		System.out.println("Building a new " + type.toString() + "Index from the activeCorpus directory \n'" + activeCorpus.getPath() + "'\n This may take a minute...");
 
 		// start timer
 		long start = System.currentTimeMillis();
@@ -477,14 +504,14 @@ public class Driver {
 		// initialize an empty vocab list for the constructors that need it
 		List<String> vocabulary = new ArrayList<>();
 
-		// use the given type to instantiate the appropraite index over the active corpus
+		// use the given type to instantiate the appropraite activeIndex over the active activeCorpus
 		switch (type) {
 			case Inverted: {
 				activeIndex = new InvertedIndex(vocabulary);
 				break;
 			}
 			case TermDocument: {
-				activeIndex = new TermDocumentIndex(vocabulary, ActiveConfiguration.corpus.getCorpusSize());
+				activeIndex = new TermDocumentIndex(vocabulary, activeCorpus.getCorpusSize());
 				break;
 			}
 			case PositionalInverted: {
@@ -493,36 +520,43 @@ public class Driver {
 			}
 			case DiskPositional: {
 				// for a DiskPositionalIndex only, skip past all of the token processing/vocabulary building.
-				DiskPositionalIndex diskIndex = new DiskPositionalIndex(ActiveConfiguration.corpus);
+				DiskPositionalIndex diskIndex = new DiskPositionalIndex(activeCorpus);
 
 				// Instead, just call initialize() which does the equivalent work but by reading the on-disk data instead
-				// but first check if the index is already written to disk for this corpus
-				if (ActiveConfiguration.hasDiskIndex) {
-					System.out.println("An index has already been written to disk in the curren corpus directory. Would you to overwrite the existing on-disk data when building the new index? \n (Note: This will require significantly more indexing time to initialize a new in-memory index in memory and write it to disk.) ");
-
+				// but first check if the activeIndex is already written to disk for this activeCorpus
+				if (hasDiskIndex) {
+					System.out.println("There is already an existing activeIndex written to disk in the current activeCorpus directory. ");
+					System.out.println("  -- Would you like to overwrite the existing on-disk data while building the new activeIndex? \n ");
+					System.out.println("**** WARNING **** \n Choosing this option will require significantly more indexing time because a new in-memory activeIndex must be built from scratch and written to disk before continuing the build process \n ***************** ");
+					System.out.println("\n Please enter 'y' to overwrite the existing activeIndex or 'n' to continue building with on-disk data: ");
 					// check if the user wants to use the existing data or overwrite it
 					if (Objects.equals(in.nextLine(), "y")) {
-						System.out.println("Ok - A new in-memory index will be used to build the index and overwrite the existing files on disk. ");
-						diskIndex.initializeInMemoryIndex(ActiveConfiguration.corpus);
+						System.out.println("**** WARNING **** - ALL INDEX DATA WILL BE PERMANENTLY WIPED FROM THE DISK! \n ************* \n Please confirm that this is what you want to do entering 'y' again: \n ");
+						String confirm = in.nextLine();
+						if (Objects.equals(confirm, "y")) {
+							System.out.println("Overwrite confirmed - The current on-disk activeIndex will be wiped and overwritten during initialization of the new activeIndex ");
+							diskIndex.initializeInMemoryIndex();
+						}
 					}
 
 					else {
-						System.out.println("Ok - Building the index by loading existing data from the disk. ");
-						diskIndex.loadIndexOnDisk(ActiveConfiguration.corpus);
+						System.out.println("Ok - Building activeIndex from existing data on disk. ");
+						diskIndex.load();
 					}
 				}
 
-				// if no on-disk index is found, initialize a new in memory and write it to disk
+				// if no on-disk activeIndex is found, initialize a new in memory and write it to disk
 				else {
-					System.out.println("No on-disk index was found in the current corpus directory. Initializing a new in-memory index and writing to disk. ");
-					diskIndex.initializeInMemoryIndex(ActiveConfiguration.corpus);
+					System.out.println("No on-disk activeIndex was found in the current activeCorpus directory. \n " +
+							"Building activeIndex from a new in-memory activeIndex that will be built from scratch and written to disk in the current activeCorpus directory. ");
+					diskIndex.initializeInMemoryIndex();
 				}
 				activeIndex = diskIndex;
 				break;
 			}
 
 			default: {
-				System.out.println("Could not instantiate an index of the type '" + type + "' because it has not been implemented yet. Please try again with one of the options listed. ");
+				System.out.println("Error: Could not build an activeIndex of the type '" + type + "' because it has not been implemented yet. Please try again with a different activeIndex type. ");
 				break;
 			}
 		}
@@ -534,10 +568,10 @@ public class Driver {
 			processor = new AdvancedTokenProcessor();
 		}
 
-		// only proceed with the next steps (tokenizing the corpus and building the vocabulary) for types other than the DiskPositionalIndex
+		// only proceed with the next steps (tokenizing the activeCorpus and building the vocabulary) for types other than the DiskPositionalIndex
 		if (type != DiskPositional) {
-			// add all the docs in the corpus to the index
-			for (Document d : ActiveConfiguration.corpus.getDocuments()) {
+			// add all the docs in the activeCorpus to the activeIndex
+			for (Document d : activeCorpus.getDocuments()) {
 				// Tokenize the document's content by constructing an EnglishTokenStream around the document's content.
 				EnglishTokenStream stream = new EnglishTokenStream(d.getContent());
 				// initialize a counter to keep track of the term positions of tokens found within each document
@@ -551,7 +585,7 @@ public class Driver {
 
 						// check for PositionalInvertedIndex before adding terms because it handles the method differently than the others
 						if (type == PositionalInverted) {
-							// add the term(s) to the index based off its type
+							// add the term(s) to the activeIndex based off its type
 							activeIndex.addTerm(term, d.getId(), position);
 						} else {
 							activeIndex.addTerm(term, d.getId());
@@ -570,16 +604,16 @@ public class Driver {
 		return activeIndex;
 		}
 
-	private static void processQuery(DocumentCorpus corpus, Index index) {
+	private static void processQuery() {
 		Scanner in = new Scanner(System.in);
 		String choice = "y";
 
 		TokenProcessor processor = new BasicTokenProcessor();
 		QueryParser parser = null;
-		if (ActiveConfiguration.queryMode == Boolean) {
+		if (queryMode == Boolean) {
 			parser = new BooleanQueryParser();
 			processor = new HyphenTokenProcessor();
-		} else if (ActiveConfiguration.queryMode == Ranked) {
+		} else if (queryMode == Ranked) {
 			parser = new RankedQueryParser();
 			processor = new AdvancedTokenProcessor();
 		}
@@ -590,7 +624,7 @@ public class Driver {
 			List<Posting> queryPostings = new ArrayList<>();
 			QueryComponent fullQuery = parser.parseQuery(query);
 				// sort the list of postings and print results
-			queryPostings = fullQuery.getPostings(processor, index);
+			queryPostings = fullQuery.getPostings(processor, activeIndex);
 				if (queryPostings == null || queryPostings.contains(null) || queryPostings.size() < 1) {
 
 					System.out.println("No documents were found containing the query '" + query + "'");
@@ -598,12 +632,12 @@ public class Driver {
 
 				else {
 					queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
-					viewQueryResults(queryPostings, corpus, query);
+					viewQueryResults(queryPostings, activeCorpus, query);
 
 					System.out.println("View a document? (y/n) ");
 					String docChoice = in.nextLine();
 					if (Objects.equals(docChoice, "y")) {
-						viewDocument(corpus, index);
+						viewDocument();
 					}
 
 				}
@@ -613,7 +647,7 @@ public class Driver {
 		System.out.println("Returning to main menu...");
 	}
 
-	private static void viewQueryResults(List<Posting> results, DocumentCorpus corpus, String query) {
+	private static void viewQueryResults(List<Posting> results, DocumentCorpus activeCorpus, String query) {
 		// initialize counter to keep track of total number of documents the query was found in
 
 		try {
@@ -621,7 +655,7 @@ public class Driver {
 
 			int count = 1;
 			for (Posting p : results) {
-				System.out.println(count + ") Title: '" + corpus.getDocument(p.getDocumentId()).getTitle() + "' ");
+				System.out.println(count + ") Title: '" + activeCorpus.getDocument(p.getDocumentId()).getTitle() + "' ");
 				System.out.println("    - DocId: " + p.getDocumentId());
 				System.out.println("    - Query Term Positions: " + p.getTermPositions().toString());
 				if (count != results.size()) {
@@ -630,25 +664,25 @@ public class Driver {
 				count += 1;
 			}
 		} catch (NullPointerException ex) {
-			System.out.println("Query failed. The corpus does not contain any documents matching the query '" + query + "'");
+			System.out.println("Query failed. The activeCorpus does not contain any documents matching the query '" + query + "'");
 		}
 		System.out.print("**********************************END QUERY RESULTS**********************************\n");
 
 		System.out.println();
-		System.out.println("Number of documents queried: " + corpus.getCorpusSize());
+		System.out.println("Number of documents queried: " + activeCorpus.getCorpusSize());
 		System.out.println("Number of matches found: " + results.size());
 		System.out.println();
 	}
 
-	// tests the postings of the index by printing out terms and their postings in increments of 1000
-	private static void viewPostings(Index index) {
+	// tests the postings of the activeIndex by printing out terms and their postings in increments of 1000
+	private static void viewPostings() {
 		System.out.println("Sorting vocabulary...");
-		Collections.sort(index.getVocabulary());
+		Collections.sort(activeIndex.getVocabulary());
 
 		int termsCount = 0;
 		Scanner in = new Scanner(System.in);
 		// show the first 1000 terms in the vocabulary
-		System.out.println("The first 1000 Terms and Postings in the index are shown below: \n");
+		System.out.println("The first 1000 Terms and Postings in the activeIndex are shown below: \n");
 		System.out.println("**************************BEGIN INDEX*************************");
 
 		String choice = "y";
@@ -656,81 +690,81 @@ public class Driver {
 		int startIndex = 0;
 
 		while (!Objects.equals(choice, "n")) {
-			// set the new starting index to the end index of the last iteration
+			// set the new starting activeIndex to the end activeIndex of the last iteration
 			startIndex = endIndex;
-			// set the new ending index to the minimum of either 1000 terms after the start index or the size of the index's vocabulary
-			endIndex = Math.min((startIndex + 1000), (index.getVocabulary().size()));
+			// set the new ending activeIndex to the minimum of either 1000 terms after the start activeIndex or the size of the activeIndex's vocabulary
+			endIndex = Math.min((startIndex + 1000), (activeIndex.getVocabulary().size()));
 
 			int i;
 			for (i = startIndex; i < endIndex; i++) {
 				termsCount += 1;
-				String term = index.getVocabulary().get(i);
-				System.out.println(index.viewTermPostings(term));
+				String term = activeIndex.getVocabulary().get(i);
+				System.out.println(activeIndex.viewTermPostings(term));
 			}
 
 			// stop if reaching the end of the vocabulary's size
-			if (i >= index.getVocabulary().size() - 1) {
+			if (i >= activeIndex.getVocabulary().size() - 1) {
 				System.out.println("**************************END INDEX*************************\n");
-				System.out.println("Total number of terms with postings in index: " + termsCount);
-				System.out.println("No postings remaining in index. Returning to main menu.");
+				System.out.println("Total number of terms with postings in activeIndex: " + termsCount);
+				System.out.println("No postings remaining in activeIndex. Returning to main menu.");
 				choice = "n";
 			} else {
-				System.out.println("View the next 1000 index postings? (y/n)");
+				System.out.println("View the next 1000 activeIndex postings? (y/n)");
 				choice = in.nextLine();
 			}
 		}
 	}
 
-	// tests the vocabulary of the index by printing out terms in increments of 1000
-	private static void viewVocabulary(Index index) {
+	// tests the vocabulary of the activeIndex by printing out terms in increments of 1000
+	private static void viewVocabulary() {
 		System.out.println("Sorting vocabulary...");
-		Collections.sort(index.getVocabulary());
+		Collections.sort(activeIndex.getVocabulary());
 
-		int termsCount = index.getVocabulary().size();
+		int termsCount = activeIndex.getVocabulary().size();
 
 		Scanner in = new Scanner(System.in);
 		// show the first 1000 terms in the vocabulary
-		System.out.println("The first 1000 Terms index are shown below: \n");
+		System.out.println("The first 1000 Terms activeIndex are shown below: \n");
 		System.out.println("****************BEGIN VOCABULARY****************");
 
 		//TODO: uncomment this when done testing total terms
-//		String choice = "y";
-//		int endIndex = 0;
-//		int startIndex = 0;
-//
-//		while (!Objects.equals(choice, "n")) {
-//			// set the new starting index to the end index of the last iteration
-//			startIndex = endIndex;
-//			// set the new ending index to the minimum of either 1000 terms after the start index or the size of the index's vocabulary
-//			endIndex = Math.min((startIndex + 1000), (index.getVocabulary().size()));
-//
-//			int i;
-//			for (i = startIndex; i < endIndex; i++) {
-//				String term = index.getVocabulary().get(i);
-//				System.out.println(term);
-//			}
-//
-//			// stop if reaching the end of the vocabulary's size
-//			if (i >= index.getVocabulary().size() - 1) {
-//				System.out.println("********************END VOCABULARY*******************\n");
-//				System.out.println("Total number of terms in vocabulary: " + termsCount);
-//				System.out.println("No terms remaining in vocabulary. ");
-//				choice = "n";
-//			} else {
-//				System.out.println("View the next 1000 vocabulary terms? (y/n)");
-//				choice = in.nextLine();
-//			}
-		int count = 0;
-		for (String t : index.getVocabulary()) {
-			if (count >= 1000) {
-				break;
-			}
-			System.out.println(t);
-			System.out.println("Returning to main menu...\n");
-			count += 1;
-		}
-		System.out.println("Total number of terms in vocabulary: " + index.getVocabulary().size());
+		String choice = "y";
+		int endIndex = 0;
+		int startIndex = 0;
 
+		while (!Objects.equals(choice, "n")) {
+			// set the new starting activeIndex to the end activeIndex of the last iteration
+			startIndex = endIndex;
+			// set the new ending activeIndex to the minimum of either 1000 terms after the start activeIndex or the size of the activeIndex's vocabulary
+			endIndex = Math.min((startIndex + 1000), (activeIndex.getVocabulary().size()));
+
+			int i;
+			for (i = startIndex; i < endIndex; i++) {
+				String term = activeIndex.getVocabulary().get(i);
+				System.out.println(term);
+			}
+
+			// stop if reaching the end of the vocabulary's size
+			if (i >= activeIndex.getVocabulary().size() - 1) {
+				System.out.println("********************END VOCABULARY*******************\n");
+				System.out.println("Total number of terms in vocabulary: " + termsCount);
+				System.out.println("No terms remaining in vocabulary. ");
+				choice = "n";
+			} else {
+				System.out.println("View the next 1000 vocabulary terms? (y/n)");
+				choice = in.nextLine();
+			}
+		}
+//		int count = 0;
+//		for (String t : activeIndex.getVocabulary()) {
+//			if (count >= 1000) {
+//				break;
+//			}
+//			System.out.println(t);
+//			System.out.println("Returning to main menu...\n");
+//			count += 1;
+//		}
+		System.out.println("Total number of terms in vocabulary: " + activeIndex.getVocabulary().size());
 	}
 
 	// tests the stemming of a single provided token by returning its stemmed term(s)
@@ -803,7 +837,7 @@ public class Driver {
 		}
 	}
 
-	private static void viewDocument(DocumentCorpus corpus, Index index) {
+	private static void viewDocument() {
 		Scanner in = new Scanner(System.in);
 		System.out.println();
 		String choice = "y";
@@ -812,7 +846,7 @@ public class Driver {
 
 			System.out.println("Please enter the ID of the document you'd like to view: ");
 			int docId = Integer.parseInt(in.nextLine());
-			BufferedReader contentReader = new BufferedReader(corpus.getDocument(docId).getContent());
+			BufferedReader contentReader = new BufferedReader(activeCorpus.getDocument(docId).getContent());
 			StringBuilder stringBuilder = new StringBuilder();
 			String line;
 
@@ -839,12 +873,12 @@ public class Driver {
 		//System.out.println("Returning to main menu...");
 	}
 
-	// prints out a list of every document in the corpus by showing the title of each document and the internal document ID assigned to it
-	private static void viewCorpusOverview(DocumentCorpus corpus) {
-		System.out.println("An overview of all document ID's and titles in the current corpus is shown below: \n ");
+	// prints out a list of every document in the activeCorpus by showing the title of each document and the internal document ID assigned to it
+	private static void viewCorpusOverview() {
+		System.out.println("An overview of all document ID's and titles in the current activeCorpus is shown below: \n ");
 		System.out.println("********************BEGIN OVERVIEW***I*****************");
 
-		for (Document d : corpus.getDocuments()) {
+		for (Document d : activeCorpus.getDocuments()) {
 			System.out.println("Document ID: " + d.getId() + "");
 			System.out.println("  Title: " + d.getTitle() + "\n");
 
@@ -852,6 +886,7 @@ public class Driver {
 		System.out.println("*******************END CORPUS*********************\n");
 		System.out.println("Returning to main menu...");
 	}
+
 }
 
 

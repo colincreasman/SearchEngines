@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
+import cecs429.documents.DirectoryCorpus;
 import org.mapdb.BTreeMap;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
@@ -34,7 +35,6 @@ public class DiskIndexDAO implements IndexDAO {
             indexDir.mkdir();
         }
     }
-
 
     @Override
     public boolean hasExistingIndex() {
@@ -92,28 +92,21 @@ public class DiskIndexDAO implements IndexDAO {
             // alternatively, we can get the byte location of each term by calling .size() on the output file for every new term - "returns the current number of bytes written to the output stream so far"
             // initialize both approaches to 0 before counting any terms
             long bytesByCount = 0;
-            long bytesBySize = 0;
 
             for (String term : index.getVocabulary()) {
-                // reassign bytesBySize everytime a new term is iterated
-                bytesBySize = outStream.size();
 
                 List<Posting> currPostings = index.getPostings(term);
                 // set up df(t) using number of postings for the current term, then  write it to the file
                 int docFrequency = currPostings.size();
                 outStream.writeInt(docFrequency);
-                bytesByCount += 4; // whenever a 4-byte int is written to the file, increment the byteCounter by 4 to account for the 4 bytes used to write the integer
 
-                // comparing the two to find the more accurate approach
-                System.out.println("Comparing the current values from both byte approaches for accuracy: \n bytesByCount = " + bytesByCount +"\n bytesBySize = " + bytesBySize);
+                // we also need to write the current term and byte location to the RDB B+ tree by adding the vals to the map using .put()
+                termsMap.put(term, bytesByCount);
+
+                bytesByCount += 4; // whenever a 4-byte int is written to the file, increment the byteCounter by 4 to account for the 4 bytes used to write the integer
 
                 // TODO: once tested, replace this arg with whichever of the two approaches is more accurate
                 mByteLocations.add(bytesByCount);
-
-                // we also need to write the current term and byte location to the RDB B+ tree
-                // since the db and map were already initiated above, simply add the vals to the map using .put()
-                termsMap.put(term, bytesByCount);
-
                 // for the first of the current term's postings, we can take its docId as-is without using gaps
                 int docId = currPostings.get(0).getDocumentId();
 
@@ -164,7 +157,7 @@ public class DiskIndexDAO implements IndexDAO {
 
 
     @Override
-    public void writeTermData(String term, long bytePosition) {
+    public void writeTermLocations(String term, long bytePosition) {
         // initialize necessary structs
         DB termsDb = null;
         BTreeMap<String, Long> termsMap = null;
@@ -189,10 +182,7 @@ public class DiskIndexDAO implements IndexDAO {
     }
 
     @Override
-    public List<String> readVocabulary(String indexDir) {
-        // first check if the given path for indexDir has the necessary files in it
-        String dbPath = indexDir += "/mapTerms.db";
-
+    public List<String> readVocabulary() {
         // initialize necessary structs
         List<String> results = new ArrayList<>();
         DB termsDb = null;
@@ -202,9 +192,7 @@ public class DiskIndexDAO implements IndexDAO {
         try {
             // if possible open the existing B+ tree that maps all the currently written on-disk terms to their byte locations
             termsDb = DBMaker.fileDB(mDbPath).make();
-            termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
-                    .counterEnable()
-                    .open(); // since this is a read-only function, we need to open the map, not openOrClose
+            termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG).open(); // since this is a read-only function, we need to open the map, not openOrClose
         }
         catch (Exception ex) {
             System.out.println("Error reading from on disk index: No on-disk B+ tree was found in the provided index directory");
@@ -229,7 +217,7 @@ public class DiskIndexDAO implements IndexDAO {
 
 
     @Override
-    public List<Long> readByteLocations(Index index) {
+    public List<Long> readTermLocations() {
         // initialize necessary structs
         List<Long> results = new ArrayList<>();
         DB termsDb = null;

@@ -23,13 +23,13 @@ public interface IndexDAO {
     List<Long> writeIndex(Index index, String datastore);
 
 
-    void writeTermData(String term, long location);
+    void writeTermLocations(String term, long location);
 
 
-    List<String> readVocabulary(String indexDir);
+    List<String> readVocabulary();
 
 
-    List<Long> readByteLocations(Index index);
+    List<Long> readTermLocations();
 
     /**
      * Reads the raw tf(t,d) data from the persistent data store for a given term & docId
