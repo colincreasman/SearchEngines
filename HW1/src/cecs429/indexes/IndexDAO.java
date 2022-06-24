@@ -25,7 +25,7 @@ public interface IndexDAO {
 
     void writeTermLocation(String term, long bytePosition);
 
-    void writeDocWeight(int docId, double weight);
+    void writeDocWeights(HashMap<Integer, Double> docWeights);
 
     HashMap<Integer, Double> readDocWeights();
 

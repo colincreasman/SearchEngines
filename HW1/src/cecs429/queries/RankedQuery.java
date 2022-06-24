@@ -55,10 +55,10 @@ public class RankedQuery implements QueryComponent {
                 // retrieve the necessary variables from the current posting
                 int docFrequency = postings.size(); // dft
                 double fraction = (double) mCorpusSize / docFrequency;
-                double queryTermWeight = calculateTermWeight(docFrequency); // w(q,t)
+                double queryTermWeight = Math.log(1 + fraction); // w(q,t)
                 double docTermWeight = currPosting.getTermWeight();
+
                 double increment = queryTermWeight * docTermWeight;
-                double currAcc = 0;
                 int currDoc = currPosting.getDocumentId();
 
                 if (mRankMap.isEmpty()) {
@@ -66,7 +66,6 @@ public class RankedQuery implements QueryComponent {
                     mRankMap.put(currDoc, currPosting.getAccumulator());
                     //       mRankedPostings.add(currPosting);
                 }
-
                 // check if the current head (should have the max docId at this time)
                 else {
                     // try to update the current acc in the map
@@ -111,6 +110,7 @@ public class RankedQuery implements QueryComponent {
         List<Posting> results = mRankedPostings.stream().toList();
         return results;
     }
+}
 
 
 

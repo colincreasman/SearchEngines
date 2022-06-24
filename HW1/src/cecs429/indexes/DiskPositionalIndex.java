@@ -90,7 +90,7 @@ public class DiskPositionalIndex implements Index {
             double docWeight = calculateDocWeight(termFrequenciesPerDoc);
             // now add this doc's docId and Ld value to the overall map of docWeights per doc
             mDocWeights.put(d.getId(), docWeight);
-            indexDao.writeDocWeight(d.getId(), docWeight);
+            indexDao.writeDocWeights(mDocWeights);
         }
 
         long stop = System.currentTimeMillis();
@@ -117,6 +117,11 @@ public class DiskPositionalIndex implements Index {
             //       mTermLocations = indexDao.readTermLocations()}
 
             //TODO: load the byte locations from disk
+            mDocWeights = indexDao.readDocWeights();
+
+            mTermLocations = indexDao.readTermLocations();
+
+
 
 
         } catch (NullPointerException ex) {
@@ -124,8 +129,7 @@ public class DiskPositionalIndex implements Index {
         }
     }
 
-
-    // uses the hashmap of terms and their tf(t,d) values to calculate the Euclidean Normalized document weights of of the given doc and return them all as a list of Doubles
+    // uses the hashmap of terms and their tf(t,d) values to calculate the Euclidean Normalized document weights of the given doc and return them all as a list of Doubles
     public double calculateDocWeight(HashMap<String, Integer> frequencies) {
         double finalWeight;
         double weightSums = 0;
@@ -176,17 +180,19 @@ public class DiskPositionalIndex implements Index {
             load();
         }
 
-        long byteLocation = mByteLocations.get(mVocabulary.indexOf(term));
+        long byteLocation = mTermLocations.get(term);
 
         return indexDao.readPostings(byteLocation);
     }
-
 
     /**
      * A (sorted) list of all terms in the index vocabulary.
      */
     @Override
     public List<String> getVocabulary() {
+        if (mVocabulary == null) {
+            mVocabulary = indexDao.readVocabulary();
+        }
         return mVocabulary;
     }
 

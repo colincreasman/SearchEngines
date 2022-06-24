@@ -7,10 +7,13 @@ import java.nio.file.Paths;
 import java.util.*;
 import static edu.csulb.Driver.ActiveConfiguration.*;
 
+import cecs429.documents.Document;
 import org.mapdb.BTreeMap;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.mapdb.Serializer;
+
+import javax.print.Doc;
 
 public class DiskIndexDAO implements IndexDAO {
   //  private PositionalInvertedIndex mPosIndex;
@@ -162,7 +165,7 @@ public class DiskIndexDAO implements IndexDAO {
     public void writeTermLocation(String term, long bytePosition) {
         // try to initialize the db as a child file of the overall index directory
         try {
-            // if possible, create a B+ tree that mapes all the on-disk terms to their byte locations
+            // if possible, create a B+ tree that maps all the on-disk terms to their byte locations
             DB termsDb = DBMaker.fileDB(mDbPath).make();
             BTreeMap<String, Long> termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
                     .counterEnable()
@@ -170,12 +173,11 @@ public class DiskIndexDAO implements IndexDAO {
 
             // now we can write the term and its location to disk by simply calling put() on the map
             termsMap.put(term, bytePosition);
-
+            termsDb.close();
         } catch (Exception ex) {
             System.out.println("Failed to write the term '" + term + "' with a byte location of " + bytePosition + ". \n");
             ex.printStackTrace();
         }
-        termsDb.close();
     }
 
     @Override
@@ -188,7 +190,7 @@ public class DiskIndexDAO implements IndexDAO {
                 docWeightsBin.delete();
             }
 
-            FileOutputStream docWeightsStream = new FileOutputStream(postingsBin);
+            FileOutputStream docWeightsStream = new FileOutputStream(docWeightsBin);
             DataOutputStream docWeightsOut = new DataOutputStream(docWeightsStream);
 
             int gapId = 0;
@@ -219,20 +221,23 @@ public class DiskIndexDAO implements IndexDAO {
     public HashMap<Integer, Double> readDocWeights() {
         HashMap<Integer, Double> results = new HashMap<>();
         double weight = 0.0;
-        // try to initialize the db as a child file of the overall index directory
-        try {
-            // if possible, create a B+ tree that mapes all the on-disk terms to their byte locations
-            // if possible, create a B+ tree that maps all the on-disk terms to their byte locations
-            DB weightsDB = DBMaker.fileDB().make();
-            BTreeMap<Integer, Double> weightsMap = weightsDB.treeMap("map").keySerializer(Serializer.INTEGER).valueSerializer(Serializer.DOUBLE)
-                    .counterEnable()
-                    .open();
 
-            for (int id : weightsMap.keySet()) {
-                results.put(id, weightsMap.get(id));
+        try (RandomAccessFile reader = new RandomAccessFile(mPostingsPath, "r")) {
+            // start reading from the beginning of the file, the first byte should hold the first doc id
+            reader.seek(0);
+            for (int i = 0; i < activeCorpus.getCorpusSize(); i++) {
+                int currId = reader.readInt();
+                double currWeight = reader.readDouble();
+                results.put(currId, currWeight);
             }
-
-            weightsDB.close();
+//            while (gapId < reader.length()) {
+//                // start the reader at the first byte location in the file
+//                reader.seek(gapId
+//
+//                // get the first docId from the first byte and its docweight from the next 8 bytes after it
+//                int currId = reader.readInt();
+//                double currWeight = reader.readDouble();
+//            }
         }
         catch (Exception ex) {
             System.out.println("Failed to read the doc weights from disk. # '");
