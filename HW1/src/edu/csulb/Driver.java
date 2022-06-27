@@ -100,14 +100,9 @@ public class Driver {
 			return instance;
 		}
 
-		public static void setCorpus(DocumentCorpus docCorpus) {
-			// whenever a new active activeCorpus is assigned, use its path to create the active indexDAO
-			indexDao = new DiskIndexDAO(docCorpus.getPath());
-			activeCorpus = docCorpus;
-			// now use the new indexDao to determine if there is an on-disk activeIndex for the given activeCorpus
-			hasDiskIndex = indexDao.hasExistingIndex();
-		}
-		
+		// instantiate global config instance
+		public static final ActiveConfiguration config = getInstance();
+
 		public static void setRunMode(RunMode runMode) {
 			if (runMode == Quit) {
 				System.out.println("Quitting the application - Goodbye!");
@@ -120,6 +115,14 @@ public class Driver {
 
 		public static void setActiveIndex(Index activeIndex) {
 			ActiveConfiguration.activeIndex = activeIndex;
+		}
+
+		public static void setActiveCorpus(DocumentCorpus docCorpus) {
+			// whenever a new active activeCorpus is assigned, use its path to create the active indexDAO
+			indexDao = new DiskIndexDAO(docCorpus.getPath());
+			activeCorpus = docCorpus;
+			// now use the new indexDao to determine if there is an on-disk activeIndex for the given activeCorpus
+			hasDiskIndex = indexDao.hasExistingIndex();
 		}
 
 		public static void setQueryMode(QueryMode queryMode) {
@@ -142,10 +145,7 @@ public class Driver {
 			ActiveConfiguration.hasDiskIndex = hasDiskIndex;
 		}
 	}
-	
-	
-	// instantiate global config instance
-	public static final ActiveConfiguration config = getInstance();
+
 
 	public static void main(String[] args) {
 		while (runMode != Quit) {
@@ -153,62 +153,68 @@ public class Driver {
 		}
 	}
 
-
 	private static void selectRunModeMenu() {
 		Scanner in = new Scanner(System.in);
 
 		while (true) {
 			System.out.println("\nPlease select a run mode from the options below: ");
 			System.out.println("*************************************************");
-			System.out.println("(a) Build Mode - Build a new index ");
-			System.out.println("(b) Query Mode - Query an existing index ");
-			System.out.println("(c) Quit Application");
-			String choice = in.nextLine();
+			System.out.println("(1) Build Mode - Build a new index ");
+			System.out.println("(2) Query Mode - Query an existing index ");
+			System.out.println("(3) Quit Application");
+			int choice = in.nextInt();
 
 			switch (choice) {
-				case "a": {
+				case 1: {
 					runMode = Build;
-					setCorpus(selectCorpusMenu());
-					// once the activeCorpus is selected, get the user's activeIndex selection over the chosen activeCorpus
+					setActiveCorpus(selectCorpusMenu());
+					// once the activeCorpus is selected, get the user's index selection over the chosen corpus
 					activeIndex = selectIndexMenu();
 					queryMode = selectQueryModeMenu();
 					mainMenu();
 					break;
 				}
 
-				case "b": {
+				case 2: {
 					// get user's chosen activeCorpus before checking if activeIndex exists
-					activeCorpus = selectCorpusMenu();
+					setActiveCorpus(selectCorpusMenu());
+					//activeIndex = selectIndexMenu();
+
 
 					//  check for on-disk activeIndex first
 					if (hasDiskIndex) {
-						System.out.println("An existing activeIndex was found written to disk in the activeCorpus directory '" + activeCorpus.getPath() + "'\n");
-						System.out.println("Would you like to continue to Query Mode using this activeIndex? (y/n) ");
+						System.out.println("An existing index was found written to disk in the corpus directory '" + activeCorpus.getPath() + "'\n");
+						System.out.println("Would you like to continue to Query Mode using this index? (y/n) ");
+						String choice2 = in.nextLine();
 
 						if (Objects.equals(in.nextLine(), "y")) {
-							System.out.println("Redirecting to Query Mode...");
+							System.out.println("Ok - An in-memory index must be built from the on-disk data before querying...");
+							buildIndex(DiskPositional);
+							System.out.println("Entering Query Mode...");
 							runMode = Query;
+							queryMode = selectQueryModeMenu();
+							mainMenu();
 							break;
 						}
 
 						else {
-							System.out.println("Ok, disregarding the on-disk activeIndex...");
+							System.out.println("Ok, disregarding the on-disk index...");
 						}
 					}
 
 					else {
-						System.out.println("No existing activeIndex was found on disk for the selected activeCorpus. You must switch to another activeCorpus with an existing activeIndex or build a new activeIndex altogether before entering Query Mode. \n");
+						System.out.println("No existing index was found on disk for the selected corpus. You must switch to another corpus with an existing on-disk index or build a new index altogether before entering Query Mode. \n");
 						runMode = Build;
 					}
 
 					// now check for in-mem activeIndex
 					if (activeIndex == null) {
-						System.out.println("No existing activeIndex was found in memory for the selected activeCorpus. \n Checking for an on-disk activeIndex...");
+						System.out.println("No existing index was found in memory for the selected corpus. \n Checking for an on-disk activeIndex...");
 					}
 
 					else {
-						System.out.println("An existing activeIndex was found in memory for the activeCorpus directory '" + activeCorpus.getPath() + "'\n");
-						System.out.println("Would you like to continue to Query Mode with the found activeIndex? (y/n) ");
+						System.out.println("An existing index was found in memory for the activeCorpus directory '" + activeCorpus.getPath() + "'\n");
+						System.out.println("Would you like to continue to Query Mode with the existing index? (y/n) ");
 
 						if (Objects.equals(in.nextLine(), "y")) {
 							System.out.println("Redirecting to Query Mode...");
@@ -225,7 +231,7 @@ public class Driver {
 					break;
 				}
 
-				case "c": {
+				case 3: {
 					setRunMode(Quit);
 					break;
 				}
@@ -242,13 +248,13 @@ public class Driver {
 		Scanner in = new Scanner(System.in);
 
 		// ask the user for activeCorpus directory
-		System.out.println("Please select a activeCorpus from the options below: ");
-		System.out.println("**********************************************\n");
-		System.out.println("(a) National Parks Websites");
-		System.out.println("(b) Moby Dick - First 10 Chapters");
-		System.out.println("(c) Test Corpus - Json Files");
-		System.out.println("(d) Test Corpus - Txt Files");
-		System.out.println("(e) Custom File Path");
+		System.out.println("Please select a corpus from the options below: ");
+		System.out.println("**********************************************");
+		System.out.println("(1) National Parks Websites");
+		System.out.println("(2) Moby Dick - First 10 Chapters");
+		System.out.println("(3) Test Corpus - Json Files");
+		System.out.println("(4) Test Corpus - Txt Files");
+		System.out.println("(5) Custom File Path");
 
 		// setup starter path prefix
 		String corpusPath = "/Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/";
@@ -257,38 +263,35 @@ public class Driver {
 		// use .txt as the default extension
 		String ext = ".txt";
 
-		String selection = in.nextLine();
+		int selection = in.nextInt();
 
 		switch (selection) {
-			case "a": {
+			case 1: {
 				corpusPath += "all-nps-sites-extracted";
 				path = Paths.get(corpusPath).toAbsolutePath();
 				// only update the ext string when not using .txt files
 				ext = ".json";
 				break;
 			}
-			case "b": {
+			case 2: {
 				corpusPath += "MobyDick10Chapters";
 				path = Paths.get(corpusPath).toAbsolutePath();
-
 				ext = ".txt";
 				break;
 			}
-			case "c": {
+			case 3: {
 				corpusPath += "test-corpus-json";
 				path = Paths.get(corpusPath).toAbsolutePath();
-
 				ext = ".json";
 				break;
 			}
-			case "d": {
+			case 4: {
 				corpusPath += "test-corpus-txt";
 				path = Paths.get(corpusPath).toAbsolutePath();
-
 				ext = ".txt";
 				break;
 			}
-			case "e": {
+			case 5: {
 				System.out.println("Please enter the custom  path for your activeCorpus directory: \n");
 				corpusPath = in.nextLine();
 				path = Paths.get(corpusPath).toAbsolutePath();
@@ -319,8 +322,8 @@ public class Driver {
 
 		while (true) {
 			Scanner in = new Scanner(System.in);
-			System.out.println("Please select the type of activeIndex you would like to build for your activeCorpus: ");
-			System.out.println("******************************************\n");
+			System.out.println("Please select the type of index you would like to build for your corpus: ");
+			System.out.println("**************************************************");
 			System.out.println("(1) Inverted Index ");
 			System.out.println("(2) Term Document Index ");
 			System.out.println("(3) Positional Inverted Index ");
@@ -347,11 +350,11 @@ public class Driver {
 
 		while (true) {
 			System.out.println("\nPlease select a querying mode from the options below: ");
-			System.out.println("*************************************************************************************");
+			System.out.println("*******************************************************************");
 			int count = 0;
 			for (QueryMode mode : QueryMode.values())  {
 				count += 1;
-				System.out.println("(" + count + ")" + mode.toString() + "\n");
+				System.out.println("(" + count + ")" + mode.toString());
 			}
 			int choice = in.nextInt();
 
@@ -376,7 +379,7 @@ public class Driver {
 
 		while (true) {
 			System.out.println("\nPlease select a weighting scheme for ranked retrieval from options below: ");
-			System.out.println("*************************************************************************************");
+			System.out.println("******************************************************************************");
 			int count = 0;
 			for (WeightingScheme weightingScheme : WeightingScheme.values()) {
 				count += 1;
@@ -484,20 +487,20 @@ public class Driver {
 		Scanner in = new Scanner(System.in);
 
 		if (activeIndex != null && indexType == type) {
-			System.out.println("**** Warning **** An activeIndex of the type '" + type + "' already exists in memory for the current corpus - Building a new index will overwrite any existing index in memory. ");
-			System.out.println("\n Would you like to continue building the index in-memory ('y') or use the current activeIndex in memory ('n') ? ");
+			System.out.println("**** Warning **** An index of the type '" + type + "' already exists in memory for the current corpus - Building a new index will overwrite any existing index in memory. ");
+			System.out.println("\n Would you like to continue building the index in-memory ('y') or use the current index in memory ('n') ? ");
 
 			if (!Objects.equals(in.nextLine(), "n")) {
-				System.out.println("Ok - the current build process will be terminated and the existing activeIndex will be used instead. ");
+				System.out.println("Ok - the current build process will be terminated and the existing index will be used instead. ");
 				return activeIndex;
 			}
 
 			else {
-				System.out.println("Ok - The current activeIndex in-memory will be overwritten to build the new activeIndex. \n (Note that any existing on-disk data for the activeIndex will still be preserved.");
+				System.out.println("Ok - The current index in-memory will be overwritten to build the new index. \n (Note that any existing on-disk data for the index will still be preserved.");
 			}
 		}
 
-		System.out.println("Building a new " + type.toString() + "Index from the activeCorpus directory \n'" + activeCorpus.getPath() + "'\n This may take a minute...");
+		System.out.println("Building a new " + type.toString() + "Index for the corpus directory:  \n'" + activeCorpus.getPath() + "'\n This may take a minute...");
 
 		// start timer
 		long start = System.currentTimeMillis();
@@ -526,17 +529,17 @@ public class Driver {
 				// Instead, just call initialize() which does the equivalent work but by reading the on-disk data instead
 				// but first check if the activeIndex is already written to disk for this activeCorpus
 				if (hasDiskIndex) {
-					System.out.println("There is already an existing activeIndex written to disk in the current activeCorpus directory. ");
-					System.out.println("  -- Would you like to overwrite the existing on-disk data while building the new activeIndex? \n ");
-					System.out.println("**** WARNING **** \n Choosing this option will require significantly more indexing time because a new in-memory activeIndex must be built from scratch and written to disk before continuing the build process \n ***************** \n ");
+					System.out.println("There is already an existing index written to disk in the current corpus directory. ");
+					System.out.println("  -- Would you like to overwrite the existing on-disk data while building the new index? \n ");
+					System.out.println("**** WARNING **** \n Choosing this option will require significantly more indexing time because a new in-memory index must be built from scratch and written to disk before continuing the build process ");
 
-					System.out.println("\n Please enter 'y' to overwrite the existing activeIndex or 'n' to continue building with on-disk data: ");
+					System.out.println("\n Please enter 'y' to overwrite the existing index or 'n' to continue building with on-disk data: ");
 					// check if the user wants to use the existing data or overwrite it
 					if (Objects.equals(in.nextLine(), "y")) {
-						System.out.println("**** WARNING **** - ALL INDEX DATA WILL BE PERMANENTLY WIPED FROM THE DISK! \n ************* \n Please confirm that this is what you want to do entering 'y' again: \n ");
+						System.out.println("**** WARNING **** \n - ALL INDEX DATA WILL BE PERMANENTLY WIPED FROM THE DISK! \n Please confirm that this is what you want to do entering 'y' again: \n ");
 						String confirm = in.nextLine();
 						if (Objects.equals(confirm, "y")) {
-							System.out.println("Overwrite confirmed - The current on-disk activeIndex will be wiped and overwritten during initialization of the new activeIndex ");
+							System.out.println("Overwrite confirmed - The current on-disk index will be wiped and overwritten during initialization of the new index ");
 							diskIndex.initializeInMemoryIndex();
 						}
 						else {
@@ -617,10 +620,12 @@ public class Driver {
 
 		TokenProcessor processor = new BasicTokenProcessor();
 		QueryParser parser = null;
+
 		if (queryMode == Boolean) {
 			parser = new BooleanQueryParser();
 			processor = new HyphenTokenProcessor();
-		} else if (queryMode == Ranked) {
+		}
+		else if (queryMode == Ranked) {
 			parser = new RankedQueryParser();
 			processor = new AdvancedTokenProcessor();
 		}
@@ -712,6 +717,7 @@ public class Driver {
 			int i;
 			for (i = startIndex; i < endIndex; i++) {
 				termsCount += 1;
+
 				String term = activeIndex.getVocabulary().get(i);
 				System.out.println(activeIndex.viewTermPostings(term));
 			}

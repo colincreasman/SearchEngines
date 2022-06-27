@@ -29,7 +29,7 @@ public class DiskPositionalIndex implements Index {
         mVocabulary = new ArrayList<>();
         mIndexInMemory = new PositionalInvertedIndex(mVocabulary);
         mDocWeights = new HashMap<>();
-        mTermLocations = new HashMap<>();
+       // mTermLocations = new HashMap<>();
     }
 
     // builds an in-memory positional inverted index and calculates tf(t,d) data while processing the tokens of each doc
@@ -90,8 +90,8 @@ public class DiskPositionalIndex implements Index {
             double docWeight = calculateDocWeight(termFrequenciesPerDoc);
             // now add this doc's docId and Ld value to the overall map of docWeights per doc
             mDocWeights.put(d.getId(), docWeight);
-            indexDao.writeDocWeights(mDocWeights);
         }
+
 
         long stop = System.currentTimeMillis();
         long elapsedSeconds = (long) ((stop - start) / 1000.0);
@@ -99,9 +99,12 @@ public class DiskPositionalIndex implements Index {
 
         // now write that index to disk and save the returned byte positions into the static object field for them
         mByteLocations = indexDao.writeIndex(mIndexInMemory, mPath);
+        indexDao.writeDocWeights(mDocWeights);
+
         Collections.sort(mByteLocations);
         Collections.sort(mIndexInMemory.getVocabulary());
         mVocabulary = mIndexInMemory.getVocabulary();
+
     }
 
     // gets the index's vocabulary, term locations, and doc weights by reading them from the existing on-disk index data
@@ -110,6 +113,10 @@ public class DiskPositionalIndex implements Index {
 
         //  HashMap<Integer, Double> docWeights = new HashMap<>();
         try {
+            mDocWeights = indexDao.readDocWeights();
+
+            mTermLocations = indexDao.readTermLocations();
+
             mVocabulary.addAll(unsorted);
             // sort
             Collections.sort(mVocabulary);
@@ -117,11 +124,6 @@ public class DiskPositionalIndex implements Index {
             //       mTermLocations = indexDao.readTermLocations()}
 
             //TODO: load the byte locations from disk
-            mDocWeights = indexDao.readDocWeights();
-
-            mTermLocations = indexDao.readTermLocations();
-
-
 
 
         } catch (NullPointerException ex) {
@@ -157,15 +159,14 @@ public class DiskPositionalIndex implements Index {
     public List<Posting> getPostings(String term) {
         List<Posting> results = new ArrayList<>();
 
-        if (mVocabulary == null) {
+        if (mTermLocations == null) {
             System.out.println("Could not retrieve postings because  no vocabulary data has been loaded for the current index. \n Loading vocabulary from disk now...");
             load();
         }
 
-        long byteLocation = mByteLocations.get(mVocabulary.indexOf(term));
+        long byteLocation = mTermLocations.get(term);
 
         return indexDao.readPostings(byteLocation);
-
     }
 
     // queries the persistent RDB to retrieve only the docId's from given term's postings as well as each doc's corresponding tf(t,d) value
@@ -175,7 +176,7 @@ public class DiskPositionalIndex implements Index {
     public List<Posting> getPostingsWithoutPositions(String term) {
         List<Posting> results = new ArrayList<>();
 
-        if (mVocabulary == null) {
+        if (mTermLocations == null) {
             System.out.println("Could not retrieve postings because  no vocabulary data has been loaded for the current index. \n Loading vocabulary from disk now...");
             load();
         }
@@ -213,6 +214,16 @@ public class DiskPositionalIndex implements Index {
 
     @Override
     public String viewTermPostings(String term) {
-        return null;
+        String postingString = "\"" + term + "\":" + " {";
+        //System.out.println(term);
+
+        for (Posting p : getPostings(term)) {
+            postingString += (p.toString() + ", ");
+        }
+
+        // remove comma from final term
+        postingString = postingString.substring(0, postingString.length() - 2);
+        postingString += "}";
+        return postingString;
     }
 }

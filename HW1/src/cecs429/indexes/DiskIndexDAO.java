@@ -196,10 +196,12 @@ public class DiskIndexDAO implements IndexDAO {
             int gapId = 0;
             for (int currId : weightsMap.keySet()
             ) {
-                gapId = gapId + (currId - gapId);
+                //gapId = gapId + (currId - gapId);
                 // only write AFTER updating the gap
-                docWeightsOut.writeInt(gapId);
+                docWeightsOut.writeInt(currId);
+                docWeightsOut.writeDouble(weightsMap.get(currId));
             }
+            docWeightsOut.close();
         }
 //                // for the first term only, write the gapId as-is without updating it with the current doc
 //                if (gapId == 0) {
@@ -222,7 +224,7 @@ public class DiskIndexDAO implements IndexDAO {
         HashMap<Integer, Double> results = new HashMap<>();
         double weight = 0.0;
 
-        try (RandomAccessFile reader = new RandomAccessFile(mPostingsPath, "r")) {
+        try (RandomAccessFile reader = new RandomAccessFile(mDocWeightsPath, "r")) {
             // start reading from the beginning of the file, the first byte should hold the first doc id
             reader.seek(0);
             for (int i = 0; i < activeCorpus.getCorpusSize(); i++) {
@@ -240,7 +242,7 @@ public class DiskIndexDAO implements IndexDAO {
 //            }
         }
         catch (Exception ex) {
-            System.out.println("Failed to read the doc weights from disk. # '");
+            System.out.println("Failed to read the doc weights from disk. '");
             ex.printStackTrace();
         }
         return results;
@@ -253,12 +255,20 @@ public class DiskIndexDAO implements IndexDAO {
             // if possible, create a B+ tree that maps all the on-disk terms to their byte locations
             DB termsDb = DBMaker.fileDB(mDbPath).make();
             BTreeMap<String, Long> termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
-                    .counterEnable()
-                    .createOrOpen();
+                    .open();
 
-            // now we can write the term and its location to disk by simply calling put() on the map
-            for (String term : termsMap.keySet()) {
-                results.put(term, termsMap.get(term));
+
+            // extract the list of all terms from the map B+ tree as an in-memory List iterator
+            Iterator<String> termsOnDisk = termsMap.keyIterator();
+            // now we can add all the on-disk terms to an in-memory return value by extracting terms from the iterator until the stream ends
+            while (termsOnDisk.hasNext()) {
+                String term = termsOnDisk.next();
+                long location = termsMap.get(term);
+                results.put(term, location);
+//            }
+//            // now we can write the term and its location to disk by simply calling put() on the map
+//            for (String term : termsMap.keySet()) {
+//                results.put(term, termsMap.get(term));
             }
             termsDb.close();
         }
