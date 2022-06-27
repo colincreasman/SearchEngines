@@ -104,9 +104,10 @@ public class DiskIndexDAO implements IndexDAO {
                 // we also need to write the current term and byte location to the RDB B+ tree by adding the vals to the map using .put()
                 termsMap.put(term, bytesByCount);
                 postingsOut.writeInt(docFrequency);
-                bytesByCount += 4; // whenever a 4-byte int is written to the file, increment the byteCounter by 4 to account for the 4 bytes used to write the integer
+
 
                 mByteLocations.add(bytesByCount);
+                bytesByCount += 4; // whenever a 4-byte int is written to the file, increment the byteCounter by 4 to account for the 4 bytes used to write the integer
 
                 // for the first of the current term's postings, we can take its docId as-is without using gaps
                 int docId = currPostings.get(0).getDocumentId();
@@ -120,7 +121,8 @@ public class DiskIndexDAO implements IndexDAO {
                     // if this is not the first posting for a given term, the docId must be re-assigned using the gap between itself and the previous docId
                     if (i > 0) {
                         int oldId = currPostings.get(i - 1).getDocumentId();
-                        docId += oldId;
+                        int currId = currPostings.get(i).getDocumentId();
+                        docId += (currId - oldId);
                     }
 
                     // write the current docId and tf(t,d) values to the file
@@ -130,30 +132,31 @@ public class DiskIndexDAO implements IndexDAO {
                     // TODO: get the w(d,t) value of the current term and doc by calling calculateTermWeight(termFrequency), then write it to disk right here (after writing the docId but before the tf(t,d)
                     double termWeight = calculateTermDocWeight(termFrequency);
                     postingsOut.writeDouble(termWeight);
-                    // increment byte position by 8 to account for the 8 bytes used for termWeight
-                    bytesByCount += 8;
+                    bytesByCount += 8; // increment byte position by 8 to account for the 8 bytes used for termWeight
 
                     postingsOut.writeInt(termFrequency);
                     bytesByCount += 4;
 
                     // setup the currPosition var that will be written to disk on for each term position
                     // just like the docIds above, initialize currPosition BEFORE iterating through the list by assigning it to the first term position as-is
-                    int currPosition = positions.get(0);
+                    int termPosition = positions.get(0);
 
                     // now handle the remaining term positions by finding the gaps between each subsequent position
                     for (int j = 0; j < positions.size(); j++) {
                         // for every position after the first, re-assign it to the difference between itself and the previous position
                         if (j > 0) {
                             int oldPosition = positions.get(j - 1);
-                            currPosition = currPosition - oldPosition;
+                            int currPosition = positions.get(i);
+                            termPosition += (currPosition - oldPosition);
                         }
                         // write the updated position to the file and increment the byte counter
-                        postingsOut.writeInt(currPosition);
+                        postingsOut.writeInt(termPosition);
                         bytesByCount += 4;
                     }
                 }
             }
             termsDb.close();
+            postingsOut.close();
         }
         catch (IOException ex) {
             ex.printStackTrace();
