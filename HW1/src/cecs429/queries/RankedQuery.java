@@ -49,9 +49,10 @@ public class RankedQuery implements QueryComponent {
         for (String term : mProcessedTerms) {
 
             List<Posting> postings = index.getPostingsWithoutPositions(term);
-            Posting currPosting = postings.get(0);
 
             for (int i = 0; i < postings.size(); i++) {
+                Posting currPosting = postings.get(i);
+
                 // retrieve the necessary variables from the current posting
                 int docFrequency = postings.size(); // dft
                 double fraction = (double) mCorpusSize / docFrequency;

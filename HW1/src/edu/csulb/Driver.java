@@ -407,7 +407,7 @@ public class Driver {
 			while (true) {
 				System.out.println("\nPlease select an action from the options below: ");
 				System.out.println("*************************************************");
-				System.out.println("(a) Change Corpus Directory and Index [:activeIndex] ");
+				System.out.println("(a) Change Corpus Directory and Index [:index] ");
 				System.out.println("(b) Change Query Mode ");
 				System.out.println("(c) Change Weighting Scheme (Ranked Retrieval Only) ");
 				System.out.println("(d) Change Run Mode ");
@@ -644,7 +644,7 @@ public class Driver {
 				}
 
 				else {
-					queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
+					//queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
 					viewQueryResults(queryPostings, activeCorpus, query);
 
 					System.out.println("View a document? (y/n) ");
@@ -679,9 +679,6 @@ public class Driver {
 					System.out.println("    - Query Term Positions: " + p.getTermPositions().toString());
 				}
 
-				if (count != results.size()) {
-					System.out.println();
-				}
 				count += 1;
 			}
 		}
