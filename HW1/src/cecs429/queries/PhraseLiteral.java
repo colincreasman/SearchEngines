@@ -56,7 +56,9 @@ public class PhraseLiteral implements QueryComponent {
 		// if there's only one term in the phrase literal, simply return its postings as if it was a single query component
 		if (mProcessedTerms.size() <= 1) {
 			mMerges = index.getPostings(mProcessedTerms.get(0));
-		} else {
+		}
+
+		else {
 			// loop through the remaining terms in the phrase and perform the positionalMerge
 			for (int i = 1; i < mProcessedTerms.size(); i++) {
 				List<Posting> previousPostings;
@@ -79,6 +81,16 @@ public class PhraseLiteral implements QueryComponent {
 			mPostings = mergePostings(mMerges);
 			return mPostings;
 		}
+	}
+
+	@Override
+	public List<String> getProcessedTerms() {
+		return null;
+	}
+
+	@Override
+	public List<Posting> getPostingsWithoutPositions(TokenProcessor processor, Index activeIndex) {
+		return null;
 	}
 
 	/**
@@ -190,6 +202,7 @@ public class PhraseLiteral implements QueryComponent {
 
 		for (Posting p: mergedPostings) {
 			List<Integer> positions = p.getTermPositions();
+			Collections.sort(positions);
 			List<Integer> sequence = new ArrayList<>();
 
 			for (int i = 1; i < positions.size(); i++) {
@@ -203,8 +216,6 @@ public class PhraseLiteral implements QueryComponent {
 						// if a matching sequence is found, reset i and break
 						i = j + 1;
 						break;
-//						count = 0;
-//						j = i - 1;
 					}
 					else if (j >= positions.size() - 1) {
 						break;

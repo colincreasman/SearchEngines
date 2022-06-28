@@ -43,7 +43,17 @@ public class TermLiteral implements QueryComponent {
 			return null;
 		}
 	}
-	
+
+	@Override
+	public List<String> getProcessedTerms() {
+		return null;
+	}
+
+	@Override
+	public List<Posting> getPostingsWithoutPositions(TokenProcessor processor, Index activeIndex) {
+		return null;
+	}
+
 	@Override
 	public String toString() {
 		return mTerm;

@@ -3,6 +3,8 @@ package cecs429.indexes;
 import edu.csulb.Driver;
 import org.jetbrains.annotations.NotNull;
 
+import javax.swing.*;
+
 import static edu.csulb.Driver.ActiveConfiguration.*;
 import static edu.csulb.Driver.QueryMode.Ranked;
 
@@ -14,13 +16,15 @@ import java.util.Comparator;
 /**
  * A Posting encapsulates a document ID associated a list of term positions within the document
  */
-public class Posting implements Comparator<Posting> {
+public class Posting implements Comparable<Posting> {
 	private int mDocumentId;
 	private List<Integer> mTermPositions;
 	private int mPositionsCount; //same as tf(d)
 	private double mAccumulator;
 	// additional field used only in postings for ranked retrievals
-	private double mTermWeight; // wdt
+	private double mDocTermWeight; // wdt
+	private double mQueryTermWeight;
+
 	private double mDocWeight; // Ld
 
 
@@ -73,12 +77,27 @@ public class Posting implements Comparator<Posting> {
 	 */
 	public Posting(int documentId, double termWeight, int termFrequency) {
 		mDocumentId = documentId;
-		mTermWeight = termWeight;
+		mDocTermWeight = termWeight;
 		mPositionsCount = termFrequency;
 //		mDocWeight = docWeight;
 		mAccumulator = 0;
 	}
-	
+
+	/**
+	 * Overloaded constructor for positionless postings in ranked retrieval
+	 * includes additional fields for doc/term weights and
+	 * @param documentId
+	 * @param termWeight
+	 * @param termFrequency
+	 */
+	public Posting(int documentId, double termWeight, int termFrequency, List<Integer> positions) {
+		mDocumentId = documentId;
+		mDocTermWeight = termWeight;
+		mPositionsCount = termFrequency;
+		mTermPositions = positions;
+		mAccumulator = 0;
+	}
+
 	public int getDocumentId() {
 		return mDocumentId;
 	}
@@ -122,7 +141,7 @@ public class Posting implements Comparator<Posting> {
 	public String toString() {
 		String result;
 		if (queryMode == Ranked || mTermPositions == null) {
-			result = mDocumentId + ": [w(d,t): " + mTermWeight + "; tf(t,d): " + mPositionsCount + "]";
+			result = "[w(q,t) = " + mQueryTermWeight + "; w(d,t) = " + mDocTermWeight + "; tf(t,d) = " + mPositionsCount + "]";
 		}
 		else {
 			result = mDocumentId + ":" + mTermPositions.toString();
@@ -135,12 +154,16 @@ public class Posting implements Comparator<Posting> {
 		return mPositionsCount;
 	}
 
-	public double getTermWeight() {
-		return mTermWeight;
+	public double getDocTermWeight() {
+		return mDocTermWeight;
 	}
 
 	public double getDocWeight() {
 		return mDocWeight;
+	}
+
+	public void setDocWeight(double newWeight) {
+		mDocWeight = newWeight;
 	}
 
 	public void increaseAccumulator(double acc) {
@@ -151,15 +174,32 @@ public class Posting implements Comparator<Posting> {
 		return mAccumulator;
 	}
 
+	public void setAccumulator(double newAcc) {
+		mAccumulator = newAcc;
+	}
+
+
+
 	@Override
-	public int compare(Posting p1, Posting p2) {
-		if (p1.getAccumulator() < p2.getAccumulator()) {
+	public int compareTo(@NotNull Posting p) {
+		if (mAccumulator < p.getAccumulator()) {
 			return -1;
 		}
-		else {
+		else if (p.getAccumulator() < mAccumulator) {
 			return 1;
 		}
-
+		else {
+			return 0;
+		}
 	}
+
+	public double getQueryTermWeight() {
+		return mQueryTermWeight;
+	}
+
+	public void setQueryTermWeight(double mQueryTermWeight) {
+		this.mQueryTermWeight = mQueryTermWeight;
+	}
+
 }
 

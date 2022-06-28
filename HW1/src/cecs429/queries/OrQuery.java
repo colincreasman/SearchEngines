@@ -56,6 +56,16 @@ public class OrQuery implements QueryComponent {
 		}
 	}
 
+	@Override
+	public List<String> getProcessedTerms() {
+		return null;
+	}
+
+	@Override
+	public List<Posting> getPostingsWithoutPositions(TokenProcessor processor, Index activeIndex) {
+		return null;
+	}
+
 	// performs the OR union merge of two lists of postings to return a new list containing all postings from both lists (without duplicates)
 	public List<Posting> union(List<Posting> top, List<Posting> bottom) {
 		// initialize list to store results

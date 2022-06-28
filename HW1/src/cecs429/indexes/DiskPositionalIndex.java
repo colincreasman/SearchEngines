@@ -13,6 +13,8 @@ import org.mapdb.Serializer;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class DiskPositionalIndex implements Index {
     private static List<String> mVocabulary;
@@ -29,7 +31,8 @@ public class DiskPositionalIndex implements Index {
         mVocabulary = new ArrayList<>();
         mIndexInMemory = new PositionalInvertedIndex(mVocabulary);
         mDocWeights = new HashMap<>();
-       // mTermLocations = new HashMap<>();
+        mByteLocations = new ArrayList<>();
+        mTermLocations = new HashMap<>();
     }
 
     // builds an in-memory positional inverted index and calculates tf(t,d) data while processing the tokens of each doc
@@ -100,31 +103,27 @@ public class DiskPositionalIndex implements Index {
         // now write that index to disk and save the returned byte positions into the static object field for them
         mByteLocations = indexDao.writeIndex(mIndexInMemory, mPath);
         indexDao.writeDocWeights(mDocWeights);
+        mVocabulary = mIndexInMemory.getVocabulary();
 
-//        Collections.sort(mByteLocations);
-//        Collections.sort(mIndexInMemory.getVocabulary());
-//        mVocabulary = mIndexInMemory.getVocabulary();
+        // use the vocabulary and byte locations to build the hashmap of term locations
+        Iterator<String> vocabIter = mVocabulary.iterator();
+        Iterator<Long> byteIter = mByteLocations.iterator();
+        mTermLocations.putAll(IntStream.range(0, mVocabulary.size()).boxed()
+                .collect(Collectors.toMap(_i -> vocabIter.next(), _i -> byteIter.next())));
 
-        load();
     }
 
     // gets the index's vocabulary, term locations, and doc weights by reading them from the existing on-disk index data
     public void load() {
-        List<String> unsorted = indexDao.readVocabulary();
-
+        //List<String> unsorted = indexDao.readVocabulary();
+        System.out.println("Loading index data from disk...");
         //  HashMap<Integer, Double> docWeights = new HashMap<>();
         try {
-            mDocWeights = indexDao.readDocWeights();
+            //mDocWeights = indexDao.readDocWeights();
 
             mTermLocations = indexDao.readTermLocations();
-
-            mVocabulary.addAll(unsorted);
-            // sort
-            Collections.sort(mVocabulary);
-            //mDocWeights = indexDao.readDocWeights();
-            //       mTermLocations = indexDao.readTermLocations()}
-
-            //TODO: load the byte locations from disk
+            mVocabulary.addAll(mTermLocations.keySet());
+            mByteLocations.addAll(mTermLocations.values());
 
             for (Document d : activeCorpus.getDocuments()) {
                 // Tokenize the document's content by constructing an EnglishTokenStream around the document's content.
@@ -149,7 +148,7 @@ public class DiskPositionalIndex implements Index {
 //            long dubLog = Long.parseLong(ogLog);
             double dubLog = Math.log(frequencies.get(term));
             dubLog = Math.pow(dubLog, 2.0);
-            Double basicWeight = 1 + dubLog; //w(t,d) = 1 + ln(tf(t,d)
+            Double basicWeight = 1 + dubLog; //w(t,d) = 1 + ln(tf(t,d))
             weightSums += basicWeight;
         }
 
@@ -183,14 +182,9 @@ public class DiskPositionalIndex implements Index {
     public List<Posting> getPostingsWithoutPositions(String term) {
         List<Posting> results = new ArrayList<>();
 
-//        if (mTermLocations == null) {
-//            System.out.println("Could not retrieve postings because  no vocabulary data has been loaded for the current index. \n Loading vocabulary from disk now...");
-//            load();
-//        }
-
         long byteLocation = mTermLocations.get(term);
 
-        return indexDao.readPostings(byteLocation);
+        return indexDao.readPostingsWithoutPositions(byteLocation);
     }
 
     /**

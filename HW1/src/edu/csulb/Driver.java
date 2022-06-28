@@ -405,13 +405,14 @@ public class Driver {
 
 			// loop until user wants to quit
 			while (true) {
+
 				System.out.println("\nPlease select an action from the options below: ");
 				System.out.println("*************************************************");
-				System.out.println("(a) Change Corpus Directory and Index [:index] ");
-				System.out.println("(b) Change Query Mode ");
-				System.out.println("(c) Change Weighting Scheme (Ranked Retrieval Only) ");
-				System.out.println("(d) Change Run Mode ");
-				System.out.println("(e) Begin Querying in " + queryMode + " Retrieval Mode");
+				System.out.println("(a) Begin Querying in " + queryMode + " Retrieval Mode");
+				System.out.println("(b) Change Corpus/Index [:index] ");
+				System.out.println("(c) Change Query Mode ");
+				System.out.println("(d) Change Weighting Scheme (Ranked Retrieval Only) ");
+				System.out.println("(e) Change Run Mode ");
 				System.out.println("(f) Stem a Token [:stem] ");
 				System.out.println("(g) Normalize a Token ");
 				System.out.println("(h) View Top 1000 Vocabulary Terms [:vocab] ");
@@ -424,26 +425,25 @@ public class Driver {
 
 				switch (selection) {
 					case "a": {
+						processQuery();
+						break;
+					}
+					case "b": {
 						// reset the current corpusPath by asking user to choose a new one
 						activeCorpus = selectCorpusMenu();
 						// then create a new activeIndex on the new activeCorpus
 						activeIndex = selectIndexMenu();
 						break;
 					}
-					case "b": {
+					case "c": {
 						queryMode = selectQueryModeMenu();
 						break;
 					}
-					case "c": {
+					case "d": {
 						weightingScheme = selectWeightMenu();
 					}
-					case "d": {
-						selectRunModeMenu();
-						break;
-					}
-					// display activeIndex selection menu again
 					case "e": {
-						processQuery();
+						selectRunModeMenu();
 						break;
 					}
 					case "f": {
@@ -503,7 +503,8 @@ public class Driver {
 			}
 		}
 
-		System.out.println("Building a new " + type.toString() + "Index for the corpus directory:  \n'" + activeCorpus.getPath() + "'\n This may take a minute...");
+		System.out.println("Building an in-memory " + type.toString() + "Index for the corpus directory:  \n'" + activeCorpus.getPath());
+		System.out.println("This may take a minute... \n");
 
 		// start timer
 		long start = System.currentTimeMillis();
@@ -532,29 +533,31 @@ public class Driver {
 				// Instead, just call initialize() which does the equivalent work but by reading the on-disk data instead
 				// but first check if the activeIndex is already written to disk for this activeCorpus
 				if (hasDiskIndex) {
-					System.out.println("There is already an existing index written to disk in the current corpus directory. ");
-					System.out.println("  -- Would you like to overwrite the existing on-disk data while building the new index? \n ");
-					System.out.println("**** WARNING **** \n Choosing this option will require significantly more indexing time because a new in-memory index must be built from scratch and written to disk before continuing the build process ");
+					if (runMode == Build) {
+						System.out.println("There is already an existing index written to disk in the current corpus directory. ");
+						System.out.println("  -- Would you like to overwrite the existing on-disk data while building the new index? \n ");
+						System.out.println("**** WARNING **** \n Choosing this option will require significantly more indexing time because a new in-memory index must be built from scratch and written to disk before continuing the build process ");
 
-					System.out.println("\n Please enter 'y' to overwrite the existing index or 'n' to continue building with on-disk data: ");
-					// check if the user wants to use the existing data or overwrite it
-					if (Objects.equals(in.nextLine(), "y")) {
-						System.out.println("**** WARNING **** \n - ALL INDEX DATA WILL BE PERMANENTLY WIPED FROM THE DISK! \n Please confirm that this is what you want to do entering 'y' again: \n ");
-						String confirm = in.nextLine();
-						if (Objects.equals(confirm, "y")) {
-							System.out.println("Overwrite confirmed - The current on-disk index will be wiped and overwritten during initialization of the new index ");
-							diskIndex.initializeInMemoryIndex();
-							activeIndex = diskIndex;
-						}
-						else {
-							System.out.println("Overwrite canceled - Continuing the build process using the existing index data found on disk... \n ");
+						System.out.println("\n Please enter 'y' to overwrite the existing index or 'n' to continue building with on-disk data: ");
+						// check if the user wants to use the existing data or overwrite it
+						if (Objects.equals(in.nextLine(), "y")) {
+							System.out.println("**** WARNING **** \n - ALL INDEX DATA WILL BE PERMANENTLY WIPED FROM THE DISK! \n Please confirm that this is what you want to do entering 'y' again: \n ");
+							String confirm = in.nextLine();
+							if (Objects.equals(confirm, "y")) {
+								System.out.println("Overwrite confirmed - The current on-disk index will be wiped and overwritten during initialization of the new index ");
+								diskIndex.initializeInMemoryIndex();
+								activeIndex = diskIndex;
+							} else {
+								System.out.println("Overwrite canceled - Continuing the build process using the existing index data found on disk... \n ");
+								diskIndex.load();
+							}
+						} else {
+							System.out.println("Ok - Continuing the build process using the existing index data found on disk... \n ");
 							diskIndex.load();
 							activeIndex = diskIndex;
 						}
 					}
-
 					else {
-						System.out.println("Ok - Continuing the build process using the existing index data found on disk... \n ");
 						diskIndex.load();
 						activeIndex = diskIndex;
 					}
@@ -642,21 +645,27 @@ public class Driver {
 			List<Posting> queryPostings = new ArrayList<>();
 			QueryComponent fullQuery = parser.parseQuery(query);
 			// sort the list of postings and print results
-			queryPostings = fullQuery.getPostings(processor, activeIndex);
-				if (queryPostings == null || queryPostings.contains(null) || queryPostings.size() < 1) {
+			if (queryMode == Boolean) {
+				queryPostings = fullQuery.getPostings(processor, activeIndex);
+			}
+			else if (queryMode == Ranked){
+				queryPostings = fullQuery.getPostingsWithoutPositions(processor, activeIndex);
+			}
 
-					System.out.println("No documents were found containing the query '" + query + "'");
+			if (queryPostings == null || queryPostings.contains(null) || queryPostings.size() < 1) {
+
+				System.out.println("No documents were found containing the query '" + query + "'");
+			}
+
+			else {
+				//queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
+				viewQueryResults(queryPostings, activeCorpus, fullQuery);
+
+				System.out.println("View a document? (y/n) ");
+				String docChoice = in.nextLine();
+				if (Objects.equals(docChoice, "y")) {
+					viewDocument();
 				}
-
-				else {
-					//queryPostings.sort(Comparator.comparingInt(Posting::getDocumentId));
-					viewQueryResults(queryPostings, activeCorpus, query);
-
-					System.out.println("View a document? (y/n) ");
-					String docChoice = in.nextLine();
-					if (Objects.equals(docChoice, "y")) {
-						viewDocument();
-					}
 
 				}
 				System.out.println("Perform another query? (y/n)");
@@ -665,20 +674,25 @@ public class Driver {
 		System.out.println("Returning to main menu...");
 	}
 
-	private static void viewQueryResults(List<Posting> results, DocumentCorpus activeCorpus, String query) {
+	private static void viewQueryResults(List<Posting> results, DocumentCorpus activeCorpus, QueryComponent query) {
 		// initialize counter to keep track of total number of documents the query was found in
 
 		try {
 			System.out.println("********************************BEGIN QUERY RESULTS********************************");
 
 			int count = 1;
-			for (Posting p : results) {
+			for (int i = results.size() - 1; i >= 0; i--) {
+				Posting p = results.get(i);
 				System.out.println(count + ") Title: '" + activeCorpus.getDocument(p.getDocumentId()).getTitle() + "' ");
 				System.out.println("    - DocId: " + p.getDocumentId());
 
 				if (queryMode == Ranked) {
-					System.out.println("    - Final Accumulator Value: " + p.getAccumulator());
-					System.out.println("    - Ranking data: " + p.toString());
+					System.out.println("    - Final Accumulator Value (Ad): " + p.getAccumulator());
+					System.out.println("    - Doc Weight (Ld): " + p.getDocWeight());
+					for (String term : query.getProcessedTerms()) {
+						System.out.println("    - Term Weight(s): ");
+						System.out.println("         - '" + term + "': " + p.toString());
+					}
 				}
 
 				else if (queryMode == Boolean) {
@@ -778,6 +792,7 @@ public class Driver {
 				System.out.println("No terms remaining in vocabulary. ");
 				choice = "n";
 			} else {
+				System.out.println("Total number of terms in vocabulary: " + activeIndex.getVocabulary().size());
 				System.out.println("View the next 1000 vocabulary terms? (y/n)");
 				choice = in.nextLine();
 			}
@@ -791,7 +806,7 @@ public class Driver {
 //			System.out.println("Returning to main menu...\n");
 //			count += 1;
 //		}
-		System.out.println("Total number of terms in vocabulary: " + activeIndex.getVocabulary().size());
+
 	}
 
 	// tests the stemming of a single provided token by returning its stemmed term(s)

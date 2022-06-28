@@ -27,7 +27,7 @@ public interface IndexDAO {
 
     void writeDocWeights(HashMap<Integer, Double> docWeights);
 
-    HashMap<Integer, Double> readDocWeights();
+    double readDocWeight(int docId);
 
     List<String> readVocabulary();
 
@@ -40,4 +40,10 @@ public interface IndexDAO {
     // all other postings data will be handled in the getPostings() method calling this one
     // initialize necessary vars for results and structs to read from the termsDB
     List<Posting> readPostings(long byteLocation);
+
+    // reads select postings data from the disk to return a list of postings,
+    // each constructed with vals for its docId and docWeights
+    // all other postings data will be handled in the getPostings() method calling this one
+    // initialize necessary vars for results and structs to read from the termsDB
+    List<Posting> readPostingsWithoutPositions(long byteLocation);
 }

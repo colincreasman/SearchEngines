@@ -53,35 +53,46 @@ public class AdvancedTokenProcessor implements TokenProcessor {
 
         // find the first index in the char array that is an alphanumeric character
         for (int i = 0; i < tokenCharacters.length; i++) {
-            if (Character.isLetterOrDigit(tokenCharacters[i])) {
+            if (Character.isAlphabetic(tokenCharacters[i]) || Character.isDigit(tokenCharacters[i])) {
                 first = i;
                 break;
             }
         }
 
         //  find the last index that is an alphanumeric character by counting backwards from the end
-        for (int i = tokenCharacters.length - 1; i > 0; i--) {
-            if (Character.isLetterOrDigit(tokenCharacters[i])) {
-                last = i + 1;
+        for (int i = tokenCharacters.length - 1; i >= 0; i--) {
+            if (Character.isAlphabetic(tokenCharacters[i]) || Character.isDigit(tokenCharacters[i])) {
+                last = i;
                 break;
             }
         }
         // then substring between the two to extract the term.
-        String result = token.substring(first, last);
+        String result = token.substring(first, last + 1);
         //System.out.println("Testing fixNonAplhanumerics: " + result);
         return result;
     }
 
-    // Removes all apostropes or quotation marks (single or double quotes) from anywhere in the string
+    // Removes all apostrophes or quotation marks (single or double quotes) from anywhere in the string
     public String fixPunctuation(String token) {
         // first check if the token contains any relevant punctuations
        // if (token.contains("\"") || token.contains("\'")) {
             // if so, use a regex to remove them
-            token = token.replaceAll("\"", "");
-            token = token.replaceAll("\'", "");
+//            token = token.replaceAll("\"", "");
+//            token = token.replaceAll("'", "");
        // }
         ///System.out.println("Testing fixPunctuation: " + token);
-        return token;
+        char apostrophe = '\'';
+        char quote = '\"';
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < token.length(); i++) {
+            char currChar = token.charAt(i);
+
+            if (currChar != apostrophe && currChar != quote) {
+                builder.append(currChar);
+            }
+        }
+        String result = builder.toString();
+        return result;
     }
 
     /**

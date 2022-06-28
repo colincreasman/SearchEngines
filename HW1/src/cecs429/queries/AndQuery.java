@@ -54,6 +54,16 @@ public class AndQuery implements QueryComponent {
 		}
 	}
 
+	@Override
+	public List<String> getProcessedTerms() {
+		return null;
+	}
+
+	@Override
+	public List<Posting> getPostingsWithoutPositions(TokenProcessor processor, Index activeIndex) {
+		return null;
+	}
+
 	// performs an AND intersect merge of two lists of postings to return a new list containing only the postings the are found in both of the original lists
 	public List<Posting> intersect(List<Posting> top, List<Posting> bottom) {
 
