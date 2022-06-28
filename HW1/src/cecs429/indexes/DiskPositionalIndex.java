@@ -120,9 +120,9 @@ public class DiskPositionalIndex implements Index {
         //  HashMap<Integer, Double> docWeights = new HashMap<>();
         try {
             //mDocWeights = indexDao.readDocWeights();
+            System.out.println("Reading byte locations from B+ tree...");
 
             mTermLocations = indexDao.readTermLocations();
-            System.out.println("Successfully loaded vocabulary and byte locations into memory...");
 
             mVocabulary.addAll(mTermLocations.keySet());
             mByteLocations.addAll(mTermLocations.values());

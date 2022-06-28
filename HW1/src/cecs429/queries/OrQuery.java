@@ -21,7 +21,6 @@ public class OrQuery implements QueryComponent {
 		//mProcessor = processor;
 		mComponents = components;
 		mProcessedTerms = new ArrayList<>();
-
 	}
 	
 	@Override
@@ -40,11 +39,11 @@ public class OrQuery implements QueryComponent {
 			for (int i = 0; i < mProcessedTerms.size(); i++) {
 				// for the first QueryComponent only, automatically add it to the master postings list without any OR processing
 				if (i == 0) {
-					masterPostingsList.addAll(index.getPostings(mProcessedTerms.get(i - 1)));
+					masterPostingsList.addAll(index.getPostings(mProcessedTerms.get(i)));
 				}
 				// for every other query component after that, update the master list by OR-ing it with the current component's postings list
 				else {
-					masterPostingsList = union(index.getPostings(mProcessedTerms.get(i - 1)), masterPostingsList);
+					masterPostingsList = union(index.getPostings(mProcessedTerms.get(i)), masterPostingsList);
 				}
 			}
 			return masterPostingsList;
@@ -83,8 +82,8 @@ public class OrQuery implements QueryComponent {
 
 			// if they are equal, add either list's current posting (top chosen arbitrarily here) to the results and increment both indexes
 			if (topDocId == bottomDocId) {
-				Posting merge = top.get(i).merge(bottom.get(j));
-				results.add(merge);
+				//Posting merge = top.get(i).merge(bottom.get(j));
+				results.add(top.get(i));
 				i++;
 				j++;
 			}
