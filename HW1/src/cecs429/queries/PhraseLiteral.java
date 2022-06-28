@@ -202,7 +202,7 @@ public class PhraseLiteral implements QueryComponent {
 
 		for (Posting p: mergedPostings) {
 			List<Integer> positions = p.getTermPositions();
-			Collections.sort(positions);
+	//		Collections.sort(positions);
 			List<Integer> sequence = new ArrayList<>();
 
 			for (int i = 1; i < positions.size(); i++) {

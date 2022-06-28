@@ -122,6 +122,8 @@ public class DiskPositionalIndex implements Index {
             //mDocWeights = indexDao.readDocWeights();
 
             mTermLocations = indexDao.readTermLocations();
+            System.out.println("Successfully loaded vocabulary and byte locations into memory...");
+
             mVocabulary.addAll(mTermLocations.keySet());
             mByteLocations.addAll(mTermLocations.values());
 

@@ -429,10 +429,19 @@ public class DiskIndexDAO implements IndexDAO {
 
                 List<Integer> termPositions = new ArrayList<>();
 
+                int currTermPosition = 0;
+
                 for (int j = 0; j < currTermFrequency; j++) {
-                    termPositions.add(reader.readInt());
+                    if (j == 0) {
+                        currTermPosition = reader.readInt();
+                    }
+                    else {
+                        currTermPosition += reader.readInt();
+                    }
+                    termPositions.add(currTermPosition);
                 }
 
+                Collections.sort(termPositions);
                 Posting currPosting = new Posting(currentDocId, currentWeight, currTermFrequency, termPositions);
                 results.add(currPosting);
             }
