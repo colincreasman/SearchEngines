@@ -4,6 +4,8 @@ import cecs429.documents.Document;
 import cecs429.indexes.Index;
 import cecs429.indexes.Posting;
 import cecs429.text.TokenProcessor;
+import org.checkerframework.checker.units.qual.A;
+
 import static edu.csulb.Driver.ActiveConfiguration.*;
 
 import java.util.*;
@@ -33,11 +35,11 @@ public class RankedQuery implements QueryComponent {
     @Override
     public List<Posting> getPostings(TokenProcessor processor, Index index) {
 
-        Comparator<Posting> compareByAccumulator = Comparator.comparingInt(Posting::getDocumentId);
+      //  Comparator<Posting> compareByAccumulator = Comparator.comparingDouble(Posting::getAccumulator);
         //  Comparator<Posting> comparByDocId = Comparator.comparingDouble(Posting::getAccumulator);
 
         // initialize the queue to sort by accumulators
-        mRankedPostings = new PriorityQueue<>(compareByAccumulator);
+        mRankedPostings = new PriorityQueue<>(new Posting());
         mRankMap = new HashMap<>();
 
         // process query terms with the passed in processor before ranking
@@ -108,7 +110,10 @@ public class RankedQuery implements QueryComponent {
                 mRankedPostings.poll();
             }
         }
-        List<Posting> results = mRankedPostings.stream().toList();
+        List<Posting> results = new ArrayList<>();
+
+        results.addAll(mRankedPostings);
+
         return results;
     }
 }

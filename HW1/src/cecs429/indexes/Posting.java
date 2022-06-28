@@ -18,14 +18,17 @@ public class Posting implements Comparator<Posting> {
 	private int mDocumentId;
 	private List<Integer> mTermPositions;
 	private int mPositionsCount; //same as tf(d)
-	private static double mAccumulator;
+	private double mAccumulator;
 	// additional field used only in postings for ranked retrievals
 	private double mTermWeight; // wdt
 	private double mDocWeight; // Ld
 
 
 
-
+	public Posting() {
+		mTermPositions = new ArrayList<>();
+		mAccumulator = 0;
+	}
 
 	/**
 	 * Simple constructor for making a posting with only a documentId at the time of initialization
@@ -59,7 +62,6 @@ public class Posting implements Comparator<Posting> {
 		//Collections.sort(mTermPositions);
 		mPositionsCount = termPositions.size();
 		mAccumulator = 0;
-
 	}
 
 	/**
@@ -151,9 +153,11 @@ public class Posting implements Comparator<Posting> {
 
 	@Override
 	public int compare(Posting p1, Posting p2) {
-		int doc1 = p1.getDocumentId();
-		int doc2 = p2.getDocumentId();
-		return doc1 - doc2;
+		double doc1 = p1.getAccumulator();
+		double doc2 = p2.getAccumulator();
+
+		int result = (int) (doc1 - doc2);
+		return result;
 	}
 }
 
