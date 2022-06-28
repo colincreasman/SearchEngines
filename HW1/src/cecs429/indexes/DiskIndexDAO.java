@@ -45,9 +45,10 @@ public class DiskIndexDAO implements IndexDAO {
         Path weights = Paths.get(mDocWeightsPath).toAbsolutePath();
 
         // only return true if all of the required files already exist
-        if (Files.exists(dir) && Files.exists(postings)) {
+        if (Files.exists(dir) && Files.exists(postings) && Files.exists(weights)) {
             return true;
-        } else {
+        }
+        else {
             return false;
         }
     }
@@ -122,7 +123,7 @@ public class DiskIndexDAO implements IndexDAO {
                     if (i > 0) {
                         int oldId = currPostings.get(i - 1).getDocumentId();
                         int currId = currPostings.get(i).getDocumentId();
-                        docId += (currId - oldId);
+                        docId = (currId - oldId);
                     }
 
                     // write the current docId and tf(t,d) values to the file
@@ -146,8 +147,8 @@ public class DiskIndexDAO implements IndexDAO {
                         // for every position after the first, re-assign it to the difference between itself and the previous position
                         if (j > 0) {
                             int oldPosition = positions.get(j - 1);
-                            int currPosition = positions.get(i);
-                            termPosition += (currPosition - oldPosition);
+                            int currPosition = positions.get(j);
+                            termPosition = (currPosition - oldPosition);
                         }
                         // write the updated position to the file and increment the byte counter
                         postingsOut.writeInt(termPosition);
@@ -196,11 +197,14 @@ public class DiskIndexDAO implements IndexDAO {
             FileOutputStream docWeightsStream = new FileOutputStream(docWeightsBin);
             DataOutputStream docWeightsOut = new DataOutputStream(docWeightsStream);
 
+            int previousId = 0;
             int gapId = 0;
-            for (int currId : weightsMap.keySet()
-            ) {
-                //gapId = gapId + (currId - gapId);
-                // only write AFTER updating the gap
+            for (int currId : weightsMap.keySet()) {
+//                if (currId > 0) {
+//                    gapId = currId + (currId - previousId);
+//                    previousId = currId;
+//                }
+
                 docWeightsOut.writeInt(currId);
                 docWeightsOut.writeDouble(weightsMap.get(currId));
             }
@@ -230,8 +234,16 @@ public class DiskIndexDAO implements IndexDAO {
         try (RandomAccessFile reader = new RandomAccessFile(mDocWeightsPath, "r")) {
             // start reading from the beginning of the file, the first byte should hold the first doc id
             reader.seek(0);
+            // read the first Id as-is
+            int previousId = 0;
             for (int i = 0; i < activeCorpus.getCorpusSize(); i++) {
+//                if (i > 0) {
+//                    int gapId = reader.readInt();
+//                    currId = previousId + gapId;
+//                    previousId = currId;
+//                }
                 int currId = reader.readInt();
+
                 double currWeight = reader.readDouble();
                 results.put(currId, currWeight);
             }
@@ -243,6 +255,7 @@ public class DiskIndexDAO implements IndexDAO {
 //                int currId = reader.readInt();
 //                double currWeight = reader.readDouble();
 //            }
+            reader.close();
         }
         catch (Exception ex) {
             System.out.println("Failed to read the doc weights from disk. '");
@@ -354,6 +367,7 @@ public class DiskIndexDAO implements IndexDAO {
                 Posting currPosting = new Posting(currentDocId, currentWeight, currTermFrequency);
                 results.add(currPosting);
             }
+            reader.close();
         }
         catch (IOException ex) {
             ex.printStackTrace();

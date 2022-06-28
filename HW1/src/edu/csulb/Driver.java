@@ -178,7 +178,6 @@ public class Driver {
 				case 2: {
 					// get user's chosen activeCorpus before checking if activeIndex exists
 					setActiveCorpus(selectCorpusMenu());
-					//activeIndex = selectIndexMenu();
 
 
 					//  check for on-disk activeIndex first
@@ -189,7 +188,7 @@ public class Driver {
 
 						if (Objects.equals(in.nextLine(), "y")) {
 							System.out.println("Ok - An in-memory index must be built from the on-disk data before querying...");
-							buildIndex(DiskPositional);
+							activeIndex = buildIndex(DiskPositional);
 							System.out.println("Entering Query Mode...");
 							runMode = Query;
 							queryMode = selectQueryModeMenu();
@@ -199,6 +198,8 @@ public class Driver {
 
 						else {
 							System.out.println("Ok, disregarding the on-disk index...");
+							activeIndex = selectIndexMenu();
+
 						}
 					}
 
@@ -673,6 +674,7 @@ public class Driver {
 				if (queryMode == Ranked) {
 					System.out.println("    - Final Accumulator Value: " + p.getAccumulator());
 				}
+
 				else if (queryMode == Boolean) {
 					System.out.println("    - Query Term Positions: " + p.getTermPositions().toString());
 				}
@@ -682,7 +684,9 @@ public class Driver {
 				}
 				count += 1;
 			}
-		} catch (NullPointerException ex) {
+		}
+
+		catch (NullPointerException ex) {
 			System.out.println("Query failed. The activeCorpus does not contain any documents matching the query '" + query + "'");
 		}
 		System.out.print("**********************************END QUERY RESULTS**********************************\n");

@@ -101,10 +101,11 @@ public class DiskPositionalIndex implements Index {
         mByteLocations = indexDao.writeIndex(mIndexInMemory, mPath);
         indexDao.writeDocWeights(mDocWeights);
 
-        Collections.sort(mByteLocations);
-        Collections.sort(mIndexInMemory.getVocabulary());
-        mVocabulary = mIndexInMemory.getVocabulary();
+//        Collections.sort(mByteLocations);
+//        Collections.sort(mIndexInMemory.getVocabulary());
+//        mVocabulary = mIndexInMemory.getVocabulary();
 
+        load();
     }
 
     // gets the index's vocabulary, term locations, and doc weights by reading them from the existing on-disk index data
@@ -159,10 +160,10 @@ public class DiskPositionalIndex implements Index {
     public List<Posting> getPostings(String term) {
         List<Posting> results = new ArrayList<>();
 
-        if (mTermLocations == null) {
-            System.out.println("Could not retrieve postings because  no vocabulary data has been loaded for the current index. \n Loading vocabulary from disk now...");
-            load();
-        }
+//        if (mVocabulary == null) {
+//            System.out.println("Could not retrieve postings because  no vocabulary data has been loaded for the current index. \n Loading vocabulary from disk now...");
+//
+//        }
 
         long byteLocation = mTermLocations.get(term);
 
@@ -176,10 +177,10 @@ public class DiskPositionalIndex implements Index {
     public List<Posting> getPostingsWithoutPositions(String term) {
         List<Posting> results = new ArrayList<>();
 
-        if (mTermLocations == null) {
-            System.out.println("Could not retrieve postings because  no vocabulary data has been loaded for the current index. \n Loading vocabulary from disk now...");
-            load();
-        }
+//        if (mTermLocations == null) {
+//            System.out.println("Could not retrieve postings because  no vocabulary data has been loaded for the current index. \n Loading vocabulary from disk now...");
+//            load();
+//        }
 
         long byteLocation = mTermLocations.get(term);
 

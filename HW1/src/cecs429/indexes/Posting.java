@@ -1,6 +1,11 @@
 package cecs429.indexes;
 
+import edu.csulb.Driver;
 import org.jetbrains.annotations.NotNull;
+
+import static edu.csulb.Driver.ActiveConfiguration.*;
+import static edu.csulb.Driver.QueryMode.Ranked;
+
 
 import java.util.*;
 import java.util.Comparator;
@@ -113,7 +118,15 @@ public class Posting implements Comparator<Posting> {
 	// wraps a single posting string as "docId:[pos1,pos2,...,etc.]"
 	@Override
 	public String toString() {
-			return mDocumentId + ":" +mTermPositions.toString();
+		String result;
+		if (queryMode == Ranked || mTermPositions == null) {
+			result = mDocumentId + ": [w(d,t): " + mTermWeight + "; tf(t,d): " + mPositionsCount + "]";
+		}
+		else {
+			result = mDocumentId + ":" + mTermPositions.toString();
+		}
+		return result;
+
 	}
 
 	public int getPositionsCount() {
