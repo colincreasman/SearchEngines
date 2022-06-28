@@ -153,11 +153,13 @@ public class Posting implements Comparator<Posting> {
 
 	@Override
 	public int compare(Posting p1, Posting p2) {
-		double doc1 = p1.getAccumulator();
-		double doc2 = p2.getAccumulator();
+		if (p1.getAccumulator() < p2.getAccumulator()) {
+			return -1;
+		}
+		else {
+			return 1;
+		}
 
-		int result = (int) (doc1 - doc2);
-		return result;
 	}
 }
 

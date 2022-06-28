@@ -55,6 +55,9 @@ public class DiskIndexDAO implements IndexDAO {
 
     @Override
     public List<Long> writeIndex(Index index, String corpusPath) {
+        System.out.println("Writing the index to disk...");
+        // start timer
+        long start = System.currentTimeMillis();
         Collections.sort(index.getVocabulary());
 
         File indexDir = new File(mIndexPath);
@@ -158,6 +161,10 @@ public class DiskIndexDAO implements IndexDAO {
             }
             termsDb.close();
             postingsOut.close();
+
+            long stop = System.currentTimeMillis();
+            long elapsedSeconds = (long) ((stop - start) / 1000.0);
+            System.out.println("Finished writing index to disk in approximately " + elapsedSeconds + " seconds.");
         }
         catch (IOException ex) {
             ex.printStackTrace();

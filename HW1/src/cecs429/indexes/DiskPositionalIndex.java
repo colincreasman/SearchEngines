@@ -35,7 +35,7 @@ public class DiskPositionalIndex implements Index {
     // builds an in-memory positional inverted index and calculates tf(t,d) data while processing the tokens of each doc
     //TODO: update so that it takes in a tokenProcessor arg to allow different types of processing at runtime
     public void initializeInMemoryIndex() {
-        System.out.println("Now indexing the current corpus with a temporary in-memory index instance...");
+        System.out.println("Initializing the in-memory index ...");
         // start timer
         long start = System.currentTimeMillis();
         AdvancedTokenProcessor processor = new AdvancedTokenProcessor();
@@ -49,7 +49,7 @@ public class DiskPositionalIndex implements Index {
             Iterable<String> tokens = stream.getTokens();
 
             // setup hashmap to store all the terms and found in the current doc and their frequencies within the doc
-            HashMap<String, Integer> termFrequenciesPerDoc = new HashMap<>(); // maps docId -> tf(t,d)
+           HashMap<String, Integer> termFrequenciesPerDoc = new HashMap<>(); // maps docId -> tf(t,d)
 
             for (String token : tokens) {
                 // process each token into a term(s)
@@ -95,7 +95,7 @@ public class DiskPositionalIndex implements Index {
 
         long stop = System.currentTimeMillis();
         long elapsedSeconds = (long) ((stop - start) / 1000.0);
-        System.out.println("Finished indexing the in-memory index in approximately " + elapsedSeconds + " seconds.");
+        System.out.println("Finished initializing in-memory index in approximately " + elapsedSeconds + " seconds.");
 
         // now write that index to disk and save the returned byte positions into the static object field for them
         mByteLocations = indexDao.writeIndex(mIndexInMemory, mPath);
@@ -126,6 +126,12 @@ public class DiskPositionalIndex implements Index {
 
             //TODO: load the byte locations from disk
 
+            for (Document d : activeCorpus.getDocuments()) {
+                // Tokenize the document's content by constructing an EnglishTokenStream around the document's content.
+                EnglishTokenStream stream = new EnglishTokenStream(d.getContent());
+            }
+
+           // Iterable<Document> documents = activeCorpus.getDocuments();
 
         } catch (NullPointerException ex) {
             System.out.println("Failed to load vocabulary index because the DiskIndexDAO could not find any B+ tree files in the given corpus directory. ");

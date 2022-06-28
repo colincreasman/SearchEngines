@@ -489,7 +489,9 @@ public class Driver {
 
 		if (activeIndex != null && indexType == type) {
 			System.out.println("**** Warning **** An index of the type '" + type + "' already exists in memory for the current corpus - Building a new index will overwrite any existing index in memory. ");
-			System.out.println("\n Would you like to continue building the index in-memory ('y') or use the current index in memory ('n') ? ");
+
+
+			System.out.println("\n Would you like to use the current index in-memory ('y') or build a new index to replace it ('n') ? ");
 
 			if (!Objects.equals(in.nextLine(), "n")) {
 				System.out.println("Ok - the current build process will be terminated and the existing index will be used instead. ");
@@ -542,16 +544,19 @@ public class Driver {
 						if (Objects.equals(confirm, "y")) {
 							System.out.println("Overwrite confirmed - The current on-disk index will be wiped and overwritten during initialization of the new index ");
 							diskIndex.initializeInMemoryIndex();
+							activeIndex = diskIndex;
 						}
 						else {
 							System.out.println("Overwrite canceled - Continuing the build process using the existing index data found on disk... \n ");
 							diskIndex.load();
+							activeIndex = diskIndex;
 						}
 					}
 
 					else {
 						System.out.println("Ok - Continuing the build process using the existing index data found on disk... \n ");
 						diskIndex.load();
+						activeIndex = diskIndex;
 					}
 				}
 
@@ -560,8 +565,8 @@ public class Driver {
 					System.out.println("No exising index data was found in the current corpus directory. \n " +
 							"A new index will be built in memory and written to disk in the current corpus directory...\n");
 					diskIndex.initializeInMemoryIndex();
+					activeIndex = diskIndex;
 				}
-				activeIndex = diskIndex;
 				break;
 			}
 
@@ -673,6 +678,7 @@ public class Driver {
 
 				if (queryMode == Ranked) {
 					System.out.println("    - Final Accumulator Value: " + p.getAccumulator());
+					System.out.println("    - Ranking data: " + p.toString());
 				}
 
 				else if (queryMode == Boolean) {
@@ -897,7 +903,7 @@ public class Driver {
 	// prints out a list of every document in the activeCorpus by showing the title of each document and the internal document ID assigned to it
 	private static void viewCorpusOverview() {
 		System.out.println("An overview of all document ID's and titles in the current activeCorpus is shown below: \n ");
-		System.out.println("********************BEGIN OVERVIEW***I*****************");
+		System.out.println("********************BEGIN OVERVIEW********************");
 
 		for (Document d : activeCorpus.getDocuments()) {
 			System.out.println("Document ID: " + d.getId() + "");
