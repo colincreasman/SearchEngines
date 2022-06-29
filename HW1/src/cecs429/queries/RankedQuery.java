@@ -18,6 +18,7 @@ public class RankedQuery implements QueryComponent {
     private List<String> mProcessedTerms;
     private HashMap<Integer, Double> mDocWeights;
     private PriorityQueue<Posting> mRankedPostings;
+    private HashMap<String, List<Posting>> mTermPostings;
     private HashMap<Integer, Posting> mRankMap;
 
     private int mCorpusSize = activeCorpus.getCorpusSize();
@@ -43,6 +44,7 @@ public class RankedQuery implements QueryComponent {
         // initialize the queue to sort by accumulators
         mRankedPostings = new PriorityQueue<>();
         mRankMap = new HashMap<>();
+        mTermPostings = new HashMap<>();
 
         // process query terms with the passed in processor before ranking
         for (String term : mTerms) {
@@ -51,6 +53,9 @@ public class RankedQuery implements QueryComponent {
 
         // loop through each processed term in the query (mTerms)
         for (String term : mProcessedTerms) {
+
+            // initialize a separate Posting instance for each query term to store its unique ranking data (w(d,t), w(q,t), and tf(t,d)
+//            List<Posting> termPostings = new ArrayList<>();
 
             List<Posting> postings = index.getPostingsWithoutPositions(term);
 
@@ -66,6 +71,13 @@ public class RankedQuery implements QueryComponent {
 
                 double increment = queryTermWeight * docTermWeight;
                 int currDoc = currPosting.getDocumentId();
+
+//                Posting currTermPosting = new Posting(currDoc, docTermWeight, currPosting.getPositionsCount());
+//                currTermPosting.setQueryTermWeight(queryTermWeight);
+//
+//                termPostings.add(currTermPosting);
+//                mTermPostings.put(term, termPostings);
+
 
                 if (mRankMap.isEmpty()) {
                     currPosting.increaseAccumulator(increment);
@@ -143,6 +155,10 @@ public class RankedQuery implements QueryComponent {
         return results;
     }
 
+//    @Override
+//    public HashMap<String, List<Posting>> getTermPostings() {
+//        return mTermPostings;
+//    }
 
     public List<String> getProcessedTerms() {
         return mProcessedTerms;

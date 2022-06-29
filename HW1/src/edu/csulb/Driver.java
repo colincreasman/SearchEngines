@@ -619,7 +619,7 @@ public class Driver {
 
 		long stop = System.currentTimeMillis();
 		double elapsedSeconds = (stop - start) / 1000.0;
-		System.out.println("Indexing completed in approximately " + elapsedSeconds + " seconds.");
+		System.out.println("Indexing completed in approximately " + elapsedSeconds + " seconds. \n");
 		return activeIndex;
 		}
 
@@ -689,8 +689,14 @@ public class Driver {
 				if (queryMode == Ranked) {
 					System.out.println("    - Final Accumulator Value (Ad): " + p.getAccumulator());
 					System.out.println("    - Doc Weight (Ld): " + p.getDocWeight());
+					System.out.println("    - Term Weights: ");
 					for (String term : query.getProcessedTerms()) {
-						System.out.println("    - Term Weight(s): ");
+//						Optional<Posting> docTermPosting = query.getTermPostings().values().stream().toList().stream().filter(posting -> posting.getDocumentId()).
+//								findFirst();
+
+						//Optional<Person> matchingObject = objects.stream().
+						//    filter(p -> p.email().equals("testemail")).
+						//    findFirst();
 						System.out.println("         - '" + term + "': " + p.toString());
 					}
 				}

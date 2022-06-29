@@ -33,7 +33,7 @@ public interface IndexDAO {
 
 
 
-    HashMap<String, Long> readTermLocations();
+//    HashMap<String, Long> readTermLocations();
 
     // reads select postings data from the disk to return a list of postings,
     // each constructed with vals for its docId and docWeights
@@ -46,4 +46,6 @@ public interface IndexDAO {
     // all other postings data will be handled in the getPostings() method calling this one
     // initialize necessary vars for results and structs to read from the termsDB
     List<Posting> readPostingsWithoutPositions(long byteLocation);
+
+    long readByteLocation(String term);
 }

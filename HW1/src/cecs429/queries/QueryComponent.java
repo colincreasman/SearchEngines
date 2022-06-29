@@ -1,5 +1,7 @@
 package cecs429.queries;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import cecs429.indexes.*;
 import cecs429.text.AdvancedTokenProcessor;
@@ -18,4 +20,6 @@ public interface QueryComponent {
     List<String> getProcessedTerms();
 
     List<Posting> getPostingsWithoutPositions(TokenProcessor processor, Index activeIndex);
+
+//    HashMap<String, List<Posting>> getTermPostings();
 }

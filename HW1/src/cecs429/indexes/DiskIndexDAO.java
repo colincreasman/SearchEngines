@@ -264,14 +264,48 @@ public class DiskIndexDAO implements IndexDAO {
         return weight;
     }
 
-    public HashMap<String, Long> readTermLocations() {
-        // check if the term locations have already been loaded into the class field before reading them from the disk
-        if (mTermLocations != null && mTermLocations.size() > 0) {
-            return mTermLocations;
-        }
+//    public HashMap<String, Long> readTermLocations() {
+//        // check if the term locations have already been loaded into the class field before reading them from the disk
+//        if (mTermLocations != null && mTermLocations.size() > 0) {
+//            return mTermLocations;
+//        }
+//
+//        // only proceed to read from disk if they havent been loaded yet
+//        HashMap<String, Long> results = new HashMap<>();
+//        // try to initialize the db as a child file of the overall index directory
+//        try {
+//            // if possible, create a B+ tree that maps all the on-disk terms to their byte locations
+//            DB termsDb = DBMaker.fileDB(mDbPath).make();
+//            BTreeMap<String, Long> termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
+//                    .open();
+//
+//
+//            // extract the list of all terms from the map B+ tree as an in-memory List iterator
+//            Iterator<String> termsOnDisk = termsMap.keyIterator();
+//            // now we can add all the on-disk terms to an in-memory return value by extracting terms from the iterator until the stream ends
+//            while (termsOnDisk.hasNext()) {
+//                String term = termsOnDisk.next();
+//                long location = termsMap.get(term);
+//                results.put(term, location);
+////            }
+////            // now we can write the term and its location to disk by simply calling put() on the map
+////            for (String term : termsMap.keySet()) {
+////                results.put(term, termsMap.get(term));
+//            }
+//            termsDb.close();
+//            termsMap.close();
+//
+//        }
+//        catch (Exception ex) {
+//            ex.printStackTrace();
+//        }
+//        return results;
+//    }
 
+    @Override
+    public long readByteLocation(String term) {
         // only proceed to read from disk if they havent been loaded yet
-        HashMap<String, Long> results = new HashMap<>();
+        long location = 0;
         // try to initialize the db as a child file of the overall index directory
         try {
             // if possible, create a B+ tree that maps all the on-disk terms to their byte locations
@@ -279,27 +313,14 @@ public class DiskIndexDAO implements IndexDAO {
             BTreeMap<String, Long> termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
                     .open();
 
+            location = termsMap.get(term);
 
-            // extract the list of all terms from the map B+ tree as an in-memory List iterator
-            Iterator<String> termsOnDisk = termsMap.keyIterator();
-            // now we can add all the on-disk terms to an in-memory return value by extracting terms from the iterator until the stream ends
-            while (termsOnDisk.hasNext()) {
-                String term = termsOnDisk.next();
-                long location = termsMap.get(term);
-                results.put(term, location);
-//            }
-//            // now we can write the term and its location to disk by simply calling put() on the map
-//            for (String term : termsMap.keySet()) {
-//                results.put(term, termsMap.get(term));
-            }
             termsDb.close();
-            termsMap.close();
-
         }
-        catch (Exception ex) {
-            ex.printStackTrace();
-        }
-        return results;
+        catch (NullPointerException ex) {
+                ex.printStackTrace();
+            }
+        return location;
     }
 
     @Override

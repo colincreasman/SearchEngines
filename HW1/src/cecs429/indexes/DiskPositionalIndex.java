@@ -106,10 +106,10 @@ public class DiskPositionalIndex implements Index {
         mVocabulary = mIndexInMemory.getVocabulary();
 
         // use the vocabulary and byte locations to build the hashmap of term locations
-        Iterator<String> vocabIter = mVocabulary.iterator();
-        Iterator<Long> byteIter = mByteLocations.iterator();
-        mTermLocations.putAll(IntStream.range(0, mVocabulary.size()).boxed()
-                .collect(Collectors.toMap(_i -> vocabIter.next(), _i -> byteIter.next())));
+//        Iterator<String> vocabIter = mVocabulary.iterator();
+//        Iterator<Long> byteIter = mByteLocations.iterator();
+//        mTermLocations.putAll(IntStream.range(0, mVocabulary.size()).boxed()
+//                .collect(Collectors.toMap(_i -> vocabIter.next(), _i -> byteIter.next())));
 
     }
 
@@ -120,12 +120,12 @@ public class DiskPositionalIndex implements Index {
         //  HashMap<Integer, Double> docWeights = new HashMap<>();
         try {
             //mDocWeights = indexDao.readDocWeights();
-            System.out.println("Reading byte locations from B+ tree...");
 
-            mTermLocations = indexDao.readTermLocations();
+           // mTermLocations = indexDao.readTermLocations();
 
-            mVocabulary.addAll(mTermLocations.keySet());
-            mByteLocations.addAll(mTermLocations.values());
+//            mVocabulary.addAll(mTermLocations.keySet());
+//            mByteLocations.addAll(mTermLocations.values());
+//            System.out.println("Finished loading byte locations from B+ tree.");
 
             for (Document d : activeCorpus.getDocuments()) {
                 // Tokenize the document's content by constructing an EnglishTokenStream around the document's content.
@@ -134,7 +134,8 @@ public class DiskPositionalIndex implements Index {
 
            // Iterable<Document> documents = activeCorpus.getDocuments();
 
-        } catch (NullPointerException ex) {
+        }
+        catch (NullPointerException ex) {
             System.out.println("Failed to load vocabulary index because the DiskIndexDAO could not find any B+ tree files in the given corpus directory. ");
         }
     }
@@ -172,7 +173,7 @@ public class DiskPositionalIndex implements Index {
 //
 //        }
 
-        long byteLocation = mTermLocations.get(term);
+        long byteLocation = indexDao.readByteLocation(term);
 
         return indexDao.readPostings(byteLocation);
     }
@@ -184,7 +185,7 @@ public class DiskPositionalIndex implements Index {
     public List<Posting> getPostingsWithoutPositions(String term) {
         List<Posting> results = new ArrayList<>();
 
-        long byteLocation = mTermLocations.get(term);
+        long byteLocation = indexDao.readByteLocation(term);
 
         return indexDao.readPostingsWithoutPositions(byteLocation);
     }
