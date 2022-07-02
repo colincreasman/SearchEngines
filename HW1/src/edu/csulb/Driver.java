@@ -74,6 +74,7 @@ public class Driver {
 	public static class ActiveConfiguration {
 		public static DocumentCorpus activeCorpus;
 		public static Index activeIndex;
+		public static WeightCalculator activeCalculator;
 		public static RunMode runMode;
 		public static QueryMode queryMode;
 		public static WeightingScheme weightingScheme;
@@ -87,6 +88,7 @@ public class Driver {
 				hasDiskIndex = indexDao.hasExistingIndex();
 			}
 			weightingScheme = Default;
+			activeCalculator = new DefaultCalculator(); // automatically use the default calculator upon program start
 		}
 
 		public static ActiveConfiguration getInstance() {
@@ -131,6 +133,24 @@ public class Driver {
 
 		public static void setWeightingScheme(WeightingScheme weightingScheme) {
 			ActiveConfiguration.weightingScheme = weightingScheme;
+			int weightOrdinal = weightingScheme.ordinal();
+			switch (weightOrdinal) {
+				case 0: {
+					activeCalculator = new DefaultCalculator();
+				}
+				case 1: {
+					activeCalculator = new TfIdfCalculator();
+				}
+				case 2: {
+					activeCalculator = new OkapiCalculator();
+				}
+				case 4: {
+					activeCalculator = new WackyCalculator();
+				}
+				default: {
+					System.out.println("Error: the requested weighting scheme has not implemented yet.");
+				}
+			}
 		}
 
 		public static void setIndexType(IndexType indexType) {
