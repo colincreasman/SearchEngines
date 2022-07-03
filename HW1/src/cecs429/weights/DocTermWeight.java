@@ -1,20 +1,13 @@
 package cecs429.weights;
 
 import cecs429.documents.Document;
-import cecs429.indexes.Posting;
-import cecs429.weights.WeighingStrategy;
-import cecs429.weights.Weight;
-import org.jetbrains.annotations.NotNull;
-
-import java.util.Objects;
 
 import static edu.csulb.Driver.ActiveConfiguration.activeCorpus;
-import static edu.csulb.Driver.ActiveConfiguration.activeWeigher;
 
 public class DocTermWeight implements Weight{
    // private String mTerm;
     private double mValue;
-    private WeighingStrategy mWeigher;
+    //private WeighingStrategy mWeigher;
     private double mDocId;
     private Document mDocument;
     private int mTermFrequency; // tf(t,d)
@@ -24,23 +17,24 @@ public class DocTermWeight implements Weight{
     public DocTermWeight(int docId, int termFrequency) {
         mDocId = docId;
         mDocument = activeCorpus.getDocument(docId);
-        mWeigher = activeWeigher;
+     //   mWeigher = activeWeigher;
         mTermFrequency = termFrequency;
     }
 
     @Override
-    public void calculate() {
-        mValue = mWeigher.calculateWdt(this);
+    public double calculate(WeighingStrategy weigher) {
+
+        mValue = weigher.calculateWdt(this);
     }
 
     @Override
-    public void read() {
-        mValue = mWeigher.readWdt(this);
+    public void read(WeighingStrategy weigher) {
+        mValue = weigher.readWdt(this);
     }
 
     @Override
-    public void write() {
-        mWeigher.writeWdt(this);
+    public void write(WeighingStrategy weigher) {
+        weigher.writeWdt(this);
     };
 
     public int getTermFrequency() {

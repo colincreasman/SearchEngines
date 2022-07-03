@@ -2,11 +2,11 @@ package cecs429.weights;
 
 public interface Weight {
 
-    void calculate();
+    double calculate(WeighingStrategy weigher);
 
-    void read();
+    void read(WeighingStrategy weigher);
 
-    void write();
+    void write(WeighingStrategy weigher);
 
 
 }

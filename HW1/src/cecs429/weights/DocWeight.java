@@ -17,18 +17,20 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
     private int mByteSize; // size of the document file in bytes
     private HashMap<String, Integer> mTermFrequencies;
     private int mAvgTermFrequency;
-
-
-
     private List<DocTermWeight> mTermWeights; // list of  w(d,t) values for all the terms in the given doc
 
     public DocWeight() {}
 
-    public DocWeight(Document d, HashMap<String, Integer> termFrequencies) {
+    public DocWeight(Document d, List<DocTermWeight> termWeights) {
         mWeigher = activeWeigher;
         mDocument = d;
-        mTermWeights = new ArrayList<>();
-        mTermFrequencies = termFrequencies;
+//        mTermFrequencies = termFrequencies;
+//
+//        mTermWeights = new ArrayList<>();
+//        for (String term : mTermFrequencies.keySet()) {
+//            DocTermWeight currWeight = new DocTermWeight( mTermFrequencies.get(term));
+//        }
+        mTermWeights = termWeights;
     }
 
     @Override

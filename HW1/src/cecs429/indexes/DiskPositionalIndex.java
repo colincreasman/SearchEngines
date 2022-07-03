@@ -38,8 +38,6 @@ public class DiskPositionalIndex implements Index {
         mTermLocations = new HashMap<>();
     }
 
-    // builds an in-memory positional inverted index and calculates tf(t,d) data while processing the tokens of each doc
-    //TODO: update so that it takes in a tokenProcessor arg to allow different types of processing at runtime
     public void initializeInMemoryIndex() {
         System.out.println("Initializing the in-memory index ...");
         // start timer
@@ -51,52 +49,52 @@ public class DiskPositionalIndex implements Index {
             Iterable<String> tokens = stream.getTokens();
             HashMap<String, Integer> termCounts = new HashMap<>();
 
+            // store a list of w(d,t) references for all the terms in the current doc
+            List<DocTermWeight> wDts = new ArrayList<>();
+
             // initialize a counter to keep track of the term positions of tokens found within each document
-            int termPosition = 0;
+            int tokenPosition = 0;
             for (String token : tokens) {
                 // process each token into a term(s)
                 List<String> terms = processor.processToken(token);
 
                 // iterate through each term while keeping a running total of all the times it is found in the current doc
                 for (String term : terms) {
-                    int currentTermCount = 1; // freq counter for the current tf(t,d)
-                    // now check if there's already an existing count for this term in the results hashmap
-                    try {
-                        // if found, reassign the count to whatever is currently in the results
-                        currentTermCount = termCounts.get(term);
-                        int updatedTermCount = currentTermCount + 1;
-                        // now replace the original count in the results map with the updated count
-                        termCounts.replace(term, currentTermCount, updatedTermCount);
-                    }
-                    // catch null values to still count terms that haven't been added to the results map yet
-                    catch (NullPointerException ex) {
-                        // since this term hasn't been counted yet, put it into the hashmap with the unmodified val of currentTermCount (should still be 1)
-                        termCounts.put(term, currentTermCount);
-                    }
-                    // after handling all the term-doc data, we still need to add each term into the index
-                    finally {
-                        mIndexInMemory.addTerm(term, d.getId(), termPosition);
-                    }
-                }
-                // only increment the position when moving on to a new token; if normalizing a token produces more than one term, they will all be posted at the same position
-                termPosition += 1;
-            }
+//                    int currentTermCount = 1; // freq counter for the current tf(t,d)
+//                    // now check if there's already an existing count for this term in the results hashmap
+//                    try {
+//                        // if found, reassign the count to whatever is currently in the results
+//                        currentTermCount = termCounts.get(term);
+//                        int updatedTermCount = currentTermCount + 1;
+//                        // now replace the original count in the results map with the updated count
+//                        termCounts.replace(term, currentTermCount, updatedTermCount);
+//                    }
+//                    // catch null values to still count terms that haven't been added to the results map yet
+//                    catch (NullPointerException ex) {
+//                        // since this term hasn't been counted yet, put it into the hashmap with the unmodified val of currentTermCount (should still be 1)
+//                        termCounts.put(term, currentTermCount);
+//                    }
+//                    // after handling all the term-doc data, we still need to add each term into the index
+//                    finally {
 
-            DocWeight currentDocWeight = new DocWeight(d, termCounts);
-            currentDocWeight.setDocLength(termPosition);
-//            // create w(d,t) objects for all the terms in the current doc
-//            List<DocTermWeight> wDts = new ArrayList<>();
-//
+                    // whenever a new term is added to the index, a DocTermWeight is automatically created (or updated, if one already exists for this term-doc combo) by the Posting class
+                    mIndexInMemory.addTerm(term, d.getId(), tokenPosition);
+
+                    // to mitigate weight calculations, this same DocTermWeight reference is added to the list of termWeights that will eventually compose the current DocWeight
+                    DocTermWeight termWeight = mIndexInMemory.getPostings(term).get(d.getId()).getDocTermWeight();
+                    wDts.add(termWeight);
+                    }
+                // only increment the position when moving on to a new token; if normalizing a token produces more than one term, they will all be posted at the same position
+                tokenPosition += 1;
+            }
 //            for (String term : termCounts.keySet()) {
-//                DocTermWeight w = new DocTermWeight(term, d, termCounts.get(term));
+//                = new DocTermWeight(d, termCounts.get(term));
 //                wDts.add(w);
 //            }
-//
-//            DocWeight docWeight = new DocWeight(d, wDts);
-
-
-            // now add this doc's docId and Ld value to the overall map of docWeights per doc
-            mDocWeights.add(currentDocWeight);
+            // now use the list of termWeight references to compose a DocWeight instance for the current doc and add it to the list for all DocWeights
+            DocWeight docWeight = new DocWeight(d, wDts);
+            docWeight.setDocLength(tokenPosition);
+            mDocWeights.add(docWeight);
         }
 
 
@@ -105,16 +103,9 @@ public class DiskPositionalIndex implements Index {
         System.out.println("Initialized index in approximately " + elapsedSeconds + " seconds.");
 
         // now write that index to disk and save the returned byte positions into the static object field for them
-        mByteLocations = indexDao.writeIndex(mIndexInMemory, mPath);
-        indexDao.writeDocWeights(mDocWeights);
+        mByteLocations = indexDao.writeIndex(this, mPath);
+        //indexDao.writeDocWeights(mDocWeights);
         mVocabulary = mIndexInMemory.getVocabulary();
-
-        // use the vocabulary and byte locations to build the hashmap of term locations
-//        Iterator<String> vocabIter = mVocabulary.iterator();
-//        Iterator<Long> byteIter = mByteLocations.iterator();
-//        mTermLocations.putAll(IntStream.range(0, mVocabulary.size()).boxed()
-//                .collect(Collectors.toMap(_i -> vocabIter.next(), _i -> byteIter.next())));
-
     }
 
     // gets the index's vocabulary, term locations, and doc weights by reading them from the existing on-disk index data
@@ -142,25 +133,6 @@ public class DiskPositionalIndex implements Index {
         catch (NullPointerException ex) {
             System.out.println("Failed to load vocabulary index because the DiskIndexDAO could not find any B+ tree files in the given corpus directory. ");
         }
-    }
-
-    // uses the hashmap of terms and their tf(t,d) values to calculate the Euclidean Normalized document weights of the given doc and return them all as a list of Doubles
-    public double calculateDocWeight(HashMap<String, Integer> frequencies) {
-        double finalWeight;
-        double weightSums = 0;
-
-        for (String term : frequencies.keySet()) {
-            // cast to string then convert back to double to prevent truncating
-//            String ogLog = String.valueOf(Math.log(frequencies.get(term)));
-//            long dubLog = Long.parseLong(ogLog);
-            double dubLog = Math.log(frequencies.get(term));
-            dubLog = Math.pow(dubLog, 2.0);
-            Double basicWeight = 1 + dubLog; //w(t,d) = 1 + ln(tf(t,d))
-            weightSums += basicWeight;
-        }
-
-        finalWeight = Math.sqrt(weightSums);
-        return finalWeight;
     }
 
     /**

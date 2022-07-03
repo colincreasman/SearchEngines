@@ -7,8 +7,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import static edu.csulb.Driver.ActiveConfiguration.*;
 
-import cecs429.weights.DocTermWeight;
-import cecs429.weights.DocWeight;
+import cecs429.weights.*;
 import org.mapdb.BTreeMap;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
@@ -24,9 +23,6 @@ public class DiskIndexDAO implements IndexDAO {
     private static File mPostingsBin;
     private static File mDocWeightsBin;
     private static DB mTermsDb;
-
-
-
 
     private static List<Long> mByteLocations;
     private HashMap<String, Long> mTermLocations; // maps each term to its byte location in postings.bin
@@ -69,10 +65,7 @@ public class DiskIndexDAO implements IndexDAO {
 
        // Collections.sort(index.getVocabulary());
 
-        // initialize necessary structs for the results list and the DB writers
-        List<Long> results = new ArrayList<>();
         mTermLocations = new HashMap<>();
-
 
         // try to initialize the db as a child file of the overall index directory
         try {
@@ -94,7 +87,7 @@ public class DiskIndexDAO implements IndexDAO {
 
                 // we also need to write the current term and byte location to the RDB B+ tree by adding the vals to the map using .put()
                 termsMap.put(term, bytesByCount);
-                postingsOut.writeInt(docFrequency);
+                postingsOut.writeInt(docFrequency);  //df(t)
 
                 // load every term and byte location to the termsLocations map as we iterate
                 mByteLocations.add(bytesByCount);
@@ -107,10 +100,6 @@ public class DiskIndexDAO implements IndexDAO {
 
                 // now go through each posting for the given term
                 for (int i = 0; i < currPostings.size(); i++) {
-                    // setup vars for the current posting's tf(t,d) value and its list of term locations
-                    int termFrequency = currPostings.get(i).getTermPositions().size(); // tf(t,d)
-                    List<Integer> positions = currPostings.get(i).getTermPositions();
-
                     // if this is not the first posting for a given term, the docId must be re-assigned using the gap between itself and the previous docId
                     if (i > 0) {
                         int oldId = currPostings.get(i - 1).getDocumentId();
@@ -118,21 +107,38 @@ public class DiskIndexDAO implements IndexDAO {
                         docId = (currId - oldId);
                     }
 
-                    // write the current docId and tf(t,d) values to the file
+                    // write docId before any other posting data
                     postingsOut.writeInt(docId);
                     bytesByCount += 4;
-                    DocTermWeight termWeight = new DocTermWeight(term, currPostings.get(i), termFrequency);
-                    double termWeight = calculateTermDocWeight(termFrequency);
-                    postingsOut.writeDouble(termWeight);
-                    bytesByCount += 8; // increment byte position by 8 to account for the 8 bytes used for termWeight
 
+                    // get the current tern's posting for the current doc
+                    Posting currPosting = currPostings.get(i);
+
+                    // obtain a reference to current posting's DocTermWeight
+                    DocTermWeight termWeight = currPosting.getDocTermWeight();
+
+                    // now use the Weight reference to calculate values with each type of weigher
+                    double defaultWdt = termWeight.calculate(new DefaultWeigher());
+                    double tfIdfWdt = termWeight.calculate(new TfIdfWeigher());
+                    double okapiWdt = termWeight.calculate(new OkapiWeigher());
+                    double wackyWdt = termWeight.calculate(new WackyWeigher());
+
+                    // write the weights to file in the same order so they can easily be read later on
+                    postingsOut.writeDouble(defaultWdt);
+                    postingsOut.writeDouble(tfIdfWdt);
+                    postingsOut.writeDouble(okapiWdt);
+                    postingsOut.writeDouble(wackyWdt);
+                    bytesByCount += 32; // increment byte position by 32 to account for the 8 bytes used to write each type of termWeight
+
+                    // tf(t,d) value is simply the total number of term locations
+                    List<Integer> positions = currPosting.getTermPositions();
+                    int termFrequency = positions.size(); // tf(t,d)
+                    // write tf(t,d) after all the weights have been written
                     postingsOut.writeInt(termFrequency);
                     bytesByCount += 4;
 
-                    // setup the currPosition var that will be written to disk on for each term position
                     // just like the docIds above, initialize currPosition BEFORE iterating through the list by assigning it to the first term position as-is
                     int termPosition = positions.get(0);
-
                     // now handle the remaining term positions by finding the gaps between each subsequent position
                     for (int j = 0; j < positions.size(); j++) {
                         // for every position after the first, re-assign it to the difference between itself and the previous position
@@ -451,33 +457,5 @@ public class DiskIndexDAO implements IndexDAO {
         }
         return results;
     }
-    // calculates the weight of a term in a given doc using the formula w(d,t) = 1 + ln(tf,td)
-    private double calculateTermDocWeight(int termDocFrequency) {
-        double weight = 0.0;
 
-        switch (weightingScheme) {
-            // the default scheme uses the formula w(d,t) = 1 + ln(tf,td)
-            case DEFAULT: {
-                double termFrequency = (double) termDocFrequency;
-                weight = 1 + Math.log(termFrequency);
-                break;
-            }
-
-            // TODO: implement the rest of these!
-            case TF_IDF: {
-                break;
-            }
-            case OKAPI: {
-
-            }
-            case WACKY: {
-                break;
-            }
-            default: {
-                System.out.println("Error: Selected weighting scheme has not been implemented yet");
-                break;
-            }
-        }
-        return weight;
-    }
 }

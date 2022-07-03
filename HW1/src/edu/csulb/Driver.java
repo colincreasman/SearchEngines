@@ -280,7 +280,8 @@ public class Driver {
 		System.out.println("(2) Moby Dick - First 10 Chapters");
 		System.out.println("(3) Test Corpus - Json Files");
 		System.out.println("(4) Test Corpus - Txt Files");
-		System.out.println("(5) Custom File Path");
+		System.out.println("(5) Cranfield Corpus ");
+		System.out.println("(6) Custom File Path");
 
 		// setup starter path prefix
 		String corpusPath = "/Users/colincreasman/Documents/GitHub/SearchEngines/Corpora/";
@@ -318,6 +319,12 @@ public class Driver {
 				break;
 			}
 			case 5: {
+				corpusPath += "relevance-cranfield";
+				path = Paths.get(corpusPath).toAbsolutePath();
+				ext = ".json";
+				break;
+			}
+			case 6: {
 				System.out.println("Please enter the custom  path for your activeCorpus directory: \n");
 				corpusPath = in.nextLine();
 				path = Paths.get(corpusPath).toAbsolutePath();
