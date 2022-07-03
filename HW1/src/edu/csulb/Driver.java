@@ -8,13 +8,11 @@ import cecs429.queries.QueryComponent;
 import cecs429.queries.QueryParser;
 import cecs429.queries.RankedQueryParser;
 import cecs429.text.*;
-import com.sun.security.jgss.GSSUtil;
+import cecs429.weights.*;
 
 import java.io.BufferedReader;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.sql.SQLOutput;
 import java.util.*;
 
 import static edu.csulb.Driver.ActiveConfiguration.*;
@@ -55,10 +53,10 @@ public class Driver {
 	 * enum wrapper for all the currently supported weighting schemes for ranked retrievals; can be extended to allow additional modes in the future
 	 */
 	public enum WeightingScheme {
-		Default,
+		DEFAULT,
 		TF_IDF,
-		Okapi,
-		Wacky
+		OKAPI,
+		WACKY,
 	}
 
 
@@ -74,7 +72,7 @@ public class Driver {
 	public static class ActiveConfiguration {
 		public static DocumentCorpus activeCorpus;
 		public static Index activeIndex;
-		public static WeightCalculator activeCalculator;
+		public static WeighingStrategy activeWeigher;
 		public static RunMode runMode;
 		public static QueryMode queryMode;
 		public static WeightingScheme weightingScheme;
@@ -87,8 +85,8 @@ public class Driver {
 			if (indexDao != null) {
 				hasDiskIndex = indexDao.hasExistingIndex();
 			}
-			weightingScheme = Default;
-			activeCalculator = new DefaultCalculator(); // automatically use the default calculator upon program start
+			weightingScheme = DEFAULT;
+//			activeWeigher = new (); // automatically use the default calculator upon program start
 		}
 
 		public static ActiveConfiguration getInstance() {
@@ -136,16 +134,16 @@ public class Driver {
 			int weightOrdinal = weightingScheme.ordinal();
 			switch (weightOrdinal) {
 				case 0: {
-					activeCalculator = new DefaultCalculator();
+					activeWeigher = new DefaultWeigher();
 				}
 				case 1: {
-					activeCalculator = new TfIdfCalculator();
+					activeWeigher = new TfIdfWeigher();
 				}
 				case 2: {
-					activeCalculator = new OkapiCalculator();
+					activeWeigher = new OkapiWeigher();
 				}
 				case 4: {
-					activeCalculator = new WackyCalculator();
+					activeWeigher = new WackyWeigher();
 				}
 				default: {
 					System.out.println("Error: the requested weighting scheme has not implemented yet.");

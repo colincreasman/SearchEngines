@@ -57,22 +57,26 @@ public class DiskIndexDAO implements IndexDAO {
         long start = System.currentTimeMillis();
         Collections.sort(index.getVocabulary());
         File indexDir = new File(mIndexPath);
+
         // make sure there is no current index folder in the given path before indexing
         if (indexDir.exists()) {
             // if there's already a folder, delete it and its contents
             indexDir.delete();
         }
+
         // now that we know there's no current index dir in this path, make the directory and set up the individual file paths within it
         indexDir.mkdir();
 
         // try to make a new .bin file using the mPostingsPath set at construction
         File postingsBin = new File(mPostingsPath);
+
         // make sure there is no other postings.bin file already in index the directory before trying to write a new one
         if (postingsBin.exists()) {
             postingsBin.delete();
         }
 
         File docWeightsBin = new File(mDocWeightsPath);
+
         // make sure there is no other docWeights.bin file already in index the directory before trying to write a new one
         if (docWeightsBin.exists()) {
             docWeightsBin.delete();
@@ -94,8 +98,6 @@ public class DiskIndexDAO implements IndexDAO {
             FileOutputStream postingsStream = new FileOutputStream(postingsBin);DataOutputStream postingsOut = new DataOutputStream(postingsStream);
 
             // start a byte counter at 0 that will increment by 4 bytes everytime something new is written to the file
-            // alternatively, we can get the byte location of each term by calling .size() on the output file for every new term - "returns the current number of bytes written to the output stream so far"
-            // initialize both approaches to 0 before counting any terms
             long bytesByCount = 0;
 
             for (String term : index.getVocabulary()) {
@@ -165,9 +167,11 @@ public class DiskIndexDAO implements IndexDAO {
             long elapsedSeconds = (long) ((stop - start) / 1000.0);
             System.out.println("Finished writing index to disk in approximately " + elapsedSeconds + " seconds.");
         }
+
         catch (IOException ex) {
             ex.printStackTrace();
         }
+
         return mByteLocations;
     }
 
@@ -263,44 +267,6 @@ public class DiskIndexDAO implements IndexDAO {
         }
         return weight;
     }
-
-//    public HashMap<String, Long> readTermLocations() {
-//        // check if the term locations have already been loaded into the class field before reading them from the disk
-//        if (mTermLocations != null && mTermLocations.size() > 0) {
-//            return mTermLocations;
-//        }
-//
-//        // only proceed to read from disk if they havent been loaded yet
-//        HashMap<String, Long> results = new HashMap<>();
-//        // try to initialize the db as a child file of the overall index directory
-//        try {
-//            // if possible, create a B+ tree that maps all the on-disk terms to their byte locations
-//            DB termsDb = DBMaker.fileDB(mDbPath).make();
-//            BTreeMap<String, Long> termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
-//                    .open();
-//
-//
-//            // extract the list of all terms from the map B+ tree as an in-memory List iterator
-//            Iterator<String> termsOnDisk = termsMap.keyIterator();
-//            // now we can add all the on-disk terms to an in-memory return value by extracting terms from the iterator until the stream ends
-//            while (termsOnDisk.hasNext()) {
-//                String term = termsOnDisk.next();
-//                long location = termsMap.get(term);
-//                results.put(term, location);
-////            }
-////            // now we can write the term and its location to disk by simply calling put() on the map
-////            for (String term : termsMap.keySet()) {
-////                results.put(term, termsMap.get(term));
-//            }
-//            termsDb.close();
-//            termsMap.close();
-//
-//        }
-//        catch (Exception ex) {
-//            ex.printStackTrace();
-//        }
-//        return results;
-//    }
 
     @Override
     public long readByteLocation(String term) {
@@ -479,7 +445,7 @@ public class DiskIndexDAO implements IndexDAO {
 
         switch (weightingScheme) {
             // the default scheme uses the formula w(d,t) = 1 + ln(tf,td)
-            case Default: {
+            case DEFAULT: {
                 double termFrequency = (double) termDocFrequency;
                 weight = 1 + Math.log(termFrequency);
                 break;
@@ -489,10 +455,10 @@ public class DiskIndexDAO implements IndexDAO {
             case TF_IDF: {
                 break;
             }
-            case Okapi: {
+            case OKAPI: {
 
             }
-            case Wacky: {
+            case WACKY: {
                 break;
             }
             default: {
