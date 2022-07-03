@@ -7,6 +7,8 @@ import java.nio.file.Paths;
 import java.util.*;
 import static edu.csulb.Driver.ActiveConfiguration.*;
 
+import cecs429.weights.DocTermWeight;
+import cecs429.weights.DocWeight;
 import org.mapdb.BTreeMap;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
@@ -18,6 +20,14 @@ public class DiskIndexDAO implements IndexDAO {
     private static String mPostingsPath;
     private static String mDocWeightsPath;
     private static String mDbPath;
+    private static File mIndexDir;
+    private static File mPostingsBin;
+    private static File mDocWeightsBin;
+    private static DB mTermsDb;
+
+
+
+
     private static List<Long> mByteLocations;
     private HashMap<String, Long> mTermLocations; // maps each term to its byte location in postings.bin
 
@@ -55,47 +65,25 @@ public class DiskIndexDAO implements IndexDAO {
         System.out.println("Writing the index to disk...");
         // start timer
         long start = System.currentTimeMillis();
-        Collections.sort(index.getVocabulary());
-        File indexDir = new File(mIndexPath);
+        createIndexDirectory();
 
-        // make sure there is no current index folder in the given path before indexing
-        if (indexDir.exists()) {
-            // if there's already a folder, delete it and its contents
-            indexDir.delete();
-        }
-
-        // now that we know there's no current index dir in this path, make the directory and set up the individual file paths within it
-        indexDir.mkdir();
-
-        // try to make a new .bin file using the mPostingsPath set at construction
-        File postingsBin = new File(mPostingsPath);
-
-        // make sure there is no other postings.bin file already in index the directory before trying to write a new one
-        if (postingsBin.exists()) {
-            postingsBin.delete();
-        }
-
-        File docWeightsBin = new File(mDocWeightsPath);
-
-        // make sure there is no other docWeights.bin file already in index the directory before trying to write a new one
-        if (docWeightsBin.exists()) {
-            docWeightsBin.delete();
-        }
+       // Collections.sort(index.getVocabulary());
 
         // initialize necessary structs for the results list and the DB writers
         List<Long> results = new ArrayList<>();
         mTermLocations = new HashMap<>();
 
+
         // try to initialize the db as a child file of the overall index directory
         try {
             // set up a  B+ tree that maps all the on-disk terms to their byte locations
-            DB termsDb = DBMaker.fileDB(mDbPath).make();
-            BTreeMap<String, Long> termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
+            mTermsDb = DBMaker.fileDB(mDbPath).make();
+            BTreeMap<String, Long> termsMap = mTermsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
                     .counterEnable()
                     .createOrOpen();
 
             // setup output streams for postings.bin and docWeights.bin
-            FileOutputStream postingsStream = new FileOutputStream(postingsBin);DataOutputStream postingsOut = new DataOutputStream(postingsStream);
+            FileOutputStream postingsStream = new FileOutputStream(mPostingsBin);DataOutputStream postingsOut = new DataOutputStream(postingsStream);
 
             // start a byte counter at 0 that will increment by 4 bytes everytime something new is written to the file
             long bytesByCount = 0;
@@ -133,7 +121,7 @@ public class DiskIndexDAO implements IndexDAO {
                     // write the current docId and tf(t,d) values to the file
                     postingsOut.writeInt(docId);
                     bytesByCount += 4;
-
+                    DocTermWeight termWeight = new DocTermWeight(term, currPostings.get(i), termFrequency);
                     double termWeight = calculateTermDocWeight(termFrequency);
                     postingsOut.writeDouble(termWeight);
                     bytesByCount += 8; // increment byte position by 8 to account for the 8 bytes used for termWeight
@@ -159,7 +147,7 @@ public class DiskIndexDAO implements IndexDAO {
                     }
                 }
             }
-            termsDb.close();
+            mTermsDb.close();
             termsMap.close();
             postingsOut.close();
 
@@ -180,58 +168,55 @@ public class DiskIndexDAO implements IndexDAO {
         // try to initialize the db as a child file of the overall index directory
         try {
             // if possible, create a B+ tree that maps all the on-disk terms to their byte locations
-            DB termsDb = DBMaker.fileDB(mDbPath).make();
-            BTreeMap<String, Long> termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
+            DB mTermsDb = DBMaker.fileDB(mDbPath).make();
+            BTreeMap<String, Long> termsMap = mTermsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
                     .counterEnable()
                     .createOrOpen();
 
             // now we can write the term and its location to disk by simply calling put() on the map
             termsMap.put(term, bytePosition);
-            termsDb.close();
-            termsMap.close();
+            mTermsDb.close();
         } catch (Exception ex) {
             System.out.println("Failed to write the term '" + term + "' with a byte location of " + bytePosition + ". \n");
             ex.printStackTrace();
         }
     }
 
-    @Override
-    public void writeDocWeights(HashMap<Integer,Double> weightsMap) {
+
+    public void writeDocWeights(List<DocWeight> docWeights) {
         // try to initialize the docWeights file as a child file of the overall index directory
         try {
-            File docWeightsBin = new File(mDocWeightsPath);
             // make sure there is no other docWeights.bin file already in index the directory before trying to write a new one
-            if (docWeightsBin.exists()) {
-                docWeightsBin.delete();
+            if (mDocWeightsBin.exists()) {
+                mDocWeightsBin.delete();
             }
 
-            FileOutputStream docWeightsStream = new FileOutputStream(docWeightsBin);
+            File mDocWeightsBin = new File(mDocWeightsPath);
+            FileOutputStream docWeightsStream = new FileOutputStream(mDocWeightsBin);
             DataOutputStream docWeightsOut = new DataOutputStream(docWeightsStream);
 
-            int previousId = 0;
-            int gapId = 0;
-            for (int currId : weightsMap.keySet()) {
-//                if (currId > 0) {
-//                    gapId = currId + (currId - previousId);
-//                    previousId = currId;
-//                }
-
-                docWeightsOut.writeInt(currId);
-                docWeightsOut.writeDouble(weightsMap.get(currId));
+            int avgDocLength = 0;
+            for (DocWeight w : docWeights) {
+                w.calculate();
+                double docLd = w.getValue();
+                int docLength = w.getDocLength();
+                avgDocLength += docLength;
+                int byteSize = w.getByteSize();
+                int avgFrequency = w.getAvgTermFrequency();
+                // write the per-doc weight data of each docWeight in the order of: docWeight, docLength, byteSize, avgTfTd,
+                docWeightsOut.writeDouble(docLd); // byte 0
+                docWeightsOut.writeInt(docLength); // byte 8
+                docWeightsOut.writeInt(byteSize); // byte 12
+                docWeightsOut.writeInt(avgFrequency); // byte 16
+                // next DocWeight starts writing @ byte 20
             }
+
+            docWeightsOut.writeInt(avgDocLength); // will be written at byte location: docWeightsOut.length() - 4
+            avgDocLength = avgDocLength / docWeights.size();
+
             docWeightsOut.close();
         }
-//                // for the first term only, write the gapId as-is without updating it with the current doc
-//                if (gapId == 0) {
-//                    docWeightsOut.writeInt(gapId);
-//                    gapId += currId; // ONLY DO THIS FOR THE FIRST TERM because its zero
-//                }
-//                // use the gapId to write the remaining docIds
-//                else {
-//                    // increment gapId by the difference between itself and the next docId
-//                    gapId = gapId + (currId - gapId);
-//                    // only write AFTER updating the gap
-//                    docWeightsOut.writeInt(currId)
+
         catch (Exception ex) {
             ex.printStackTrace();
         }
@@ -323,6 +308,33 @@ public class DiskIndexDAO implements IndexDAO {
             return null;
         }
         return results;
+    }
+
+    public void createIndexDirectory() {
+
+
+        // make sure there is no current index folder in the given path before indexing
+        if (mIndexDir.exists()) {
+            // if there's already a folder, delete it and its contents
+            mIndexDir.delete();
+        }
+        mIndexDir = new File(mIndexPath);
+        // now that we know there's no current index dir in this path, make the directory and set up the individual file paths within it
+        mIndexDir.mkdir();
+
+
+        // make sure there is no other postings.bin file already in index the directory before trying to write a new one
+        if (mPostingsBin.exists()) {
+            mPostingsBin.delete();
+        }
+        mPostingsBin = new File(mPostingsPath);
+
+        // make sure there is no other docWeights.bin file already in index the directory before trying to write a new one
+        if (mDocWeightsBin.exists()) {
+            mDocWeightsBin.delete();
+        }
+        mDocWeightsBin = new File(mDocWeightsPath);
+
     }
 
     // reads select postings data from the disk to return a list of postings,

@@ -27,26 +27,27 @@ public class Driver {
 	 * enum wrapper for all the types of currently supported querying modes; can be extended to allow additional modes in the future
 	 */
 	public enum QueryMode {
-		Boolean,
-		Ranked
+		BOOLEAN,
+		RANKED
 	}
 	/**
 	 * enum wrapper for all the currently supported Run modes; can be extended to allow additional modes in the future
 	 */
 	public enum RunMode {
-		Build,
-		Query,
-		Quit
+		BUILD,
+		QUERY,
+		EVALUATE,
+		QUIT
 	}
 
 	/**
 	 * enum wrapper for all the currently supported activeIndex types; can be extended to allow additional modes in the future
 	 */
 	public enum IndexType {
-		Inverted,
-		TermDocument,
-		PositionalInverted,
-		DiskPositional
+		INVERTED,
+		TERM_DOCUMENT,
+		POSITIONAL_INVERTED,
+		DISK_POSITIONAL
 	}
 
 	/**
@@ -104,7 +105,7 @@ public class Driver {
 		public static final ActiveConfiguration config = getInstance();
 
 		public static void setRunMode(RunMode runMode) {
-			if (runMode == Quit) {
+			if (runMode == QUIT) {
 				System.out.println("Quitting the application - Goodbye!");
 				System.exit(0);
 			}
@@ -166,7 +167,7 @@ public class Driver {
 
 
 	public static void main(String[] args) {
-		while (runMode != Quit) {
+		while (runMode != QUIT) {
 			selectRunModeMenu();
 		}
 	}
@@ -179,12 +180,13 @@ public class Driver {
 			System.out.println("*************************************************");
 			System.out.println("(1) Build Mode - Build a new index ");
 			System.out.println("(2) Query Mode - Query an existing index ");
-			System.out.println("(3) Quit Application");
+			System.out.println("(3) Evaluate Mode -  Evaluate the precision and recall of ranked retrievals ");
+			System.out.println("(4) Quit Application");
 			int choice = in.nextInt();
 
 			switch (choice) {
 				case 1: {
-					runMode = Build;
+					runMode = BUILD;
 					setActiveCorpus(selectCorpusMenu());
 					// once the activeCorpus is selected, get the user's index selection over the chosen corpus
 					activeIndex = selectIndexMenu();
@@ -206,9 +208,9 @@ public class Driver {
 
 						if (Objects.equals(in.nextLine(), "y")) {
 							System.out.println("Ok - An in-memory index must be built from the on-disk data before querying...");
-							activeIndex = buildIndex(DiskPositional);
-							System.out.println("Entering Query Mode...");
-							runMode = Query;
+							activeIndex = buildIndex(DISK_POSITIONAL);
+							System.out.println("Entering QUERY Mode...");
+							runMode = QUERY;
 							queryMode = selectQueryModeMenu();
 							mainMenu();
 							break;
@@ -223,7 +225,7 @@ public class Driver {
 
 					else {
 						System.out.println("No existing index was found on disk for the selected corpus. You must switch to another corpus with an existing on-disk index or build a new index altogether before entering Query Mode. \n");
-						runMode = Build;
+						runMode = BUILD;
 					}
 
 					// now check for in-mem activeIndex
@@ -237,22 +239,27 @@ public class Driver {
 
 						if (Objects.equals(in.nextLine(), "y")) {
 							System.out.println("Redirecting to Query Mode...");
-							runMode = Query;
+							runMode = QUERY;
 							queryMode = selectQueryModeMenu();
 							mainMenu();
 						}
 
 						else {
-							System.out.println("Ok - Redirecting to Build Mode...");
-							runMode = Build;
+							System.out.println("Ok - Redirecting to BUILD Mode...");
+							runMode = BUILD;
 						}
 					}
 					break;
 				}
 
 				case 3: {
-					setRunMode(Quit);
+					//TODO: immplement this!
+					setRunMode(EVALUATE); // the new Evaluate run mode allows the user to evaluate the performance of the search engine's  ranked queries and compare them across various weighing strategies
 					break;
+				}
+
+				case 4: {
+					setRunMode(QUIT);
 				}
 
 				default: {
@@ -490,7 +497,7 @@ public class Driver {
 						break;
 					}
 					case "l": {
-						setRunMode(Quit);
+						setRunMode(QUIT);
 						break;
 					}
 					default: {
@@ -527,31 +534,30 @@ public class Driver {
 		// start timer
 		long start = System.currentTimeMillis();
 		Index activeIndex = null;
-		// initialize an empty vocab list for the constructors that need it
 		List<String> vocabulary = new ArrayList<>();
 
 		// use the given type to instantiate the appropraite activeIndex over the active activeCorpus
 		switch (type) {
-			case Inverted: {
+			case INVERTED: {
 				activeIndex = new InvertedIndex(vocabulary);
 				break;
 			}
-			case TermDocument: {
+			case TERM_DOCUMENT: {
 				activeIndex = new TermDocumentIndex(vocabulary, activeCorpus.getCorpusSize());
 				break;
 			}
-			case PositionalInverted: {
+			case POSITIONAL_INVERTED: {
 				activeIndex = new PositionalInvertedIndex(vocabulary);
 				break;
 			}
-			case DiskPositional: {
+			case DISK_POSITIONAL: {
 				// for a DiskPositionalIndex only, skip past all of the token processing/vocabulary building.
 				DiskPositionalIndex diskIndex = new DiskPositionalIndex(activeCorpus);
 
 				// Instead, just call initialize() which does the equivalent work but by reading the on-disk data instead
 				// but first check if the activeIndex is already written to disk for this activeCorpus
 				if (hasDiskIndex) {
-					if (runMode == Build) {
+					if (runMode == BUILD) {
 						System.out.println("There is already an existing index written to disk in the current corpus directory. ");
 						System.out.println("  -- Would you like to overwrite the existing on-disk data while building the new index? \n ");
 						System.out.println("**** WARNING **** \n Choosing this option will require significantly more indexing time because a new in-memory index must be built from scratch and written to disk before continuing the build process ");
@@ -601,12 +607,12 @@ public class Driver {
 		// use a basic processor by default
 		TokenProcessor processor = new BasicTokenProcessor();
 		// only upgrade the processor for positional indexes
-		if (type == PositionalInverted || type == DiskPositional) {
+		if (type == POSITIONAL_INVERTED || type == DISK_POSITIONAL) {
 			processor = new AdvancedTokenProcessor();
 		}
 
 		// only proceed with the next steps (tokenizing the activeCorpus and building the vocabulary) for types other than the DiskPositionalIndex
-		if (type != DiskPositional) {
+		if (type != DISK_POSITIONAL) {
 			// add all the docs in the activeCorpus to the activeIndex
 			for (Document d : activeCorpus.getDocuments()) {
 				// Tokenize the document's content by constructing an EnglishTokenStream around the document's content.
@@ -621,7 +627,7 @@ public class Driver {
 					for (String term : terms) {
 
 						// check for PositionalInvertedIndex before adding terms because it handles the method differently than the others
-						if (type == PositionalInverted) {
+						if (type == POSITIONAL_INVERTED) {
 							// add the term(s) to the activeIndex based off its type
 							activeIndex.addTerm(term, d.getId(), position);
 						} else {
@@ -648,11 +654,11 @@ public class Driver {
 		TokenProcessor processor = new BasicTokenProcessor();
 		QueryParser parser = null;
 
-		if (queryMode == Boolean) {
+		if (queryMode == BOOLEAN) {
 			parser = new BooleanQueryParser();
 			processor = new HyphenTokenProcessor();
 		}
-		else if (queryMode == Ranked) {
+		else if (queryMode == RANKED) {
 			parser = new RankedQueryParser();
 			processor = new AdvancedTokenProcessor();
 		}
@@ -663,10 +669,10 @@ public class Driver {
 			List<Posting> queryPostings = new ArrayList<>();
 			QueryComponent fullQuery = parser.parseQuery(query);
 			// sort the list of postings and print results
-			if (queryMode == Boolean) {
+			if (queryMode == BOOLEAN) {
 				queryPostings = fullQuery.getPostings(processor, activeIndex);
 			}
-			else if (queryMode == Ranked){
+			else if (queryMode == RANKED){
 				queryPostings = fullQuery.getPostingsWithoutPositions(processor, activeIndex);
 			}
 
@@ -704,7 +710,7 @@ public class Driver {
 				System.out.println(count + ") Title: '" + activeCorpus.getDocument(p.getDocumentId()).getTitle() + "' ");
 				System.out.println("    - DocId: " + p.getDocumentId());
 
-				if (queryMode == Ranked) {
+				if (queryMode == RANKED) {
 					System.out.println("    - Final Accumulator Value (Ad): " + p.getAccumulator());
 					System.out.println("    - Doc Weight (Ld): " + p.getDocWeight());
 					System.out.println("    - Term Weights: ");
@@ -719,7 +725,7 @@ public class Driver {
 					}
 				}
 
-				else if (queryMode == Boolean) {
+				else if (queryMode == BOOLEAN) {
 					System.out.println("    - Query Term Positions: " + p.getTermPositions().toString());
 				}
 

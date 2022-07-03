@@ -1,23 +1,34 @@
 package cecs429.weights;
 
 import cecs429.documents.Document;
+import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import static edu.csulb.Driver.ActiveConfiguration.activeWeigher;
 
-public class DocWeight implements Weight {
+public class DocWeight implements Weight, Comparable<DocWeight> {
     private double mValue;
     private WeighingStrategy mWeigher;
     private Document mDocument;
-    private List<DocTermWeight> mDocTermWeights; // list of  w(d,t) values for all the terms in the given doc
+    private int mDocLength; // number of TOKENS (NOT TERMS) in doc d
+    private int mByteSize; // size of the document file in bytes
+    private HashMap<String, Integer> mTermFrequencies;
+    private int mAvgTermFrequency;
 
-    public DocWeight() {};
 
-    public DocWeight(Document d, List<DocTermWeight> docTermWeights) {
+
+    private List<DocTermWeight> mTermWeights; // list of  w(d,t) values for all the terms in the given doc
+
+    public DocWeight() {}
+
+    public DocWeight(Document d, HashMap<String, Integer> termFrequencies) {
         mWeigher = activeWeigher;
         mDocument = d;
-        mDocTermWeights = docTermWeights;
+        mTermWeights = new ArrayList<>();
+        mTermFrequencies = termFrequencies;
     }
 
     @Override
@@ -53,10 +64,31 @@ public class DocWeight implements Weight {
     }
 
     public List<DocTermWeight> getTermFrequencies() {
-        return mDocTermWeights;
+        return mTermWeights;
     }
 
-    public void setTermFrequencies(List<DocTermWeight> docTermWeights) {
-        this.mDocTermWeights = mDocTermWeights;
+    public void setTermFrequencies(List<DocTermWeight> termWeights) {
+        this.mTermWeights = termWeights;
+    }
+
+    public int getDocLength() {
+        return mDocLength;
+    }
+
+    public void setDocLength(int mDocLength) {
+        this.mDocLength = mDocLength;
+    }
+
+    public int getByteSize() {
+        return mByteSize;
+    }
+
+    public int getAvgTermFrequency() {
+        return mAvgTermFrequency;
+    }
+
+    @Override
+    public int compareTo(@NotNull DocWeight w) {
+        return Integer.compare(w.getDocument().getId(), mDocument.getId());
     }
 }

@@ -57,7 +57,6 @@ public class PositionalInvertedIndex implements Index {
 
     @Override
     public void addTerm(String term, int id) {
-
     }
 
     /**

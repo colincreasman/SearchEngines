@@ -1,25 +1,31 @@
 package cecs429.weights;
 
 import cecs429.documents.Document;
+import cecs429.indexes.Posting;
 import cecs429.weights.WeighingStrategy;
 import cecs429.weights.Weight;
+import org.jetbrains.annotations.NotNull;
 
+import java.util.Objects;
+
+import static edu.csulb.Driver.ActiveConfiguration.activeCorpus;
 import static edu.csulb.Driver.ActiveConfiguration.activeWeigher;
 
-public class DocTermWeight implements Weight {
-    private String mTerm;
+public class DocTermWeight implements Weight{
+   // private String mTerm;
     private double mValue;
     private WeighingStrategy mWeigher;
+    private double mDocId;
     private Document mDocument;
     private int mTermFrequency; // tf(t,d)
 
     public DocTermWeight() { };
 
-    public DocTermWeight(String term, Document d) {
-        mTerm = term;
+    public DocTermWeight(int docId, int termFrequency) {
+        mDocId = docId;
+        mDocument = activeCorpus.getDocument(docId);
         mWeigher = activeWeigher;
-        mDocument = d;
-       // mTermFrequency = termFrequency;
+        mTermFrequency = termFrequency;
     }
 
     @Override
@@ -41,16 +47,39 @@ public class DocTermWeight implements Weight {
         return mTermFrequency;
     }
 
+    public void setTermFrequency(int termFrequency) {
+         mTermFrequency = termFrequency;
+    }
+
     public double getValue() {
         return mValue;
     }
 
-    public String getTerm() {
-        return mTerm;
-    }
+//    public String getTerm() {
+//        return mTerm;
+//    }
 
     public Document getDocument() {
         return mDocument;
     }
 
+//    @Override
+//    public int compareTo(@NotNull DocTermWeight w) {
+//        int result = -2;
+//        try {
+//            if (Objects.equals(mTerm, w.getTerm())) {
+//                if (mDocument == w.getDocument()) {
+//                    result = 0;
+//                } else if (mDocument.getId() > w.getDocument().getId()) {
+//                    result = -1;
+//                } else {
+//                    result = 1;
+//                }
+//            }
+//        }
+//        catch (Exception ex) {
+//            System.out.println("Error: The DocTermWeights cannot be compared because they do not reference the same term.");
+//        }
+//        return result;
+//    }
 }
