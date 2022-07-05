@@ -27,20 +27,14 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
     }
 
     @Override
-    public void calculate() {
-        mValue = mWeigher.calculateLd(this);
+    public void calculate(WeighingStrategy weigher) {
+        mValue = weigher.calculateLd(this);
     }
 
     @Override
-    public void read() {
-        mValue = mWeigher.readLd(this);
+    public void read(WeighingStrategy weigher) {
+        mValue = weigher.readLd(this);
     }
-
-    @Override
-    public void write() {
-        mWeigher.writeLd(this);
-    }
-
 
     public double getValue() {
         return mValue;

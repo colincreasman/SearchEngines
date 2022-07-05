@@ -8,6 +8,8 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
+import static App.Driver.ActiveConfiguration.activeWeigher;
+
 public class BinFileDao extends FileDao {
     private DataOutputStream mActiveWriter;
     private RandomAccessFile mActiveReader;
@@ -110,7 +112,7 @@ public class BinFileDao extends FileDao {
 
             // use the current byteAddress to write the weights for the current posting and use the result to increment
             Posting currPosting = termPostings.get(i);
-            long weightIncrement = writeTermWeights(currPosting);
+            long weightIncrement = writeTermWeights(byteAddress, currPosting);
             byteAddress += weightIncrement;
 
             // find tf(t,d) from the number of term locations and write it to file
@@ -168,5 +170,48 @@ public class BinFileDao extends FileDao {
             mActiveWriter.writeDouble(wackyWdt);
             return byteAddress += 32; // return the byteAddress incremented by 32 to account for the 8 bytes used to write each weight as a double
         }
+
+    public void writeDocWeights(List<DocWeight> docWeights) throws IOException {
+        int avgDocLength = 0;
+
+        for (DocWeight w : docWeights) {
+            w.calculate(activeWeigher);
+
+            double docLd = w.getValue();
+            int docLength = w.getDocLength();
+            int byteSize = w.getByteSize();
+            int avgFrequency = w.getAvgTermFrequency();
+
+            // write the per-doc weight data of each docWeight in the order of: docWeight, docLength, byteSize, avgTfTd,
+            mActiveWriter.writeDouble(docLd); // byte 0
+            mActiveWriter.writeInt(docLength); // byte 8
+            mActiveWriter.writeInt(byteSize); // byte 12  TODO: change this to a long type
+
+            mActiveWriter.writeInt(avgFrequency); // byte 16
+            // next DocWeight starts writing @ byte 20
+
+            avgDocLength += docLength;
+        }
+
+        mActiveWriter.writeInt(avgDocLength);// will be written at byte location: docWeightsOut.length() - 4
+        avgDocLength = avgDocLength / docWeights.size();
+    }
+
+    // TODO: Change this to use each new weighing strategy
+    public double readDocWeight(int docId) {
+        double weight = 0.0;
+        try {
+            int byteLocation = (docId * 12) + 4; //
+            // start reading from the beginning of the file, the first byte should hold the first doc id
+            mActiveReader.seek(byteLocation);
+            weight = mActiveReader.readDouble();
+            mActiveReader.close();
+        }
+        catch (Exception ex) {
+            System.out.println("Failed to read the doc weights from disk. '");
+            ex.printStackTrace();
+        }
+        return weight;
+    }
 
 }

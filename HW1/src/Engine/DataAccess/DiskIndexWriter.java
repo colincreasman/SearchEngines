@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
+import Engine.Indexes.PositionalInvertedIndex;
 import Engine.Weights.*;
 import Engine.Indexes.Index;
 import Engine.Indexes.Posting;
@@ -13,6 +14,8 @@ import org.mapdb.BTreeMap;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.mapdb.Serializer;
+
+import static App.Driver.ActiveConfiguration.activeWeigher;
 
 public class DiskIndexWriter {
     private static File mIndexDir;
@@ -22,6 +25,9 @@ public class DiskIndexWriter {
     private static List<Long> mByteLocations;
 
     public DiskIndexWriter() {
+
+        mBinDao = new BinFileDao();
+        mDbDao = new DbFileDao();
         mByteLocations = new ArrayList<>();
     }
 
@@ -37,207 +43,42 @@ public class DiskIndexWriter {
         // start timer
         long start = System.currentTimeMillis();
 
-            // start a byte address counter at 0 for the beginning of the file
-            long byteAddress = 0;
+        // start a byte address counter at 0 for the beginning of the file
+        long byteAddress = 0;
 
-            for (String term : index.getVocabulary()) {
-                // use the byteCount of each new term to add to the list of byteLocations and write to the db file
-                mByteLocations.add(byteAddress);
-                mDbDao.writeTermLocation(term, byteAddress);
+        for (String term : index.getVocabulary()) {
+            // use the byteCount of each new term to add to the list of byteLocations and write to the db file
+            mByteLocations.add(byteAddress);
+            mDbDao.writeTermLocation(term, byteAddress);
 
-                // write the current term's postings to the binary file at the current byteAddress, then increment it by the amount bytes returned
-                List<Posting> termPostings = index.getPostings(term);
-                try {
-                    long postingsBytes = mBinDao.writePostings(byteAddress, termPostings);
-                    byteAddress += postingsBytes;
-                }
-                catch (IOException ex) {
-                    System.out.println("Error: Failed to write postings to disk for the term: " + term);
-                    ex.printStackTrace();
-                }
+            // write the current term's postings to the binary file at the current byteAddress, then increment it by the amount bytes returned
+            List<Posting> termPostings = index.getPostings(term);
 
-
+            try {
+                long postingsBytes = mBinDao.writePostings(byteAddress, termPostings);
+                byteAddress += postingsBytes;
+            }
+            catch (IOException ex) {
+                System.out.println("Error: Failed to write postings to disk for the current term: " + term);
+                ex.printStackTrace();
+            }
             long stop = System.currentTimeMillis();
             long elapsedSeconds = (long) ((stop - start) / 1000.0);
             System.out.println("Finished writing index to disk in approximately " + elapsedSeconds + " seconds.");
         }
-
-        catch (IOException ex) {
-            ex.printStackTrace();
-        }
-
+        mBinDao.close("postings");
         return mByteLocations;
     }
 
-    @Override
-    public void writeTermLocation(String term, long bytePosition) {
-        // try to initialize the db as a child file of the overall index directory
-        try {
-            // if possible, create a B+ tree that maps all the on-disk terms to their byte locations
-            DB mTermsDb = DBMaker.fileDB(mDbPath).make();
-            BTreeMap<String, Long> termsMap = mTermsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
-                    .counterEnable()
-                    .createOrOpen();
-
-            // now we can write the term and its location to disk by simply calling put() on the map
-            termsMap.put(term, bytePosition);
-            mTermsDb.close();
-        } catch (Exception ex) {
-            System.out.println("Failed to write the term '" + term + "' with a byte location of " + bytePosition + ". \n");
-            ex.printStackTrace();
-        }
-    }
-
     public void writeDocWeights(List<DocWeight> docWeights) {
-        // try to initialize the docWeights file as a child file of the overall index directory
+        mBinDao.open("docWeights");
         try {
-            // make sure there is no other docWeights.bin file already in index the directory before trying to write a new one
-            if (mDocWeightsBin.exists()) {
-                mDocWeightsBin.delete();
-            }
-
-            File mDocWeightsBin = new File(mDocWeightsPath);
-            FileOutputStream docWeightsStream = new FileOutputStream(mDocWeightsBin);
-            DataOutputStream docWeightsOut = new DataOutputStream(docWeightsStream);
-
-            int avgDocLength = 0;
-            for (DocWeight w : docWeights) {
-                w.calculate();
-                double docLd = w.getValue();
-                int docLength = w.getDocLength();
-                avgDocLength += docLength;
-                int byteSize = w.getByteSize();
-                int avgFrequency = w.getAvgTermFrequency();
-                // write the per-doc weight data of each docWeight in the order of: docWeight, docLength, byteSize, avgTfTd,
-                docWeightsOut.writeDouble(docLd); // byte 0
-                docWeightsOut.writeInt(docLength); // byte 8
-                docWeightsOut.writeInt(byteSize); // byte 12
-                docWeightsOut.writeInt(avgFrequency); // byte 16
-                // next DocWeight starts writing @ byte 20
-            }
-
-            docWeightsOut.writeInt(avgDocLength); // will be written at byte location: docWeightsOut.length() - 4
-            avgDocLength = avgDocLength / docWeights.size();
-
-            docWeightsOut.close();
+            mBinDao.writeDocWeights(docWeights); // will be written at byte location: docWeightsOut. length() - 4
         }
-
-        catch (Exception ex) {
+        catch (IOException ex) {
             ex.printStackTrace();
         }
-    }
-
-    @Override
-    public double readDocWeight(int docId) {
-        //HashMap<Integer, Double> results = new HashMap<>();
-        double weight = 0.0;
-
-        try (RandomAccessFile reader = new RandomAccessFile(mDocWeightsPath, "r")) {
-            int byteLocation = (docId * 12) + 4; //
-            // start reading from the beginning of the file, the first byte should hold the first doc id
-            reader.seek(byteLocation);
-            // read the first Id as-is
-            // int previousId = 0;
-            // for (int i = 0; i < activeCorpus.getCorpusSize(); i++) {
-//                if (i > 0) {
-//                    int gapId = reader.readInt();
-//                    currId = previousId + gapId;
-//                    previousId = currId;
-//                }
-            //   int currId = reader.readInt();
-
-            weight = reader.readDouble();
-            //    results.put(currId, currWeight);
-            //}
-            reader.close();
-        }
-        catch (Exception ex) {
-            System.out.println("Failed to read the doc weights from disk. '");
-            ex.printStackTrace();
-        }
-        return weight;
-    }
-
-    @Override
-    public long readByteLocation(String term) {
-        // only proceed to read from disk if they havent been loaded yet
-        long location = 0;
-        // try to initialize the db as a child file of the overall index directory
-        try {
-            // if possible, create a B+ tree that maps all the on-disk terms to their byte locations
-            DB termsDb = DBMaker.fileDB(mDbPath).make();
-            BTreeMap<String, Long> termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
-                    .open();
-
-            location = termsMap.get(term);
-
-            termsDb.close();
-        }
-        catch (NullPointerException ex) {
-            ex.printStackTrace();
-        }
-        return location;
-    }
-
-    @Override
-    public List<String> readVocabulary() {
-        // initialize necessary structs
-        List<String> results = new ArrayList<>();
-        // check if the term locations have already been loaded into the class field before reading them from the disk
-        if (mTermLocations != null && mTermLocations.size() > 0) {
-            results.addAll(mTermLocations.keySet());
-            return results;
-        }
-
-        // only proceed to read vocab from disk if it hasn't already been loaded
-        DB termsDb = null;
-        BTreeMap<String, Long> termsMap = null;
-
-        // try to initialize the db as a child file of the overall index directory
-        try {
-            // if possible open the existing B+ tree that maps all the currently written on-disk terms to their byte locations
-            termsDb = DBMaker.fileDB(mDbPath).make();
-            termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG).open(); // since this is a read-only function, we need to open the map, not openOrClose
-
-            // extract the list of all terms from the map B+ tree as an in-memory List iterator
-            Iterator<String> termsOnDisk = termsMap.keyIterator();
-            // now we can add all the on-disk terms to an in-memory return value by extracting terms from the iterator until the stream ends
-            while (termsOnDisk.hasNext()) {
-                results.add(termsOnDisk.next());
-            }
-            termsMap.close();
-            termsDb.close();
-        }
-        catch (Exception ex) {
-            System.out.println("Error reading from on disk index: No on-disk B+ tree was found in the provided index directory");
-            return null;
-        }
-        return results;
-    }
-
-    public void createIndexDirectory() {
-        // make sure there is no current index folder in the given path before indexing
-        if (mIndexDir.exists()) {
-            // if there's already a folder, delete it and its contents
-            mIndexDir.delete();
-        }
-        mIndexDir = new File(mIndexPath);
-        // now that we know there's no current index dir in this path, make the directory and set up the individual file paths within it
-        mIndexDir.mkdir();
-
-
-        // make sure there is no other postings.bin file already in index the directory before trying to write a new one
-        if (mPostingsBin.exists()) {
-            mPostingsBin.delete();
-        }
-        mPostingsBin = new File(mPostingsPath);
-
-        // make sure there is no other docWeights.bin file already in index the directory before trying to write a new one
-        if (mDocWeightsBin.exists()) {
-            mDocWeightsBin.delete();
-        }
-        mDocWeightsBin = new File(mDocWeightsPath);
-
+        mBinDao.open("docWeights");
     }
 
     // reads select postings data from the disk to return a list of postings,

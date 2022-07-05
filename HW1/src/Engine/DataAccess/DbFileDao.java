@@ -81,6 +81,7 @@ public class DbFileDao extends FileDao {
     public long readTermLocation(String term) {
         return mActiveMap.get(term);
     }
+    
 }
 
 

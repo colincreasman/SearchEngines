@@ -79,11 +79,7 @@ public class DiskPositionalIndex implements Index {
                 // only increment the position when moving on to a new token; if normalizing a token produces more than one term, they will all be posted at the same position
                 tokenPosition += 1;
             }
-//            for (String term : termCounts.keySet()) {
-//                = new DocTermWeight(d, termCounts.get(term));
-//                wDts.add(w);
-//            }
-            // now use the list of termWeight references to compose a DocWeight instance for the current doc and add it to the list for all DocWeights
+
             DocWeight docWeight = new DocWeight(d, wDts);
             docWeight.setDocLength(tokenPosition);
             mDocWeights.add(docWeight);
@@ -198,4 +194,7 @@ public class DiskPositionalIndex implements Index {
         postingString += "}";
         return postingString;
     }
-}
+
+    public List<DocWeight> getDocWeights() {
+        return mDocWeights;
+    }

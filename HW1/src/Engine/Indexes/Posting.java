@@ -60,7 +60,6 @@ public class Posting implements Comparable<Posting> {
 		mAccumulator = 0;
 		mDocTermWeight = new DocTermWeight(documentId, mTfTd);
 	}
-
 //	/**
 //	 * Overloaded constructor for positionless postings in ranked retrieval
 //	 * includes additional fields for doc/term weights and
@@ -153,7 +152,6 @@ public class Posting implements Comparable<Posting> {
 		return mDocTermWeight;
 	}
 
-
 	public void increaseAccumulator(double acc) {
 		mAccumulator += acc;
 	}
@@ -165,7 +163,6 @@ public class Posting implements Comparable<Posting> {
 	public void setAccumulator(double newAcc) {
 		mAccumulator = newAcc;
 	}
-
 
 	@Override
 	public int compareTo(@NotNull Posting p) {
@@ -179,5 +176,6 @@ public class Posting implements Comparable<Posting> {
 			return 0;
 		}
 	}
+
 }
 

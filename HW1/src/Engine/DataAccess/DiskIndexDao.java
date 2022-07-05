@@ -221,7 +221,6 @@ public class DiskIndexDao implements DiskDao {
 
             docWeightsOut.writeInt(avgDocLength); // will be written at byte location: docWeightsOut.length() - 4
             avgDocLength = avgDocLength / docWeights.size();
-
             docWeightsOut.close();
         }
 
