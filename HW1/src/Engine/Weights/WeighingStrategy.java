@@ -1,11 +1,12 @@
 package Engine.Weights;
 
 import Engine.DataAccess.DbFileDao;
-import Engine.DataAccess.FileDao;
+import Engine.DataAccess.FileDao;x
 
 
 // uses default stuff
 public abstract class WeighingStrategy {
+
 //    private FileDao weightReader = new DbFileDao(); // used to read the byte locations of terms beind read by each strategy
 
     public abstract double calculateWdt(DocTermWeight w);

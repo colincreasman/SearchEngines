@@ -1,61 +1,41 @@
 package Engine.DataAccess;
 
-import Engine.Indexes.Posting;
-import Engine.Queries.QueryComponent;
-import Engine.Weights.Weight;
+import org.mapdb.DB;
 
+import javax.swing.*;
+import java.io.*;
+import java.util.*;
 
-import java.io.File;
-import java.util.List;
+import static App.Driver.ActiveConfiguration.activeCorpus;
 
-public abstract class FileDao implements WeightDao, PostingDao, QueryDao {
-    private File mFile;
-
-    public FileDao(String filePath) {
-        mFile = create(filePath);
+public abstract class FileDao {
+    public static File mSourceDir;
+    public static List<File> mFiles;
+    // no-arg constructor defaults to using the activeCorpus' path and appending it to create the sourceDir
+    public FileDao() {
+        String dirPath = activeCorpus.getPath() + "/index";
+        mSourceDir = new File(dirPath);
+        // only create a new source directory if mSourceDir is null or does not already exist
+        if (!mSourceDir.exists()) {
+            mSourceDir.mkdir();
+            mFiles = Arrays.stream(mSourceDir.listFiles()).toList();
+        }
     }
 
-    public File create(String filePath) {
-        return new File(filePath);
+    public FileDao(File sourceDir) {
+        // check if the newly passed in directory already exists
+        if (!sourceDir.exists()) {
+            // if not, use it to create a new dir and reassign the static mSourceDir property
+            sourceDir.mkdir();
+        }
+        mSourceDir = sourceDir;
+        mFiles = Arrays.stream(mSourceDir.listFiles()).toList();
     }
 
-    public abstract boolean connect(File sourceFile);
+    public abstract void create(String name);
 
+    public abstract void open(String name);
 
-    //TODO: figure out which ones of these to make abstract, then implement DbFileDao, TxtFileDao, and BinFileDao
-
-    @Override
-    public List<Posting> readWithoutPositions(String term) {
-        return null;
-    }
-
-    @Override
-    public List<Posting> readWithPositions(String term) {
-        return null;
-    }
-
-    @Override
-    public void write(Posting posting) {
+    public abstract void close(String name);
 
     }
-
-    @Override
-    public QueryComponent read(int queryId) {
-        return null;
-    }
-
-    @Override
-    public void write(QueryComponent query) {
-
-    }
-
-    @Override
-    public Weight read(long byteLocation) {
-        return null;
-    }
-
-    @Override
-    public void write(Weight weight) {
-
-    }
-}

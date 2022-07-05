@@ -23,12 +23,6 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
     public DocWeight(Document d, List<DocTermWeight> termWeights) {
         mWeigher = activeWeigher;
         mDocument = d;
-//        mTermFrequencies = termFrequencies;
-//
-//        mTermWeights = new ArrayList<>();
-//        for (String term : mTermFrequencies.keySet()) {
-//            DocTermWeight currWeight = new DocTermWeight( mTermFrequencies.get(term));
-//        }
         mTermWeights = termWeights;
     }
 

@@ -1,5 +1,6 @@
 package Engine.Weights;
 
+import Engine.DataAccess.DbFileDao;
 import Engine.DataAccess.FileDao;
 
 import java.util.List;
@@ -8,7 +9,7 @@ import static App.Driver.ActiveConfiguration.activeCorpus;
 
 
 public class DefaultWeigher extends WeighingStrategy {
-    private FileDao termReader = new DbFileDao(); // used to read the byte location of a requested term
+    private FileDao termMapDao = new DbFileDao(); // used to read the byte location of a requested term
 
     // Default w(d,t) = 1 + ln(tf(t,d))
     @Override
@@ -40,7 +41,7 @@ public class DefaultWeigher extends WeighingStrategy {
     }
 
     @Override
-    public double readWdt(Weight w, FileDao dao) {
+    public double readWdt(DocTermWeight w) {
         Weight wv = (Weight) dao.read(w);
 
         String term = w.getTerm();
