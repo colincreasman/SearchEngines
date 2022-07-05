@@ -1,8 +1,11 @@
 package Engine.Weights;
 
+import App.Driver;
+import App.Driver.WeighingScheme;
+
 public interface Weight {
 
-    void calculate(WeighingStrategy weigher);
+    void calculate(WeighingScheme scheme);
 
-    void read(WeighingStrategy weigher);
+    void read(WeighingScheme scheme);
 }

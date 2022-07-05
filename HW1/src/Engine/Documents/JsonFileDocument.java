@@ -1,21 +1,28 @@
 package Engine.Documents;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 
+import Engine.Weights.DocWeight;
 import com.google.gson.stream.JsonReader;
+
+import javax.print.Doc;
+
 /**
  * Represents a document that is saved as a JSON file
  */
 public class JsonFileDocument implements FileDocument {
     private int mDocumentId;
+    private long mByteSize;
     private Path mFilePath;
     private String mDocumentTitle;
-
+    private DocWeight mDocWeight;
     /**
      * Constructs a TextFileDocument with the given document ID representing the file at the given
      * absolute file path.
@@ -23,6 +30,7 @@ public class JsonFileDocument implements FileDocument {
     public JsonFileDocument(int id, Path absoluteFilePath) {
         mDocumentId = id;
         mFilePath = absoluteFilePath;
+        mDocWeight = new DocWeight(this);
     }
 
 
@@ -31,6 +39,25 @@ public class JsonFileDocument implements FileDocument {
         return mDocumentId;
     }
 
+    @Override
+    public DocWeight getWeight() {
+        return mDocWeight;
+    }
+
+    @Override
+    public void setWeight(DocWeight w) {
+        mDocWeight = w;
+    }
+
+    @Override
+    public long getByteSize() {
+        try {
+            mByteSize = Files.size(mFilePath);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return mByteSize;
+    }
     /**
      * Returns the content of a .json is the value of the "body"" key, which you can read as a string. You will need to find a way to construct a stream around that string in memory
      * @return
@@ -39,6 +66,9 @@ public class JsonFileDocument implements FileDocument {
     public Reader getContent() {
         // try to read content as a .json file
         try {
+            // initialize a counter to keep track of the file size in bytes
+
+
             // use a JsonReader to start reading the file
             JsonReader reader = new JsonReader(Files.newBufferedReader(mFilePath));
 
@@ -89,6 +119,7 @@ public class JsonFileDocument implements FileDocument {
     public Path getFilePath() {
         return mFilePath;
     }
+
 //2280 + 2473
     public static FileDocument loadJsonFileDocument(Path absolutePath, int documentId) {
         return new JsonFileDocument(documentId, absolutePath);

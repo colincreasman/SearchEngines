@@ -1,5 +1,5 @@
 package App;
-import Engine.DataAccess.DiskIndexDao;
+import Engine.DataAccess.DiskIndexWriter;
 import Engine.Indexes.*;
 import Engine.Text.*;
 import Engine.Weights.*;
@@ -16,7 +16,7 @@ import java.util.*;
 import static App.Driver.ActiveConfiguration.*;
 import static App.Driver.RunMode.*;
 import static App.Driver.QueryMode.*;
-import static App.Driver.WeightingScheme.*;
+import static App.Driver.WeighingScheme.*;
 import static App.Driver.IndexType.*;
 
 
@@ -51,11 +51,34 @@ public class Driver {
 	/**
 	 * enum wrapper for all the currently supported weighting schemes for ranked retrievals; can be extended to allow additional modes in the future
 	 */
-	public enum WeightingScheme {
-		DEFAULT,
-		TF_IDF,
-		OKAPI,
-		WACKY,
+	public enum WeighingScheme {
+		DEFAULT {
+//			private boolean isActive = false;
+			@Override
+			public DefaultWeigher getInstance() {
+//				isActive = true;
+				return new DefaultWeigher();
+			}
+		},
+		TF_IDF {
+			@Override
+			public TfIdfWeigher getInstance() {
+				return new TfIdfWeigher();
+			}
+		},
+		OKAPI {
+			@Override
+			public OkapiWeigher getInstance() {
+				return new OkapiWeigher();
+			}
+		},
+		WACKY {
+			@Override
+			public WackyWeigher getInstance() {
+				return new WackyWeigher();
+			}
+		};
+		public abstract WeighingStrategy getInstance();
 	}
 
 	/**
@@ -70,21 +93,20 @@ public class Driver {
 	public static class ActiveConfiguration {
 		public static DocumentCorpus activeCorpus;
 		public static Index activeIndex;
-		public static WeighingStrategy activeWeigher;
 		public static RunMode runMode;
 		public static QueryMode queryMode;
-		public static WeightingScheme weightingScheme;
+		public static WeighingScheme activeWeighingScheme;
 		public static IndexType indexType;
-		public static DiskDao indexDao;
+		public static DiskIndexWriter indexWriter;
 		public static boolean hasDiskIndex; // boolean flag indicating the presence of on-disk activeIndex data
 		private static ActiveConfiguration instance; // singleton instance
 
 		private ActiveConfiguration() {
-			if (indexDao != null) {
-				hasDiskIndex = indexDao.hasExistingIndex();
+			if (indexWriter != null) {
+				hasDiskIndex = indexWriter.hasExistingIndex();
 			}
-			weightingScheme = DEFAULT;
-//			activeWeigher = new (); // automatically use the default calculator upon program start
+			activeWeighingScheme = DEFAULT;
+
 		}
 
 		public static ActiveConfiguration getInstance() {
@@ -116,52 +138,33 @@ public class Driver {
 		}
 
 		public static void setActiveCorpus(DocumentCorpus docCorpus) {
-			// whenever a new active activeCorpus is assigned, use its path to create the active indexDAO
-			indexDao = new DiskIndexDao(docCorpus.getPath());
+			// whenever a new active activeCorpus is assigned, use its path to create the active indexWriter
+			indexWriter = new DiskIndexWriter();
 			activeCorpus = docCorpus;
-			// now use the new indexDao to determine if there is an on-disk activeIndex for the given activeCorpus
-			hasDiskIndex = indexDao.hasExistingIndex();
+			// now use the new indexWriter to determine if there is an on-disk activeIndex for the given activeCorpus
+			hasDiskIndex = indexWriter.hasExistingIndex();
 		}
 
 		public static void setQueryMode(QueryMode queryMode) {
 			ActiveConfiguration.queryMode = queryMode;
 		}
 
-		public static void setWeightingScheme(WeightingScheme weightingScheme) {
-			ActiveConfiguration.weightingScheme = weightingScheme;
-			int weightOrdinal = weightingScheme.ordinal();
-			switch (weightOrdinal) {
-				case 0: {
-					activeWeigher = new DefaultWeigher();
-				}
-				case 1: {
-					activeWeigher = new TfIdfWeigher();
-				}
-				case 2: {
-					activeWeigher = new OkapiWeigher();
-				}
-				case 4: {
-					activeWeigher = new WackyWeigher();
-				}
-				default: {
-					System.out.println("Error: the requested weighting scheme has not implemented yet.");
-				}
-			}
+		public static void setWeightingScheme(WeighingScheme scheme) {
+			activeWeighingScheme = scheme;
 		}
 
 		public static void setIndexType(IndexType indexType) {
 			ActiveConfiguration.indexType = indexType;
 		}
 
-		public static void setIndexDao(DiskDao indexDao) {
-			ActiveConfiguration.indexDao = indexDao;
+		public static void setindexWriter(DiskIndexWriter indexWriter) {
+			ActiveConfiguration.indexWriter = indexWriter;
 		}
 
 		public static void setHasDiskIndex(boolean hasDiskIndex) {
 			ActiveConfiguration.hasDiskIndex = hasDiskIndex;
 		}
 	}
-
 
 	public static void main(String[] args) {
 		while (runMode != QUIT) {
@@ -390,7 +393,7 @@ public class Driver {
 
 			// if ranked retrieval is chosen, have them chose one of the available weighting schemes
 			if (choice == 0) {
-				weightingScheme = selectWeightMenu();
+				activeWeighingScheme = selectWeightMenu();
 			}
 
 			try {
@@ -404,21 +407,21 @@ public class Driver {
 		}
 	}
 
-	private static WeightingScheme selectWeightMenu() {
+	private static WeighingScheme selectWeightMenu() {
 		Scanner in = new Scanner(System.in);
 
 		while (true) {
 			System.out.println("\nPlease select a weighting scheme for ranked retrieval from options below: ");
 			System.out.println("******************************************************************************");
 			int count = 0;
-			for (WeightingScheme weightingScheme : WeightingScheme.values()) {
+			for (WeighingScheme weightingScheme : WeighingScheme.values()) {
 				count += 1;
 				System.out.println("(" + count + ")" + weightingScheme.toString() + "\n");
 			}
 			int choice = in.nextInt();
 
 			try {
-				return WeightingScheme.values()[choice - 1];
+				return WeighingScheme.values()[choice - 1];
 			}
 
 			catch (Exception ex) {
@@ -469,7 +472,7 @@ public class Driver {
 						break;
 					}
 					case "d": {
-						weightingScheme = selectWeightMenu();
+						activeWeighingScheme = selectWeightMenu();
 					}
 					case "e": {
 						selectRunModeMenu();
@@ -715,17 +718,19 @@ public class Driver {
 				System.out.println("    - DocId: " + p.getDocumentId());
 
 				if (queryMode == RANKED) {
-					System.out.println("    - Final Accumulator Value (Ad): " + p.getAccumulator());
 					System.out.println("    - Doc Weight (Ld): " + p.getDocWeight());
+
+					System.out.println("    - Final Accumulator Value (Ad): " + p.getDocWeight().getAccumulator());
+
 					System.out.println("    - Term Weights: ");
-					for (String term : query.getProcessedTerms()) {
+					for (QueryTermWeight wQt : ((RankedQuery) query).getQueryWeights()) {
 //						Optional<Posting> docTermPosting = query.getTermPostings().values().stream().toList().stream().filter(posting -> posting.getDocumentId()).
 //								findFirst();
 
 						//Optional<Person> matchingObject = objects.stream().
 						//    filter(p -> p.email().equals("testemail")).
-						//    findFirst();
-						System.out.println("         - '" + term + "': " + p.toString());
+						//    findFirst()
+						System.out.println("         - '" + wQt.getTerm() + "': [" + wQt.getValue());
 					}
 				}
 

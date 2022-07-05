@@ -20,6 +20,16 @@ public class OkapiWeigher extends WeighingStrategy {
         return 1;
     }
 
+    @Override
+    public double readWdt(DocTermWeight w) {
+        return 0;
+    }
+
+    @Override
+    public double readLd(DocWeight w) {
+        return 0;
+    }
+
 
 }
 

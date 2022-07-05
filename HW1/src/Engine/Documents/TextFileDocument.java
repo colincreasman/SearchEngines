@@ -1,5 +1,7 @@
 package Engine.Documents;
 
+import Engine.Weights.DocWeight;
+
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
@@ -11,13 +13,15 @@ import java.nio.file.Path;
 public class TextFileDocument implements FileDocument {
 	private int mDocumentId;
 	private Path mFilePath;
-	
+	private DocWeight mDocWeight;
+	private long mByteSize;
 	/**
 	 * Constructs a TextFileDocument with the given document ID representing the file at the given
 	 * absolute file path.
 	 */
 	public TextFileDocument(int id, Path absoluteFilePath) {
 		mDocumentId = id;
+		mDocWeight = new DocWeight(this);
 		mFilePath = absoluteFilePath;
 	}
 	
@@ -25,12 +29,32 @@ public class TextFileDocument implements FileDocument {
 	public Path getFilePath() {
 		return mFilePath;
 	}
-	
+
+	@Override
+	public DocWeight getWeight() {
+		return mDocWeight;
+	}
+
+	@Override
+	public void setWeight(DocWeight w) {
+		mDocWeight = w;
+	}
+
+	@Override
+	public long getByteSize() {
+		try {
+			mByteSize = Files.size(mFilePath);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return mByteSize;
+	}
+
 	@Override
 	public int getId() {
 		return mDocumentId;
 	}
-	
+
 	@Override
 	public Reader getContent() {
 		try {

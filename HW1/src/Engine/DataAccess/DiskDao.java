@@ -27,7 +27,7 @@ public interface DiskDao {
     void writeTermLocation(String term, long bytePosition);
 
     void writeDocWeights(HashMap<Integer, Double> docWeights);
-1
+
     double readDocWeight(int docId);
 
     List<String> readVocabulary();

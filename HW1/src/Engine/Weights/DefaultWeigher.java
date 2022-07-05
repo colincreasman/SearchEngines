@@ -9,7 +9,6 @@ import static App.Driver.ActiveConfiguration.activeCorpus;
 
 
 public class DefaultWeigher extends WeighingStrategy {
-    private FileDao termMapDao = new DbFileDao(); // used to read the byte location of a requested term
 
     // Default w(d,t) = 1 + ln(tf(t,d))
     @Override
@@ -42,11 +41,10 @@ public class DefaultWeigher extends WeighingStrategy {
 
     @Override
     public double readWdt(DocTermWeight w) {
-        Weight wv = (Weight) dao.read(w);
+    }
 
-        String term = w.getTerm();
-
-
+    @Override
+    public double readLd(DocWeight w) {
         return 0;
     }
 

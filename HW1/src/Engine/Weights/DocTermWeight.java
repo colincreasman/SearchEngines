@@ -1,19 +1,23 @@
 package Engine.Weights;
 
+import App.Driver.WeighingScheme;
+import App.Driver.ActiveConfiguration;
+import Engine.DataAccess.BinFileDao;
 import Engine.Documents.Document;
 
-import static App.Driver.ActiveConfiguration.activeCorpus;
+import static App.Driver.ActiveConfiguration.*;
 
 public class DocTermWeight implements Weight {
-   // private String mTerm;
+    private WeighingStrategy mWeigher;
+    private String mTerm;
     private double mValue;
-    //private WeighingStrategy mWeigher;
     private double mDocId;
     private Document mDocument;
     private int mTermFrequency; // tf(t,d)
     private BinFileDao mDao;
 
-    public DocTermWeight() { };
+    public DocTermWeight() {
+    }
 
     public DocTermWeight(int docId, int termFrequency) {
         mDocId = docId;
@@ -23,57 +27,42 @@ public class DocTermWeight implements Weight {
     }
 
     @Override
-    public double calculate(WeighingStrategy weigher) {
-        mValue = weigher.calculateWdt(this);
+    public void calculate(WeighingScheme scheme) {
+        mWeigher = scheme.getInstance();
+        mValue = mWeigher.calculateWdt(this);
     }
 
     @Override
-    public void read(WeighingStrategy weigher) {
-        mValue = weigher.readWdt(this);
+    public void read(WeighingScheme scheme) {
+        mWeigher = scheme.getInstance();
+        mValue = mWeigher.readWdt(this);
     }
-
-//    @Override
-//    public void write(WeighingStrategy weigher) {
-//        weigher.writeWdt(this);
-//    };
 
     public int getTermFrequency() {
         return mTermFrequency;
     }
 
     public void setTermFrequency(int termFrequency) {
-         mTermFrequency = termFrequency;
+        mTermFrequency = termFrequency;
     }
 
     public double getValue() {
+        // if the value hasn't been calculated yet, call calculate now with the current active scheme
+        if (mValue == 0) {
+            calculate(activeWeighingScheme);
+        }
         return mValue;
     }
 
-//    public String getTerm() {
-//        return mTerm;
-//    }
+    public void setValue(double w) {
+        mValue = w;
+    }
+
+    public String getTerm() {
+        return mTerm;
+    }
 
     public Document getDocument() {
         return mDocument;
     }
-
-//    @Override
-//    public int compareTo(@NotNull DocTermWeight w) {
-//        int result = -2;
-//        try {
-//            if (Objects.equals(mTerm, w.getTerm())) {
-//                if (mDocument == w.getDocument()) {
-//                    result = 0;
-//                } else if (mDocument.getId() > w.getDocument().getId()) {
-//                    result = -1;
-//                } else {
-//                    result = 1;
-//                }
-//            }
-//        }
-//        catch (Exception ex) {
-//            System.out.println("Error: The DocTermWeights cannot be compared because they do not reference the same term.");
-//        }
-//        return result;
-//    }
 }

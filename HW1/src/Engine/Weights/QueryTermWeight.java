@@ -1,8 +1,12 @@
 package Engine.Weights;
 
+import App.Driver;
+import App.Driver.WeighingScheme;
 import Engine.Documents.Document;
+import Engine.Indexes.Posting;
 
-import static App.Driver.ActiveConfiguration.activeWeigher;
+import static App.Driver.ActiveConfiguration.activeCorpus;
+import static App.Driver.ActiveConfiguration.activeWeighingScheme;
 
 public class QueryTermWeight implements Weight {
     private String mTerm;
@@ -10,31 +14,33 @@ public class QueryTermWeight implements Weight {
     private WeighingStrategy mWeigher;
     private Document mDocument;
     private int mDocFrequency; // Dft
+    private int mCorpusSize = activeCorpus.getCorpusSize();
+
 
     public QueryTermWeight() { };
 
-    public QueryTermWeight(String term) {
-        mWeigher = activeWeigher;
+    public QueryTermWeight(String term, int docFrequency) {
+        mDocFrequency = docFrequency;
         mTerm = term;
-
     }
 
     @Override
-    public void calculate() {
+    public void calculate(WeighingScheme scheme) {
+        mWeigher = scheme.getInstance();
         mValue = mWeigher.calculateWqt(this);
     }
 
     @Override
-    public void read() {
-        mValue = mWeigher.readWqt(this);
+    public void read(WeighingScheme scheme) {
+            mWeigher = scheme.getInstance();
+            mValue = mWeigher.readWqt(this);
     }
 
-    @Override
-    public void write() {
-        mWeigher.writeWqt(this);
-    };
-
     public double getValue() {
+        // if the value hasn't been calculated yet, call calculate now with the current active scheme
+        if (mValue == 0) {
+            calculate(activeWeighingScheme);
+        }
         return mValue;
     }
 

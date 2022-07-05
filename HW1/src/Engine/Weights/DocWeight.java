@@ -1,42 +1,67 @@
 package Engine.Weights;
 
+import App.Driver.WeighingScheme;
 import Engine.Documents.Document;
+import Engine.Indexes.Posting;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import static App.Driver.ActiveConfiguration.activeWeigher;
+import static App.Driver.ActiveConfiguration.activeWeighingScheme;
 
 public class DocWeight implements Weight, Comparable<DocWeight> {
     private double mValue;
     private WeighingStrategy mWeigher;
     private Document mDocument;
-    private int mDocLength; // number of TOKENS (NOT TERMS) in doc d
-    private int mByteSize; // size of the document file in bytes
-    private HashMap<String, Integer> mTermFrequencies;
+    private long mDocLength; // number of TOKENS (NOT TERMS) in doc d
+    private long mByteSize; // size of the document file in bytes
     private int mAvgTermFrequency;
     private List<DocTermWeight> mTermWeights; // list of  w(d,t) values for all the terms in the given doc
+    private double mAccumulator;
 
-    public DocWeight() {}
+    public DocWeight(Document d) {
+        mValue = 0;
+        mDocLength = 0;
+        mAvgTermFrequency = 0;
+        mDocument = d;
+        mTermWeights = new ArrayList<>();
+        mByteSize = d.getByteSize();
+        mAccumulator = 0;
+
+    }
 
     public DocWeight(Document d, List<DocTermWeight> termWeights) {
-        mWeigher = activeWeigher;
+        mValue = 0;
+        mDocLength = 0;
+        mAvgTermFrequency = 0;
         mDocument = d;
         mTermWeights = termWeights;
+        mByteSize = d.getByteSize();
+        mAccumulator = 0;
+
     }
 
     @Override
-    public void calculate(WeighingStrategy weigher) {
-        mValue = weigher.calculateLd(this);
+    public void calculate(WeighingScheme scheme) {
+        mWeigher = scheme.getInstance();
+        mValue = mWeigher.calculateLd(this);
     }
 
     @Override
-    public void read(WeighingStrategy weigher) {
-        mValue = weigher.readLd(this);
+    public void read(WeighingScheme scheme) {
+        mWeigher = scheme.getInstance();
+        mValue = mWeigher.readLd(this);
     }
 
     public double getValue() {
+        // if the value hasn't been calculated yet, call calculate now with the current active scheme
+        if (mValue == 0) {
+            calculate(activeWeighingScheme);
+        }
         return mValue;
     }
 
@@ -52,15 +77,15 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
         this.mDocument = mDocument;
     }
 
-    public List<DocTermWeight> getTermFrequencies() {
+    public List<DocTermWeight> getTermWeights() {
         return mTermWeights;
     }
 
-    public void setTermFrequencies(List<DocTermWeight> termWeights) {
+    public void setTermWeights(List<DocTermWeight> termWeights) {
         this.mTermWeights = termWeights;
     }
 
-    public int getDocLength() {
+    public long getDocLength() {
         return mDocLength;
     }
 
@@ -68,16 +93,46 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
         this.mDocLength = mDocLength;
     }
 
-    public int getByteSize() {
+    public long getByteSize() {
         return mByteSize;
     }
 
     public int getAvgTermFrequency() {
+        // find the avg tf(t,d) by looping through the map of freq
+        if (mAvgTermFrequency == 0) {
+            int sumTfTd = 0;
+            for (DocTermWeight wDt : mTermWeights) {
+                sumTfTd += wDt.getTermFrequency();
+            }
+            mAvgTermFrequency = Math.floorDiv(sumTfTd, mTermWeights.size());
+        }
         return mAvgTermFrequency;
+    }
+
+    public void setAvgTermFrequency(int avg) {
+         mAvgTermFrequency = avg;
+    }
+
+    public void increaseAccumulator(double acc) {
+        mAccumulator += acc;
+    }
+
+    public double getAccumulator() {
+        return mAccumulator;
+    }
+
+    public void setAccumulator(double newAcc) {
+        mAccumulator = newAcc;
     }
 
     @Override
     public int compareTo(@NotNull DocWeight w) {
-        return Integer.compare(w.getDocument().getId(), mDocument.getId());
+        return Double.compare(mAccumulator, w.getAccumulator());
     }
+
+
+//    @Override
+//    public int compareTo(@NotNull DocWeight w) {
+//        return Integer.compare(w.getDocument().getId(), mDocument.getId());
+//    }
 }

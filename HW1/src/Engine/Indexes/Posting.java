@@ -1,6 +1,8 @@
 package Engine.Indexes;
 
 import Engine.Weights.DocTermWeight;
+import Engine.Weights.DocWeight;
+import Engine.Weights.QueryTermWeight;
 import org.jetbrains.annotations.NotNull;
 
 import static App.Driver.ActiveConfiguration.*;
@@ -13,15 +15,17 @@ import java.util.*;
  * A Posting encapsulates a document ID associated a list of term positions within the document
  */
 public class Posting implements Comparable<Posting> {
-	private int mDocumentId;
-	private List<Integer> mTermPositions;
-	private int mTfTd; // tf(t,d)
-	private DocTermWeight mDocTermWeight; // wdt
-	private double mAccumulator;  // Ad
+	private static int mDocumentId;
+	private static List<Integer> mTermPositions;
+	private static int mTermFrequency; // tf(t,d)
+	private static DocTermWeight mDocTermWeight; // wdt
+	private static QueryTermWeight mQueryTermWeight; // wdt
+	private static DocWeight mDocWeight; // lD
+//	private double mAccumulator;  // Ad
 
 	public Posting() {
 		mTermPositions = new ArrayList<>();
-		mAccumulator = 0;
+//		mAccumulator = 0;
 	}
 
 	/**
@@ -31,9 +35,10 @@ public class Posting implements Comparable<Posting> {
 	public Posting(int documentId) {
 		mDocumentId = documentId;
 		mTermPositions = new ArrayList<>();
-		mTfTd = 0;
-		mAccumulator = 0;
+		mTermFrequency = 0;
+//		mAccumulator = 0;
 		mDocTermWeight = new DocTermWeight();
+		mDocWeight = activeCorpus.getDocument(documentId).getWeight();
 	}
 	/**
 	 * Overloaded constructor for making a posting with only a single termPosition at the time of initialization
@@ -44,9 +49,10 @@ public class Posting implements Comparable<Posting> {
 		mDocumentId = documentId;
 		mTermPositions = new ArrayList<>();
 		mTermPositions.add(termPosition);
-		mTfTd = mTermPositions.size();
-		mAccumulator = 0;
-		mDocTermWeight = new DocTermWeight(documentId, mTfTd);
+		mTermFrequency = mTermPositions.size();
+//		mAccumulator = 0;
+		mDocTermWeight = new DocTermWeight(documentId, mTermFrequency);
+		mDocWeight = activeCorpus.getDocument(documentId).getWeight();
 	}
 	/**
 	 * Overloaded constructor for making a posting with only alist of termPosition at the time of initialization
@@ -56,39 +62,11 @@ public class Posting implements Comparable<Posting> {
 	public Posting(int documentId, List<Integer> termPositions) {
 		mDocumentId = documentId;
 		mTermPositions = termPositions;
-		mTfTd = mTermPositions.size();
-		mAccumulator = 0;
-		mDocTermWeight = new DocTermWeight(documentId, mTfTd);
+		mTermFrequency = mTermPositions.size();
+//		mAccumulator = 0;
+		mDocTermWeight = new DocTermWeight(documentId, mTermFrequency);
+		mDocWeight = activeCorpus.getDocument(documentId).getWeight();
 	}
-//	/**
-//	 * Overloaded constructor for positionless postings in ranked retrieval
-//	 * includes additional fields for doc/term weights and
-//	 * @param documentId
-//	 * @param termWeight
-//	 * @param termFrequency
-//	 */
-//	public Posting(int documentId, double termWeight, int termFrequency) {
-//		mDocumentId = documentId;
-//		mDocTermWeight = termWeight;
-//		mPositionsCount = termFrequency;
-////		mDocWeight = docWeight;
-//		mAccumulator = 0;
-//	}
-
-//	/**
-//	 * Overloaded constructor for positionless postings in ranked retrieval
-//	 * includes additional fields for doc/term weights and
-//	 * @param documentId
-//	 * @param termWeight
-//	 * @param termFrequency
-//	 */
-//	public Posting(int documentId, double termWeight, int termFrequency, List<Integer> positions) {
-//		mDocumentId = documentId;
-//		mDocTermWeight = termWeight;
-//		mPositionsCount = termFrequency;
-//		mTermPositions = positions;
-//		mAccumulator = 0;
-//	}
 
 	public void addTermPosition (int position) {
 		mTermPositions.add(position);
@@ -133,9 +111,7 @@ public class Posting implements Comparable<Posting> {
 	public String toString() {
 		String result;
 		if (queryMode == RANKED || mTermPositions == null) {
-//			result = "[w(q,t) = " + mQueryTermWeight + "; w(d,t) = " + mDocTermWeight + "; tf(t,d) = " + mPositionsCount + "]";
-			result = "[w(d,t) = " + mDocTermWeight + "; tf(t,d) = " + mTermPositions.size() + "]";
-
+			result = "[w(q,t) = " + mQueryTermWeight.getValue() + "; w(d,t) = " + mDocTermWeight.getValue() + "; tf(t,d) = " + mDocTermWeight.getTermFrequency() + "]";
 		}
 		else {
 			result = mDocumentId + ":" + mTermPositions.toString();
@@ -144,38 +120,37 @@ public class Posting implements Comparable<Posting> {
 
 	}
 
-	public int getTfTd() {
-		return mTfTd;
+	public int getTermFrequency() {
+		return mTermFrequency;
+	}
+	
+	public void setTermFrequency(int tfTd) {
+		mTermFrequency = tfTd;
 	}
 
 	public DocTermWeight getDocTermWeight() {
 		return mDocTermWeight;
 	}
 
-	public void increaseAccumulator(double acc) {
-		mAccumulator += acc;
+	public void setDocTermWeight(double w) {
+		mDocTermWeight.setValue(w);
 	}
 
-	public double getAccumulator() {
-		return mAccumulator;
+	public DocWeight getDocWeight() {
+		return mDocWeight;
 	}
 
-	public void setAccumulator(double newAcc) {
-		mAccumulator = newAcc;
+	public void setDocWeight(DocWeight w) {
+		mDocWeight = w;
+	}
+
+	public QueryTermWeight getQueryTermWeight() {
+		return mQueryTermWeight;
 	}
 
 	@Override
 	public int compareTo(@NotNull Posting p) {
-		if (mAccumulator < p.getAccumulator()) {
-			return -1;
-		}
-		else if (p.getAccumulator() < mAccumulator) {
-			return 1;
-		}
-		else {
-			return 0;
-		}
+		return Integer.compare(mDocumentId, p.getDocumentId());
 	}
-
 }
 

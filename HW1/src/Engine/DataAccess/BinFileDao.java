@@ -1,14 +1,18 @@
 package Engine.DataAccess;
 
+import App.Driver;
+import App.Driver.WeighingScheme;
 import Engine.Indexes.Posting;
 import Engine.Weights.*;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
-import static App.Driver.ActiveConfiguration.activeWeigher;
+import static App.Driver.ActiveConfiguration.*;
+import static App.Driver.WeighingScheme.*;
 
 public class BinFileDao extends FileDao {
     private DataOutputStream mActiveWriter;
@@ -156,62 +160,195 @@ public class BinFileDao extends FileDao {
      * returns back a long value to indicate how many total bytes of the active file were used up by the list of postings
      */
     public long writeTermWeights(long byteAddress, Posting p) throws IOException {
-            // obtain a reference to current posting's DocTermWeight
-            DocTermWeight termWeight = p.getDocTermWeight();
-            // now use the Weight reference to calculate values with each type of weigher
-            double defaultWdt = termWeight.calculate(new DefaultWeigher());
-            double tfIdfWdt = termWeight.calculate(new TfIdfWeigher());
-            double okapiWdt = termWeight.calculate(new OkapiWeigher());
-            double wackyWdt = termWeight.calculate(new WackyWeigher());
-            // write the weights to file in the same order so they can easily be read later on
-            mActiveWriter.writeDouble(defaultWdt);
-            mActiveWriter.writeDouble(tfIdfWdt);
-            mActiveWriter.writeDouble(okapiWdt);
-            mActiveWriter.writeDouble(wackyWdt);
-            return byteAddress += 32; // return the byteAddress incremented by 32 to account for the 8 bytes used to write each weight as a double
+        // obtain a reference to current posting's DocTermWeight
+        DocTermWeight termWeight = p.getDocTermWeight();
+        // now use the Weight reference to calculate values with each type of weigher
+        for (WeighingScheme scheme : WeighingScheme.values() ) {
+            termWeight.calculate(scheme);
+            mActiveWriter.writeDouble(termWeight.getValue());
+            byteAddress += 8; // increment the byteAddress 8 to write each weight as a double
         }
+        return byteAddress;
+    }
 
     public void writeDocWeights(List<DocWeight> docWeights) throws IOException {
         int avgDocLength = 0;
 
         for (DocWeight w : docWeights) {
-            w.calculate(activeWeigher);
-
             double docLd = w.getValue();
-            int docLength = w.getDocLength();
-            int byteSize = w.getByteSize();
+            long docLength = w.getDocLength();
+            long byteSize = w.getByteSize();;
             int avgFrequency = w.getAvgTermFrequency();
 
             // write the per-doc weight data of each docWeight in the order of: docWeight, docLength, byteSize, avgTfTd,
-            mActiveWriter.writeDouble(docLd); // byte 0
-            mActiveWriter.writeInt(docLength); // byte 8
-            mActiveWriter.writeInt(byteSize); // byte 12  TODO: change this to a long type
-
-            mActiveWriter.writeInt(avgFrequency); // byte 16
-            // next DocWeight starts writing @ byte 20
+            // starts at byte 0
+            mActiveWriter.writeDouble(docLd);  // now at byte 8
+            mActiveWriter.writeLong(docLength); // now at byte 16
+            mActiveWriter.writeLong(byteSize); // now at byte 24
+            mActiveWriter.writeInt(avgFrequency); // now at byte 28
+            // next DocWeight starts writing @ byte 28
 
             avgDocLength += docLength;
         }
-
-        mActiveWriter.writeInt(avgDocLength);// will be written at byte location: docWeightsOut.length() - 4
         avgDocLength = avgDocLength / docWeights.size();
+        mActiveWriter.writeInt(avgDocLength);// will be written at byte location: (docWeightsOut.length() - 4)
     }
 
     // TODO: Change this to use each new weighing strategy
     public double readDocWeight(int docId) {
         double weight = 0.0;
         try {
-            int byteLocation = (docId * 12) + 4; //
+            int byteLocation = (docId * 28); // 28 bytes used up for the 4 values written for each doc
             // start reading from the beginning of the file, the first byte should hold the first doc id
             mActiveReader.seek(byteLocation);
             weight = mActiveReader.readDouble();
-            mActiveReader.close();
         }
         catch (Exception ex) {
-            System.out.println("Failed to read the doc weights from disk. '");
+            System.out.println("Failed to read the doc weight from disk for docId: " + docId);
             ex.printStackTrace();
         }
         return weight;
     }
 
+//    public double readTermWeight(int docId, WeighingScheme scheme) {
+//        // open the termLocations file to get the byte location of the passed in doc
+//        DbFileDao dbFileDao = new DbFileDao();
+//        open("termLocations");
+//
+//        String term = w.getTerm();
+//        int docId = w.getDocument().getId();
+//        long byteLocation = mDbDao.readTermLocation(term);
+//
+//        Weight wv = (Weight) dao.read(w);
+//        String term = w.getTerm();
+//        return 0;
+//
+//        // find out how much to offset the read bytes by checking the ordinal of the passed in weighting scheme
+//        int weightOffset
+//
+//    }
+
+    // reads select postings data from the disk to return a list of postings,
+    // each constructed with vals for its docId and docWeights
+    // all other postings data will be handled in the getPostings() method calling this one
+    // initialize necessary vars for results and structs to read from the termsDB
+    public List<Posting> readPostings(long byteLocation) {
+        int termDocFrequency = 0;
+        double termDocWeight = 0.0;
+        List<Posting> results = new ArrayList<>();
+
+        try {
+            // start by seeking to the byte location of the term - this is where all of its postings data begins
+            // now we can easily find any other postings data we need by incrementing the necessary amount of bytes from that initial position
+            mActiveReader.seek(byteLocation);
+            // first get tf(d) (the amount of docs the term occurs in) which should be at the exact byte indicated by the termLocation
+            int dFt = mActiveReader.readInt();
+
+            // before iterating through all the term's docs, initialize the first docId to 0
+            int currentDocId = 0;
+
+            // now we can use that tf(d) value find the rest of the term's data
+            for (int i = 0; i < dFt; i++) {
+                // for the first value only, read the doc ID as-is with no gaps
+                if (i == 0) {
+                    currentDocId = mActiveReader.readInt();
+                }
+                // otherwise, read the next docId and use it to increment the gap between itself and the previous docId
+                else {
+                    currentDocId += mActiveReader.readInt();
+                }
+                // use the ordinal of the active weighing scheme to find out how many bytes(if any) to jump before reading the correct weight type
+                int weightBytes = activeWeighingScheme.ordinal();
+                mActiveReader.skipBytes(weightBytes);
+                // read w(d,t)
+                double currentWeight = mActiveReader.readDouble();
+
+                // read tf(t,d)
+                int currTermFrequency = mActiveReader.readInt();
+
+                // now jump ahead by the 4 * tf(t,d) to get to the next docId without reading each term position
+                mActiveReader.skipBytes(4 * currTermFrequency);
+
+                List<Integer> termPositions = new ArrayList<>();
+
+                int currTermPosition = 0;
+
+                for (int j = 0; j < currTermFrequency; j++) {
+                    if (j == 0) {
+                        currTermPosition = mActiveReader.readInt();
+                    }
+                    else {
+                        currTermPosition += mActiveReader.readInt();
+                    }
+                    termPositions.add(currTermPosition);
+                }
+
+                // instantiate a generic posting and set its data with the values read from file
+                Posting currPosting = new Posting(currentDocId, termPositions); // don't need to set tf(t,d) bc it will be calculated automatically by instantiating a posting with position
+                currPosting.setDocTermWeight(currentWeight);
+                results.add(currPosting);
+            }
+//            mActiveReader.close();
+        }
+        catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        return results;
+    }
+
+    // reads select postings data from the disk to return a list of postings,
+    // each constructed with vals for its docId and docWeights
+    // all other postings data will be handled in the getPostings() method calling this one
+    // initialize necessary vars for results and structs to read from the termsDB
+    public List<Posting> readPostingsWithoutPositions(long byteLocation) {
+        int termDocFrequency = 0;
+        double termDocWeight = 0.0;
+        List<Posting> results = new ArrayList<>();
+
+        try {
+            // start by seeking to the byte location of the term - this is where all of its postings data begins
+            // now we can easily find any other postings data we need by incrementing the necessary amount of bytes from that initial position
+            mActiveReader.seek(byteLocation);
+
+            // first get tf(d) (the amount of docs the term occurs in) which should be at the exact byte indicated by the termLocation
+            int dFt = mActiveReader.readInt();
+
+            // before iterating through all the term's docs, initialize the first docId to 0
+            int currentDocId = 0;
+
+            // now we can use that tf(d) value find the rest of the term's data
+            for (int i = 0; i < dFt; i++) {
+                // for the first value only, read the doc ID as-is with no gaps
+                if (i == 0) {
+                    currentDocId = mActiveReader.readInt();
+                }
+                // otherwise, read the next docId and use it to increment the gap between itself and the previous docId
+                else {
+                    currentDocId += mActiveReader.readInt();
+                }
+                // use the ordinal of the active weighing scheme to find out how many bytes(if any) to jump before reading the correct weight type
+                int weightBytes = activeWeighingScheme.ordinal();
+                mActiveReader.skipBytes(weightBytes);
+                // read w(d,t)
+                double currentWeight = mActiveReader.readDouble();
+
+                // read tf(t,d)
+                int currTermFrequency = mActiveReader.readInt();
+
+                // now jump ahead by the 4 * tf(t,d) to get to the next docId without reading each term position
+                mActiveReader.skipBytes(4 * currTermFrequency);
+
+                // instantiate a generic posting and set its data with the values read from file
+                Posting currPosting = new Posting(currentDocId);
+                currPosting.setDocTermWeight(currentWeight);
+                currPosting.setTermFrequency(currTermFrequency);
+                results.add(currPosting);
+            }
+            mActiveReader.close();
+        }
+        catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        return results;
+    }
 }

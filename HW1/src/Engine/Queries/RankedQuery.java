@@ -1,8 +1,12 @@
 package Engine.Queries;
 
+import Engine.DataAccess.BinFileDao;
 import Engine.Indexes.Index;
 import Engine.Indexes.Posting;
 import Engine.Text.TokenProcessor;
+import Engine.Weights.DocTermWeight;
+import Engine.Weights.DocWeight;
+import Engine.Weights.QueryTermWeight;
 
 import static App.Driver.ActiveConfiguration.*;
 
@@ -11,20 +15,18 @@ import java.util.*;
 public class RankedQuery implements QueryComponent {
     private final int K_TERMS = 10;
     private List<String> mTerms;
-
-
+    private List<QueryTermWeight> mQueryWeights;
     private List<String> mProcessedTerms;
     private HashMap<Integer, Double> mDocWeights;
-    private PriorityQueue<Posting> mRankedPostings;
-    private HashMap<String, List<Posting>> mTermPostings;
-    private HashMap<Integer, Posting> mRankMap;
+    private PriorityQueue<DocWeight> mRankedDocs;
+    private HashMap<Integer, Posting> mPostingsMap;
 
-    private int mCorpusSize = activeCorpus.getCorpusSize();
+
 
     public RankedQuery(List<String> terms) {
         mTerms = terms;
         mProcessedTerms = new ArrayList<>();
-        // mRankedPostings = new HashMap<>();
+        mQueryWeights = new ArrayList<>();
     }
 
     /**
@@ -36,13 +38,8 @@ public class RankedQuery implements QueryComponent {
     @Override
     public List<Posting> getPostingsWithoutPositions(TokenProcessor processor, Index index) {
 
-      //  Comparator<Posting> compareByAccumulator = Comparator.comparingDouble(Posting::getAccumulator);
-        //  Comparator<Posting> comparByDocId = Comparator.comparingDouble(Posting::getAccumulator);
-
-        // initialize the queue to sort by accumulators
-        mRankedPostings = new PriorityQueue<>();
-        mRankMap = new HashMap<>();
-        mTermPostings = new HashMap<>();
+        mRankedDocs = new PriorityQueue<>();
+        mPostingsMap = new HashMap<>();
 
         // process query terms with the passed in processor before ranking
         for (String term : mTerms) {
@@ -52,87 +49,75 @@ public class RankedQuery implements QueryComponent {
         // loop through each processed term in the query (mTerms)
         for (String term : mProcessedTerms) {
 
-            // initialize a separate Posting instance for each query term to store its unique ranking data (w(d,t), w(q,t), and tf(t,d)
-//            List<Posting> termPostings = new ArrayList<>();
-
             List<Posting> postings = index.getPostingsWithoutPositions(term);
+            int dFt = postings.size();
+
+            QueryTermWeight wQt = new QueryTermWeight(term, dFt);
+            mQueryWeights.add(wQt);
 
             for (int i = 0; i < postings.size(); i++) {
                 Posting currPosting = postings.get(i);
+                DocTermWeight wDt = currPosting.getDocTermWeight();
+                double increment = wDt.getValue() * wQt.getValue();
+                int currDocId = currPosting.getDocumentId();
 
-                // retrieve the necessary variables from the current posting
-                int docFrequency = postings.size(); // dft
-                double fraction = (double) mCorpusSize / docFrequency;
-                double queryTermWeight = Math.log(1 + fraction); // w(q,t)
-                currPosting.setQueryTermWeight(queryTermWeight);
-                double docTermWeight = currPosting.getDocTermWeight(); // w(d,t)
+                // obtain a reference to the current posting's DocWeight so we can statically update its accumulator
+                DocWeight currDocWeight = currPosting.getDocWeight();
 
-                double increment = queryTermWeight * docTermWeight;
-                int currDoc = currPosting.getDocumentId();
-
-//                Posting currTermPosting = new Posting(currDoc, docTermWeight, currPosting.getPositionsCount());
-//                currTermPosting.setQueryTermWeight(queryTermWeight);
-//
-//                termPostings.add(currTermPosting);
-//                mTermPostings.put(term, termPostings);
-
-
-                if (mRankMap.isEmpty()) {
-                    currPosting.increaseAccumulator(increment);
-                    mRankMap.put(currDoc, currPosting);
-                    //       mRankedPostings.add(currPosting);
+                if (mPostingsMap.isEmpty()) {
+                    currDocWeight.increaseAccumulator(increment);
+                    mPostingsMap.put(currDocId, currPosting);
                 }
+
                 // check if the current head (should have the max docId at this time)
                 else {
                     // try to update the current acc in the map
                     try {
-                        Posting existing = mRankMap.get(currDoc);
-                        existing.increaseAccumulator(increment);
-                        // if the current docId has already been added, we remove it from the accumulators queue and replace it with the updated value
-                        // increment the posting's accumulator before adding it back it
-                        //    mRankedPostings.remove();
-//                        currPosting.increaseAccumulator(increment);
-                        //  mRankedPostings.add(currPosting);
+                        // if an existing posting is already in the map, increase the accumlator in its docWeight
+                        Posting existing = mPostingsMap.get(currDocId);
+                        currDocWeight.increaseAccumulator(increment);
+
                     } catch (NullPointerException ex) {
-                        // if the key is null in the rank map, there has yet to be added an acc for this docId
-                        currPosting.increaseAccumulator(increment);
-                        mRankMap.put(currDoc, currPosting);
-                        //mRankedPostings.add(currPosting);
+                        // if the key is null in the rank map, there has yet to be added posting for this docId
+                        currDocWeight.increaseAccumulator(increment);
+                        mPostingsMap.put(currDocId, currPosting);
                     }
                 }
             }
         }
 
-
         // now go through the final map of accumulators and divide each one by the Ld value for its doc
-        for (int docId : mRankMap.keySet()) {
-            // defaults acc to 0
-            // retrieve all doc weights written to disk
-            double docWeight = indexDao.readDocWeight(docId);
-
-            Posting currRank = mRankMap.get(docId);
-           // double docWeight = mDocWeights.get(docId); // Ld
-
-            if (mRankMap.get(docId).getAccumulator() != 0) {
-                double finalAcc = currRank.getAccumulator() / docWeight;
-                currRank.setAccumulator(finalAcc);
-                currRank.setDocWeight(docWeight);
-            }
-
-            mRankedPostings.add(currRank);
-//
-//            // continually remove the smallest element for every added term after the K_TERMS limit is reached
-            if (mRankedPostings.size() > K_TERMS) {
-                mRankedPostings.poll();
-            }
-        }
+        BinFileDao weightReader = new BinFileDao();
+        weightReader.open("docWeights");
         List<Posting> results = new ArrayList<>();
 
-        // add them to the results list in the correct order
-        while (!mRankedPostings.isEmpty()) {
-            results.add(mRankedPostings.poll());
+        for (int docId : mPostingsMap.keySet()) {
+            DocWeight currDocWeight = mPostingsMap.get(docId).getDocWeight();
+
+            double currLd = currDocWeight.getValue(); // Ld
+            double currAd = currDocWeight.getAccumulator();
+
+            if (currAd != 0) {
+                double finalAcc = currAd / currLd;
+                currDocWeight.setAccumulator(finalAcc);
+            }
+
+            mRankedDocs.add(currDocWeight);
+
+            // continually remove the smallest element for every added term after the K_TERMS limit is reached
+            if (mRankedDocs.size() > K_TERMS) {
+                mRankedDocs.poll();
+            }
         }
 
+        // now that all doc rankings have been calculated and the top K docweights have been polled, use their docId's to reference their original posting  from the PostingsMap
+        while (!mRankedDocs.isEmpty()) {
+            DocWeight finalDocWeight = mRankedDocs.poll();
+            Posting finalPosting = mPostingsMap.get((finalDocWeight.getDocument().getId()));
+            // re-update the doc weight to ensure it preserves the final calculated values
+            finalPosting.setDocWeight(finalDocWeight);
+            results.add(finalPosting);
+        }
 
         return results;
     }
@@ -153,13 +138,12 @@ public class RankedQuery implements QueryComponent {
         return results;
     }
 
-//    @Override
-//    public HashMap<String, List<Posting>> getTermPostings() {
-//        return mTermPostings;
-//    }
-
     public List<String> getProcessedTerms() {
         return mProcessedTerms;
+    }
+
+    public List<QueryTermWeight> getQueryWeights() {
+        return mQueryWeights;
     }
 }
 
