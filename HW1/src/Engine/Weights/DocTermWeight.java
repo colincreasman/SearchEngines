@@ -6,12 +6,14 @@ import Engine.DataAccess.BinFileDao;
 import Engine.Documents.Document;
 
 import static App.Driver.ActiveConfiguration.*;
+import static App.Driver.RunMode.BUILD;
 
 public class DocTermWeight implements Weight {
+    private String filePath;
     private WeighingStrategy mWeigher;
     private String mTerm;
     private double mValue;
-    private double mDocId;
+    private int mDocId;
     private Document mDocument;
     private int mTermFrequency; // tf(t,d)
     private BinFileDao mDao;
@@ -49,10 +51,15 @@ public class DocTermWeight implements Weight {
     public double getValue() {
         // if the value hasn't been calculated yet, call calculate now with the current active scheme
         if (mValue == 0) {
-            calculate(activeWeighingScheme);
+            if (runMode == BUILD) {
+                calculate(activeWeighingScheme);
+            } else {
+                read(activeWeighingScheme);
+            }
         }
         return mValue;
     }
+
 
     public void setValue(double w) {
         mValue = w;
@@ -64,5 +71,9 @@ public class DocTermWeight implements Weight {
 
     public Document getDocument() {
         return mDocument;
+    }
+
+    public int getDocId() {
+        return mDocId;
     }
 }

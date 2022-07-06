@@ -1,5 +1,6 @@
 package Engine.Weights;
 
+import App.Driver.RunMode.*;
 import App.Driver.WeighingScheme;
 import Engine.Documents.Document;
 import Engine.Indexes.Posting;
@@ -11,12 +12,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import static App.Driver.ActiveConfiguration.activeWeighingScheme;
+
+import static App.Driver.ActiveConfiguration.*;
+import static App.Driver.RunMode.BUILD;
 
 public class DocWeight implements Weight, Comparable<DocWeight> {
     private double mValue;
     private WeighingStrategy mWeigher;
     private Document mDocument;
+    private int mDocId;
     private long mDocLength; // number of TOKENS (NOT TERMS) in doc d
     private long mByteSize; // size of the document file in bytes
     private int mAvgTermFrequency;
@@ -28,6 +32,7 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
         mDocLength = 0;
         mAvgTermFrequency = 0;
         mDocument = d;
+        mDocId = d.getId();
         mTermWeights = new ArrayList<>();
         mByteSize = d.getByteSize();
         mAccumulator = 0;
@@ -39,6 +44,7 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
         mDocLength = 0;
         mAvgTermFrequency = 0;
         mDocument = d;
+        mDocId = d.getId();
         mTermWeights = termWeights;
         mByteSize = d.getByteSize();
         mAccumulator = 0;
@@ -58,9 +64,14 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
     }
 
     public double getValue() {
-        // if the value hasn't been calculated yet, call calculate now with the current active scheme
+        // if the value hasn't been calculated yet, retrieve it by either calculating it or reading from the disk depening on the active run mode
         if (mValue == 0) {
-            calculate(activeWeighingScheme);
+            if (runMode == BUILD) {
+                calculate(activeWeighingScheme);
+            }
+            else {
+                read(activeWeighingScheme);
+            }
         }
         return mValue;
     }
@@ -75,6 +86,10 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
 
     public void setDocument(Document mDocument) {
         this.mDocument = mDocument;
+    }
+
+    public int getDocId() {
+        return mDocId;
     }
 
     public List<DocTermWeight> getTermWeights() {

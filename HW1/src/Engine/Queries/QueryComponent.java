@@ -1,9 +1,7 @@
 package Engine.Queries;
 import java.util.List;
-
-import Engine.Indexes.Index;
 import Engine.Indexes.Posting;
-import cecs429.indexes.*;
+import Engine.Indexes.*;
 import Engine.Text.TokenProcessor;
 
 /**

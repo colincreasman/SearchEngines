@@ -26,7 +26,7 @@ public class DefaultWeigher extends WeighingStrategy {
     // Default Ld = sqrt(sum[w(d,t)^2])
     public double calculateLd(DocWeight w) {
         // get the list of w(d,t) values from the docWeight passed in
-        List<DocTermWeight> wDts = w.getTermFrequencies();
+        List<DocTermWeight> wDts = w.getTermWeights();
         double sum = 0;
 
         for (DocTermWeight wDt : wDts ) {
@@ -35,17 +35,43 @@ public class DefaultWeigher extends WeighingStrategy {
             double basicWeight = 1 + dubLog; //w(t,d) = 1 + ln(tf(t,d))
             sum += basicWeight;
         }
-
         return Math.sqrt(sum);
     }
 
     @Override
     public double readWdt(DocTermWeight w) {
+        double wDt = 0.0;
+        mDbDao.open("termLocations");
+        long byteLocation = mDbDao.readTermLocation(w.getTerm());
+
+        // offset by (12 * docId + 4) to get to the weights of each term in the postings.binFile
+        int weightIncrement = (12 * w.getDocId()) + 4;
+        // the default weight is written first, so there is no additional offset from the scheme
+        byteLocation += weightIncrement;
+        mBinDao.open("postings");
+        try {
+            wDt = mBinDao.readDouble(byteLocation);
+        }
+        catch (Exception ex)   {
+            System.out.println("Failed to read the wDt value from disk for term: " + w.getTerm());
+        }
+//        mBinDao.close("postings");
+        return wDt;
     }
 
     @Override
     public double readLd(DocWeight w) {
-        return 0;
+        double weight = 0.0;
+        try {
+            int byteLocation = (w.getDocId() * 28); // 28 bytes used up for the 4 values written for each doc
+            // the default weighing strategy uses the normal docWeights(d) formula, this should be the first value written for each docId in the file
+            weight = mBinDao.readDouble(byteLocation);
+        }
+        catch (Exception ex) {
+            System.out.println("Failed to read the doc weight from disk for docId: " + w.getDocId());
+            ex.printStackTrace();
+        }
+        return weight;
     }
 
 

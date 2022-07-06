@@ -16,7 +16,7 @@ import java.util.*;
 
 public class DiskPositionalIndex implements Index {
     private static List<String> mVocabulary;
-    private static DiskIndexWriter mWriter;
+//    private static DiskIndexWriter mWriter;
     private static DbFileDao mDbDao;
     private static BinFileDao mBinDao;
     private static Index mIndexInMemory;
@@ -29,11 +29,11 @@ public class DiskPositionalIndex implements Index {
     public DiskPositionalIndex(DocumentCorpus corpus) {
         mPath = corpus.getPath();
         // initialize the in-memory positional index WITHOUT changing the ActiveConfiguration's in-memory index which is the current DiskIndex being built
-        mWriter = new DiskIndexWriter();
+//        indexWriter = new DiskIndexWriter();
         mVocabulary = new ArrayList<>();
         mIndexInMemory = new PositionalInvertedIndex(mVocabulary);
-        mDbDao = new DbFileDao();
-        mBinDao = new BinFileDao();
+//        mDbDao = new DbFileDao();
+//        mBinDao = new BinFileDao();
         mDocWeights = new ArrayList<>();
         mByteLocations = new ArrayList<>();
         mTermLocations = new HashMap<>();
@@ -65,6 +65,7 @@ public class DiskPositionalIndex implements Index {
                 for (String term : terms) {
                     // whenever a new term is added to the index, a DocTermWeight is automatically created (or updated, if one already exists for this term-doc combo) by the Posting class
                     mIndexInMemory.addTerm(term, d.getId(), tokenPosition);
+                    mVocabulary.add(term);
 //
 //                    int currFreq = 1;
 //                    try {
@@ -97,8 +98,8 @@ public class DiskPositionalIndex implements Index {
 
         // now write that index to disk and save the returned byte positions into the static object field for them
         indexWriter.writeIndex(this, mPath);
-        mWriter.writeDocWeights(mDocWeights);
-        mVocabulary = mIndexInMemory.getVocabulary();
+        indexWriter.writeDocWeights(mDocWeights);
+//        mVocabulary = mIndexInMemory.getVocabulary();
     }
 
     // gets the index's vocabulary, term locations, and doc weights by reading them from the existing on-disk index data
@@ -112,7 +113,7 @@ public class DiskPositionalIndex implements Index {
                 EnglishTokenStream stream = new EnglishTokenStream(d.getContent());
             }
         } catch (NullPointerException ex) {
-            System.out.println("Failed to load vocabulary index because the DiskIndexDao could not find any B+ tree files in the given corpus directory. ");
+            System.out.println("Failed to load vocabulary index because no documents could were found in the corpus directory");
         }
     }
 
@@ -161,9 +162,10 @@ public class DiskPositionalIndex implements Index {
      */
     @Override
     public List<String> getVocabulary() {
-//        if (mVocabulary == null) {
-//            mVocabulary = mIndexInMemory
-//        }
+        System.out.println("Loading index vocabulary from disk...");
+        if (mVocabulary == null || mVocabulary.isEmpty()) {
+            mVocabulary = indexWriter.readVocabulary();
+        }
         return mVocabulary;
     }
 

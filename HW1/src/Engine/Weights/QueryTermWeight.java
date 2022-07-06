@@ -1,12 +1,8 @@
 package Engine.Weights;
 
-import App.Driver;
 import App.Driver.WeighingScheme;
 import Engine.Documents.Document;
-import Engine.Indexes.Posting;
-
-import static App.Driver.ActiveConfiguration.activeCorpus;
-import static App.Driver.ActiveConfiguration.activeWeighingScheme;
+import static App.Driver.ActiveConfiguration.*;
 
 public class QueryTermWeight implements Weight {
     private String mTerm;
@@ -30,10 +26,10 @@ public class QueryTermWeight implements Weight {
         mValue = mWeigher.calculateWqt(this);
     }
 
+
+    // cannot read wQt vals since they are never written to disk
     @Override
     public void read(WeighingScheme scheme) {
-            mWeigher = scheme.getInstance();
-            mValue = mWeigher.readWqt(this);
     }
 
     public double getValue() {

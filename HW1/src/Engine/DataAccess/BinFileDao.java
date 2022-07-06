@@ -40,12 +40,10 @@ public class BinFileDao extends FileDao {
 
         try {
             // if creating the new file is successful, add it to the list of binFiles
-            if (binFile.createNewFile()) {
-                mFiles.add(binFile);
-            }
-        } catch (IOException ex) {
+            binFile.createNewFile();
+        }
+        catch (IOException ex) {
             System.out.println("Error: File could not be created in the current source directory. ");
-
         }
     }
 
@@ -53,19 +51,21 @@ public class BinFileDao extends FileDao {
     public void open(String name) {
         String filePath = mSourceDir + "/" + name + ".bin"; // construct the entire file path using the static mSourceDir and the ".bin" extension for this implementation
         File binFile = new File(filePath);
-        // create the file if it isn't already in the source directory before continuing
-        if (!mFiles.contains(binFile)) {
+        // create the file if it isn't already existing
+        if (!binFile.exists()) {
             create(name);
         }
 
-        // make sure the requested file isn't already open
-        if (!binFile.equals(mActiveFile)) {
+        // make sure the requested file isn't already in the static list of open files
+        if (!mOpenFiles.contains(binFile)) {
             try {
                 FileOutputStream fileStream = new FileOutputStream(binFile);
                 mActiveWriter = new DataOutputStream(fileStream);
                 mActiveReader = new RandomAccessFile(binFile, "r");
                 mActiveFile = binFile;
-            } catch (FileNotFoundException ex) {
+                mOpenFiles.add(binFile);
+            }
+            catch (FileNotFoundException ex) {
                 System.out.println("Error: The active reader/writer could not be opened because the file does not exist ");
             }
         }
@@ -76,18 +76,28 @@ public class BinFileDao extends FileDao {
         String filePath = mSourceDir + "/" + name + ".bin";
         File binFile = new File(filePath);
 
-        // check if the file requesting to be closed is open
-        if (binFile.equals(mActiveFile)) {
+        // make sure the file exists before continuing
+        if (!binFile.exists()) {
+            return;
+        }
+
+        // if it does exist, check if the file is in the list of  open files before attempting to close it
+        if (mOpenFiles.contains(binFile)) {
             try {
+                mOpenFiles.remove(binFile);
                 mActiveWriter.close();
                 mActiveReader.close();
-            } catch (IOException ex) {
+                mActiveFile = null;
+            }
+            catch (IOException ex) {
                 ex.printStackTrace();
             }
-        } else {
+        }
+        else {
             System.out.println("Error: The active reader/writer could not be closed because it was never opened. ");
         }
     }
+
 
     /**
      * writes a list of posting for a given term
@@ -195,41 +205,17 @@ public class BinFileDao extends FileDao {
     }
 
     // TODO: Change this to use each new weighing strategy
-    public double readDocWeight(int docId) {
-        double weight = 0.0;
-        try {
-            int byteLocation = (docId * 28); // 28 bytes used up for the 4 values written for each doc
-            // start reading from the beginning of the file, the first byte should hold the first doc id
-            mActiveReader.seek(byteLocation);
-            weight = mActiveReader.readDouble();
-        }
-        catch (Exception ex) {
-            System.out.println("Failed to read the doc weight from disk for docId: " + docId);
-            ex.printStackTrace();
-        }
-        return weight;
+    public double readDouble(long byteLocation) throws IOException {
+        mActiveReader.seek(byteLocation);
+        return mActiveReader.readDouble();
     }
 
-//    public double readTermWeight(int docId, WeighingScheme scheme) {
-//        // open the termLocations file to get the byte location of the passed in doc
-//        DbFileDao dbFileDao = new DbFileDao();
-//        open("termLocations");
-//
-//        String term = w.getTerm();
-//        int docId = w.getDocument().getId();
-//        long byteLocation = mDbDao.readTermLocation(term);
-//
-//        Weight wv = (Weight) dao.read(w);
-//        String term = w.getTerm();
-//        return 0;
-//
-//        // find out how much to offset the read bytes by checking the ordinal of the passed in weighting scheme
-//        int weightOffset
-//
-//    }
+    public double readInt(long byteLocation) throws IOException {
+        mActiveReader.seek(byteLocation);
+        return mActiveReader.readInt();
+    }
 
-    // reads select postings data from the disk to return a list of postings,
-    // each constructed with vals for its docId and docWeights
+    // reads select postings data from the disk to return a list of postings, each constructed with vals for its docId and docWeights
     // all other postings data will be handled in the getPostings() method calling this one
     // initialize necessary vars for results and structs to read from the termsDB
     public List<Posting> readPostings(long byteLocation) {

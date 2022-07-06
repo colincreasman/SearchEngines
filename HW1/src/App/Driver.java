@@ -139,8 +139,10 @@ public class Driver {
 
 		public static void setActiveCorpus(DocumentCorpus docCorpus) {
 			// whenever a new active activeCorpus is assigned, use its path to create the active indexWriter
-			indexWriter = new DiskIndexWriter();
 			activeCorpus = docCorpus;
+
+			indexWriter = new DiskIndexWriter();
+
 			// now use the new indexWriter to determine if there is an on-disk activeIndex for the given activeCorpus
 			hasDiskIndex = indexWriter.hasExistingIndex();
 		}
@@ -816,7 +818,8 @@ public class Driver {
 			// set the new starting activeIndex to the end activeIndex of the last iteration
 			startIndex = endIndex;
 			// set the new ending activeIndex to the minimum of either 1000 terms after the start activeIndex or the size of the activeIndex's vocabulary
-			endIndex = Math.min((startIndex + 1000), (activeIndex.getVocabulary().size()));
+			List<String> terms = activeIndex.getVocabulary();
+			endIndex = Math.min((startIndex + 1000), (terms.size()));
 
 			int i;
 			for (i = startIndex; i < endIndex; i++) {
@@ -825,13 +828,13 @@ public class Driver {
 			}
 
 			// stop if reaching the end of the vocabulary's size
-			if (i >= activeIndex.getVocabulary().size() - 1) {
+			if (i >= terms.size() - 1) {
 				System.out.println("********************END VOCABULARY*******************\n");
 				System.out.println("Total number of terms in vocabulary: " + termsCount);
 				System.out.println("No terms remaining in vocabulary. ");
 				choice = "n";
 			} else {
-				System.out.println("Total number of terms in vocabulary: " + activeIndex.getVocabulary().size());
+				System.out.println("Total number of terms in vocabulary: " + terms.size());
 				System.out.println("View the next 1000 vocabulary terms? (y/n)");
 				choice = in.nextLine();
 			}

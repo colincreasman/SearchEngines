@@ -8,8 +8,12 @@ import org.mapdb.Serializer;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+
+import static App.Driver.ActiveConfiguration.indexWriter;
 
 public class DbFileDao extends FileDao {
     private static DB mActiveDb;
@@ -37,7 +41,7 @@ public class DbFileDao extends FileDao {
                     .counterEnable()
                     .create();
             // get the File instance for the newly created db and add it to the static list of files
-            mFiles.add(mActiveDb.get(name));
+//            mFiles.add(mActiveDb.get(name));
         } catch (Exception ex) {
             ex.printStackTrace();
         }
@@ -47,10 +51,12 @@ public class DbFileDao extends FileDao {
     public void open(String name) {
         String dbPath = mSourceDir + "/" + name + ".bin"; // construct the entire file path using the static mSourceDir and the ".bin" extension for this implementation
         File dbFile = new File(dbPath);
+
         // create the file if it isn't already in the source directory before continuing
-        if (!mFiles.contains(dbFile)) {
+        if (!mOpenFiles.contains(dbFile)) {
             create(name);
         }
+
         try {
             // check if currently closed before opening
             if (!mActiveDb.exists(name) || mActiveDb.isClosed()) {
@@ -76,11 +82,22 @@ public class DbFileDao extends FileDao {
 
     public void writeTermLocation(String term, long byteLocation) {
         mActiveMap.put(term, byteLocation);
+        mActiveMap.getKeys();
     }
 
     public long readTermLocation(String term) {
         return mActiveMap.get(term);
     }
+
+    public List<String> readVocabulary() {
+        Iterator<String> keyIter = mActiveMap.keyIterator();
+        List<String> terms = new ArrayList<>();
+        while (keyIter.hasNext()) {
+            terms.add(keyIter.next());
+        }
+        return terms;
+    }
+
     
 }
 

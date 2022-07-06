@@ -8,4 +8,5 @@ public interface Weight {
     void calculate(WeighingScheme scheme);
 
     void read(WeighingScheme scheme);
+
 }

@@ -5,6 +5,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+
+import Engine.Indexes.PositionalInvertedIndex;
 import Engine.Weights.*;
 import Engine.Indexes.Index;
 import Engine.Indexes.Posting;
@@ -13,23 +15,29 @@ import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.mapdb.Serializer;
 
+import javax.swing.text.Position;
+
+import static App.Driver.ActiveConfiguration.activeCorpus;
+
 public class DiskIndexWriter {
     private static File mIndexDir;
-    private static Index mIndex;
     private static BinFileDao mBinDao;
     private static DbFileDao mDbDao;
     private static List<Long> mByteLocations;
 
     public DiskIndexWriter() {
-        mBinDao = new BinFileDao();
-        mDbDao = new DbFileDao();
+        String indexPath = activeCorpus.getPath() + "/index";
+        mIndexDir = new File(indexPath);
+        mBinDao = new BinFileDao(mIndexDir);
+        mDbDao = new DbFileDao(mIndexDir);
         mByteLocations = new ArrayList<>();
     }
 
     public List<Long> writeIndex(Index index, String corpusPath) {
-        String indexPath = corpusPath + "/index";
-        mIndexDir = new File(indexPath);
+        mIndexDir = new File(corpusPath);
+        mBinDao = new BinFileDao(mIndexDir);
         mDbDao = new DbFileDao(mIndexDir);
+
         mDbDao.open("termLocations");
         mBinDao = new BinFileDao(mIndexDir);
         mBinDao.open("postings");
@@ -72,6 +80,11 @@ public class DiskIndexWriter {
             ex.printStackTrace();
         }
         mBinDao.open("docWeights");
+    }
+
+    public List<String> readVocabulary() {
+        mDbDao.open("termLocations");
+        return mDbDao.readVocabulary();
     }
 
     public boolean hasExistingIndex() {

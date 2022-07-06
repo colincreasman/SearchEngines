@@ -9,8 +9,10 @@ import java.util.*;
 import static App.Driver.ActiveConfiguration.activeCorpus;
 
 public abstract class FileDao {
+    // TODO: maybe make these static to allow different implementations to coexist in different sourceDir's?
     public static File mSourceDir;
-    public static List<File> mFiles;
+    public static List<File> mOpenFiles;
+
     // no-arg constructor defaults to using the activeCorpus' path and appending it to create the sourceDir
     public FileDao() {
         String dirPath = activeCorpus.getPath() + "/index";
@@ -18,7 +20,7 @@ public abstract class FileDao {
         // only create a new source directory if mSourceDir is null or does not already exist
         if (!mSourceDir.exists()) {
             mSourceDir.mkdir();
-            mFiles = Arrays.stream(mSourceDir.listFiles()).toList();
+            mOpenFiles = Arrays.stream(mSourceDir.listFiles()).toList();
         }
     }
 
@@ -29,7 +31,7 @@ public abstract class FileDao {
             sourceDir.mkdir();
         }
         mSourceDir = sourceDir;
-        mFiles = Arrays.stream(mSourceDir.listFiles()).toList();
+        mOpenFiles = Arrays.stream(mSourceDir.listFiles()).toList();
     }
 
     public abstract void create(String name);

@@ -4,12 +4,19 @@ import java.io.FileNotFoundException;
 
 public class TxtFileDao extends FileDao {
     @Override
-    public void create(String filePath) throws FileNotFoundException {
+    public void create(String filePath) {
 
     }
 
     @Override
-    public void connect() throws FileNotFoundException {
+    public void open(String name) {
+
+    }
+
+    @Override
+    public void close(String name) {
 
     }
 }
+
+
