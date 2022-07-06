@@ -7,16 +7,17 @@ public class TxtFileDao extends FileDao {
 
     public TxtFileDao() {
         super();
+        mFileExt = ".txt";
     }
 
     public TxtFileDao(File sourceDir) {
         super(sourceDir);
+        mFileExt = ".txt";
     }
 
 
     @Override
     public void create(String filePath) {
-
     }
 
     @Override

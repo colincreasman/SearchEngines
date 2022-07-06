@@ -16,58 +16,52 @@ import java.util.List;
 import static App.Driver.ActiveConfiguration.indexWriter;
 
 public class DbFileDao extends FileDao {
-    private static DB mActiveDb;
-    private static BTreeMap<String, Long> mActiveMap;
+    private DB mActiveDb;
+    private BTreeMap<String, Long> mActiveMap;
 
     public DbFileDao() {
         super();
+        mFileExt = ".db";
     }
 
     public DbFileDao(File sourceDir) {
         super(sourceDir);
+        mFileExt = ".db";
     }
 
     @Override
     public void create(String name) {
-        String dbPath = mSourceDir + "/" + name + ".db";
-        File dbFile = new File(dbPath);
-        if (dbFile.exists()) {
-            dbFile.delete();
-        }
+        String dbPath = mSourceDir + "/" + name + mFileExt;
+        File tempFile = new File(dbPath);
 
-        try {
-            mActiveDb = DBMaker.fileDB(dbFile).make();
+        if (!mActiveDb.exists(tempFile.getName()) || mActiveDb == null) {
+            mActiveDb = DBMaker.fileDB(tempFile).make();
             mActiveMap = mActiveDb.treeMap(name).keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
                     .counterEnable()
                     .create();
-
+        }
             // get the File instance for the newly created db and add it to the static list of files
 //            mFiles.add(mActiveDb.get(name));
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
+//        } catch (Exception ex) {
+//            ex.printStackTrace();
+//        }
     }
 
     @Override
     public void open(String name) {
         String dbPath = mSourceDir + "/" + name + ".bin"; // construct the entire file path using the static mSourceDir and the ".bin" extension for this implementation
-        File dbFile = new File(dbPath);
+        File tempFile = new File(dbPath);
 
-        // create the file if it isn't already in the source directory before continuing
-        if (!dbFile.exists()) {
-            create(name);
+        if (!mActiveDb.exists(tempFile.getName()) || mActiveDb == null) {
+            mActiveDb = DBMaker.fileDB(tempFile).make();
+            mActiveMap = mActiveDb.treeMap(name).keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
+                    .counterEnable()
+                    .createOrOpen();
         }
-
-        try {
             // check if currently closed before opening
-            if (!mActiveDb.exists(name) || mActiveDb.isClosed()) {
-                mActiveDb = DBMaker.fileDB(dbFile).make();
-            }
-            if (mActiveMap.isClosed())
-                mActiveDb.treeMap(name).keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG).open();
-        } catch (Exception ex) {
-            System.out.println("Error : Could not connect to the DB file because the file and/or Db could not be opened");
-            ex.printStackTrace();
+        else if (mActiveDb.isClosed() || mActiveMap.isClosed()) {
+            mActiveDb = DBMaker.fileDB(tempFile).make();
+            mActiveDb.treeMap(name).keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG).open();
         }
     }
 
@@ -98,8 +92,6 @@ public class DbFileDao extends FileDao {
         }
         return terms;
     }
-
-    
 }
 
 

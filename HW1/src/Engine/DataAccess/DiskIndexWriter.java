@@ -40,6 +40,7 @@ public class DiskIndexWriter {
 
         mDbDao.open("termLocations");
         mBinDao = new BinFileDao(mIndexDir);
+
         mBinDao.open("postings");
 
         System.out.println("Writing the index to disk...");

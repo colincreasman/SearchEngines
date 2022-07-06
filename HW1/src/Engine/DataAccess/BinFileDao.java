@@ -15,89 +15,19 @@ import static App.Driver.ActiveConfiguration.*;
 import static App.Driver.WeighingScheme.*;
 
 public class BinFileDao extends FileDao {
-    private DataOutputStream mActiveWriter;
-    private RandomAccessFile mActiveReader;
-    private File mActiveFile;
+//    private DataOutputStream mActiveWriter;
+//    private RandomAccessFile mActiveReader;
+//    private File mActiveFile;
 
     public BinFileDao() {
         super();
+        mFileExt = "bin";
     }
 
     public BinFileDao(File sourceDir) {
         super(sourceDir);
+        mFileExt = "bin";
     }
-
-    @Override
-    public void create(String name) {
-        String filePath = mSourceDir + "/" + name + ".bin"; // construct the entire file path using the static mSourceDir and the ".bin" extension for this implementation
-        File binFile = new File(filePath);
-
-        // make sure there is no current index folder in the given path before indexing
-        if (binFile.exists()) {
-            // if there's already a folder, delete it and its contents
-            binFile.delete();
-        }
-
-        try {
-            // if creating the new file is successful, add it to the list of binFiles
-            binFile.createNewFile();
-        }
-        catch (IOException ex) {
-            System.out.println("Error: File could not be created in the current source directory. ");
-        }
-    }
-
-    @Override
-    public void open(String name) {
-        String filePath = mSourceDir + "/" + name + ".bin"; // construct the entire file path using the static mSourceDir and the ".bin" extension for this implementation
-        File binFile = new File(filePath);
-        // create the file if it isn't already existing
-        if (!binFile.exists()) {
-            create(name);
-        }
-
-        // make sure the requested file isn't already in the static list of open files
-        if (!mOpenFiles.contains(binFile)) {
-            try {
-                FileOutputStream fileStream = new FileOutputStream(binFile);
-                mActiveWriter = new DataOutputStream(fileStream);
-                mActiveReader = new RandomAccessFile(binFile, "r");
-                mActiveFile = binFile;
-                mOpenFiles.add(binFile);
-            }
-            catch (FileNotFoundException ex) {
-                System.out.println("Error: The active reader/writer could not be opened because the file does not exist ");
-            }
-        }
-    }
-
-    @Override
-    public void close(String name) {
-        String filePath = mSourceDir + "/" + name + ".bin";
-        File binFile = new File(filePath);
-
-        // make sure the file exists before continuing
-        if (!binFile.exists()) {
-            return;
-        }
-
-        // if it does exist, check if the file is in the list of  open files before attempting to close it
-        if (mOpenFiles.contains(binFile)) {
-            try {
-                mOpenFiles.remove(binFile);
-                mActiveWriter.close();
-                mActiveReader.close();
-                mActiveFile = null;
-            }
-            catch (IOException ex) {
-                ex.printStackTrace();
-            }
-        }
-        else {
-            System.out.println("Error: The active reader/writer could not be closed because it was never opened. ");
-        }
-    }
-
 
     /**
      * writes a list of posting for a given term

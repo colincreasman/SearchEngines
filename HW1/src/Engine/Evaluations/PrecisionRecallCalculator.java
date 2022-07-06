@@ -12,5 +12,4 @@ public class PrecisionRecallCalculator {
     }
 
     // caculates basic precision using(# rel docs) /  items retrieved
-    public double precision()
 }

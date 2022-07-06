@@ -13,7 +13,7 @@ import static App.Driver.ActiveConfiguration.*;
 import java.util.*;
 
 public class RankedQuery implements QueryComponent {
-    private final int K_TERMS = 10;
+    private int mKterms = 10;
     private List<String> mTerms;
     private List<QueryTermWeight> mQueryWeights;
     private List<String> mProcessedTerms;
@@ -105,7 +105,7 @@ public class RankedQuery implements QueryComponent {
             mRankedDocs.add(currDocWeight);
 
             // continually remove the smallest element for every added term after the K_TERMS limit is reached
-            if (mRankedDocs.size() > K_TERMS) {
+            if (mRankedDocs.size() > mKterms) {
                 mRankedDocs.poll();
             }
         }
@@ -144,6 +144,11 @@ public class RankedQuery implements QueryComponent {
 
     public List<QueryTermWeight> getQueryWeights() {
         return mQueryWeights;
+    }
+
+    public void setKterms(int k) {
+        mKterms = k;
+
     }
 }
 
