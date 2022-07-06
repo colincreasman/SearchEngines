@@ -1,8 +1,19 @@
 package Engine.DataAccess;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 
 public class TxtFileDao extends FileDao {
+
+    public TxtFileDao() {
+        super();
+    }
+
+    public TxtFileDao(File sourceDir) {
+        super(sourceDir);
+    }
+
+
     @Override
     public void create(String filePath) {
 

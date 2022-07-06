@@ -1,5 +1,8 @@
 package App;
 import Engine.DataAccess.DiskIndexWriter;
+import Engine.DataAccess.FileDao;
+import Engine.DataAccess.TxtFileDao;
+import Engine.Evaluations.Evaluator;
 import Engine.Indexes.*;
 import Engine.Text.*;
 import Engine.Weights.*;
@@ -704,6 +707,22 @@ public class Driver {
 				System.out.println("Perform another query? (y/n)");
 				choice = in.nextLine();
 			}
+		System.out.println("Returning to main menu...");
+	}
+
+	private static void evaluateQuery() {
+		Scanner in = new Scanner(System.in);
+		Evaluator evaluator = new Evaluator();
+		String choice = "y";
+
+		while (!choice.equals("n")) {
+			System.out.println("Please enter the line number of the query from file to be evaluated (e.i. enter 1 to evaluate the query from the first line of the file, etc.): ");
+
+			String queryNum = in.nextLine();
+
+			System.out.println("Perform another query? (y/n)");
+			choice = in.nextLine();
+		}
 		System.out.println("Returning to main menu...");
 	}
 

@@ -40,6 +40,7 @@ public class DbFileDao extends FileDao {
             mActiveMap = mActiveDb.treeMap(name).keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
                     .counterEnable()
                     .create();
+
             // get the File instance for the newly created db and add it to the static list of files
 //            mFiles.add(mActiveDb.get(name));
         } catch (Exception ex) {
@@ -53,7 +54,7 @@ public class DbFileDao extends FileDao {
         File dbFile = new File(dbPath);
 
         // create the file if it isn't already in the source directory before continuing
-        if (!mOpenFiles.contains(dbFile)) {
+        if (!dbFile.exists()) {
             create(name);
         }
 
