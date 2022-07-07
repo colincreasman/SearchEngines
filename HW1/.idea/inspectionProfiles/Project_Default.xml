@@ -1,6 +1,37 @@
 <component name="InspectionProjectProfileManager">
   <profile version="1.0">
     <option name="myName" value="Project Default" />
+    <inspection_tool class="AnonymousInnerClass" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="ClassInitializer" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="ClassMayBeInterface" enabled="true" level="ERROR" enabled_by_default="true" />
+    <inspection_tool class="ClassNameDiffersFromFileName" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="ClassWithOnlyPrivateConstructors" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="ConstantDeclaredInAbstractClass" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="ConstantDeclaredInInterface" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="EmptyClass" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="FieldCanBeLocal" enabled="true" level="ERROR" enabled_by_default="true" />
+    <inspection_tool class="FinalClass" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="FinalMethod" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="FinalPrivateMethod" enabled="true" level="ERROR" enabled_by_default="true" />
+    <inspection_tool class="FinalStaticMethod" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="IgnoreFileDuplicateEntry" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="InnerClassOnInterface" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="InterfaceMayBeAnnotatedFunctional" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="LimitedScopeInnerClass" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="ListenerMayUseAdapter" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="MarkerInterface" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="MethodReturnAlwaysConstant" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="MultipleTopLevelClassesInFile" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="NonFinalFieldInEnum" enabled="true" level="ERROR" enabled_by_default="true" />
+    <inspection_tool class="NonFinalUtilityClass" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="NoopMethodInAbstractClass" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="ParameterCanBeLocal" enabled="true" level="ERROR" enabled_by_default="true" />
+    <inspection_tool class="PublicConstructor" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="Singleton" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="StaticNonFinalField" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="UtilityClass" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="UtilityClassCanBeEnum" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="UtilityClassWithPublicConstructor" enabled="false" level="ERROR" enabled_by_default="false" />
+    <inspection_tool class="UtilityClassWithoutPrivateConstructor" enabled="false" level="ERROR" enabled_by_default="false" />
   </profile>
 </component>

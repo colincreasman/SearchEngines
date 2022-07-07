@@ -26,7 +26,8 @@ public class DirectoryCorpus implements DocumentCorpus {
 	
 	private Path mDirectoryPath;
 	private String mPath;
-	
+	private long mAvgLd;
+
 	/**
 	 * Constructs a corpus over an absolute directory path.
 	 * Before calling GetDocuments(), you must register a FileDocumentFactory with the RegisterFileDocumentFactory
@@ -147,7 +148,18 @@ public class DirectoryCorpus implements DocumentCorpus {
 			return ex.toString();
 		}
 	}
-	
+
+	@Override
+	public void setAvgDocLength(long avgLd) {
+		mAvgLd = avgLd;
+	}
+
+	@Override
+	public long getAvgDocLength() {
+		return mAvgLd;
+	};
+
+
 	/**
 	 * Registers a factory method for loading documents of the given file extension. By default, a corpus
 	 * does not know how to load any files -- this method must be called prior to getDocuments().

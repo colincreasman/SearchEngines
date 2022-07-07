@@ -1,32 +1,53 @@
 package Engine.DataAccess;
 
-import App.Driver;
 import App.Driver.WeighingScheme;
 import Engine.Indexes.Posting;
 import Engine.Weights.*;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 
 import static App.Driver.ActiveConfiguration.*;
-import static App.Driver.WeighingScheme.*;
 
 public class BinFileDao extends FileDao {
-//    private DataOutputStream mActiveWriter;
-//    private RandomAccessFile mActiveReader;
+    private DataOutputStream mActiveWriter;
+    private RandomAccessFile mActiveReader;
 //    private File mActiveFile;
 
     public BinFileDao() {
         super();
-        mFileExt = "bin";
+        mFileExt = ".bin";
     }
 
     public BinFileDao(File sourceDir) {
         super(sourceDir);
-        mFileExt = "bin";
+        mFileExt = ".bin";
+    }
+
+    @Override
+    public void open(String name) {
+        String binPath = mSourceDir + "/" + name + mFileExt;
+        File binFile = new File(binPath);
+//        Path p = Paths.get(binPath).toAbsolutePath();
+        if (binFile.exists()) {
+            binFile.delete();
+        }
+        try {
+            FileOutputStream fileStream = new FileOutputStream(binFile);
+            mActiveWriter = new DataOutputStream(fileStream);
+            mActiveReader = new RandomAccessFile(binFile, "r");
+            mActiveFile = binFile;
+            mOpenFiles.add(binFile);
+        }
+        // TODO: figure out whats breaking this
+        catch (FileNotFoundException ex) {
+            System.out.println("Error: The active reader/writer could not beopened because the file does not " +
+                    "exist ");
+        }
     }
 
     /**
@@ -56,8 +77,7 @@ public class BinFileDao extends FileDao {
 
             // use the current byteAddress to write the weights for the current posting and use the result to increment
             Posting currPosting = termPostings.get(i);
-            long weightIncrement = writeTermWeights(byteAddress, currPosting);
-            byteAddress += weightIncrement;
+            byteAddress = writeTermWeights(byteAddress, currPosting);
 
             // find tf(t,d) from the number of term locations and write it to file
             List<Integer> positions = currPosting.getTermPositions();
@@ -65,8 +85,9 @@ public class BinFileDao extends FileDao {
             mActiveWriter.writeInt(termFrequency);
 
             // use the current byteCount to write the current list of term positions and use the result to increment it
-            long positionIncrement = writePositions(byteAddress, positions);
-            byteAddress += positionIncrement;
+//            long positionIncrement = writePositions(byteAddress, positions);
+//            byteAddress += positionIncrement;
+            byteAddress = writePositions(byteAddress, positions);
         }
         // return the final byteAddress after incrementing everything written
         return byteAddress;
@@ -131,6 +152,8 @@ public class BinFileDao extends FileDao {
             avgDocLength += docLength;
         }
         avgDocLength = avgDocLength / docWeights.size();
+        // as soon as the avgDocLength is caclulated for the first time assign it to the global corpus
+        activeCorpus.setAvgDocLength(avgDocLength);
         mActiveWriter.writeInt(avgDocLength);// will be written at byte location: (docWeightsOut.length() - 4)
     }
 
@@ -149,6 +172,9 @@ public class BinFileDao extends FileDao {
     // all other postings data will be handled in the getPostings() method calling this one
     // initialize necessary vars for results and structs to read from the termsDB
     public List<Posting> readPostings(long byteLocation) {
+//        if (mActiveReader == null) {
+//
+//        }
         int termDocFrequency = 0;
         double termDocWeight = 0.0;
         List<Posting> results = new ArrayList<>();
@@ -204,7 +230,7 @@ public class BinFileDao extends FileDao {
                 currPosting.setDocTermWeight(currentWeight);
                 results.add(currPosting);
             }
-//            mActiveReader.close();
+            mActiveReader.close();
         }
         catch (IOException ex) {
             ex.printStackTrace();

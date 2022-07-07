@@ -1,17 +1,39 @@
 package Engine.Weights;
 
+import javax.print.Doc;
+
+import static App.Driver.ActiveConfiguration.activeCorpus;
+
 public class OkapiWeigher extends WeighingStrategy {
 
-    // Okapi w(d,t) = max[0.1, ln( [N - df(t) + 0.5] / [df(t) + 0.5]
+    // Okapi w(d,t) = [2.2 * tf(t,d)] / [(1.2 * (0.25 + 0.75 * (docLength(d)/docLength(A))]
     @Override
     public double calculateWdt(DocTermWeight w) {
-        return 0;
+        DocWeight refLd = w.getDocument().getWeight();
+        double tfTd = w.getTermFrequency();
+        long currDocLength = refLd.getDocLength();
+        long avgDocLength = activeCorpus.getAvgDocLength();
+
+        double numerator = 2.2 * tfTd;
+        // make sure the avgDocLength isn't zero
+        if (avgDocLength == 0) {
+            avgDocLength += 1;
+        }
+        double denominator = ( (1.2 * (0.25 + 0.75 * (currDocLength / avgDocLength) ) ) );
+
+        return numerator / denominator;
     }
 
-    // Okapi w(q,t) = [2.2 * tf(t,d)] / [(1.2 * (0.25 + 0.75 * (docLength(d)/docLength(A))]
+    // Okapi w(q,t) = max[0.1, ln( [N - df(t) + 0.5] / [df(t) + 0.5]
     @Override
     public double calculateWqt(QueryTermWeight w) {
-        return 0;
+        int n = activeCorpus.getCorpusSize();
+        int dFt = w.getDft();
+
+        double fraction = (n - dFt + 0.5) / (dFt + 0.5);
+        fraction = Math.log(fraction);
+
+        return (Math.max(0.1, fraction));
     }
 
     // Okapi Ld = 1
@@ -27,7 +49,7 @@ public class OkapiWeigher extends WeighingStrategy {
 
     @Override
     public double readLd(DocWeight w) {
-        return 0;
+        return 1;
     }
 
 

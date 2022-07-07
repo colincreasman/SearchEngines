@@ -48,4 +48,12 @@ public class QueryTermWeight implements Weight {
         return mTerm;
     }
 
+    public int getN() {
+        return mCorpusSize;
+    }
+
+    public int getDft() {
+        return mDocFrequency;
+    }
+
 }

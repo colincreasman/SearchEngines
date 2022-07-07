@@ -2,7 +2,6 @@ package Engine.DataAccess;
 
 import java.io.*;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
@@ -34,13 +33,10 @@ public class DiskIndexWriter {
     }
 
     public List<Long> writeIndex(Index index, String corpusPath) {
+        corpusPath += "/index";
         mIndexDir = new File(corpusPath);
         mBinDao = new BinFileDao(mIndexDir);
         mDbDao = new DbFileDao(mIndexDir);
-
-        mDbDao.open("termLocations");
-        mBinDao = new BinFileDao(mIndexDir);
-
         mBinDao.open("postings");
 
         System.out.println("Writing the index to disk...");
@@ -53,42 +49,71 @@ public class DiskIndexWriter {
         for (String term : index.getVocabulary()) {
             // use the byteCount of each new term to add to the list of byteLocations and write to the db file
             mByteLocations.add(byteAddress);
-            mDbDao.writeTermLocation(term, byteAddress);
+//            mDbDao.writeTermLocation(term, byteAddress);
 
             // write the current term's postings to the binary file at the current byteAddress, then increment it by the amount bytes returned
             List<Posting> termPostings = index.getPostings(term);
 
             try {
-                long postingsBytes = mBinDao.writePostings(byteAddress, termPostings);
-                byteAddress += postingsBytes;
+                byteAddress = mBinDao.writePostings(byteAddress, termPostings);
+//                byteAddress += postingsBytes;
             } catch (IOException ex) {
                 System.out.println("Error: Failed to write postings to disk for the current term: " + term);
                 ex.printStackTrace();
             }
-            long stop = System.currentTimeMillis();
-            long elapsedSeconds = (long) ((stop - start) / 1000.0);
-            System.out.println("Finished writing index to disk in approximately " + elapsedSeconds + " seconds.");
         }
         mBinDao.close("postings");
+        long stop = System.currentTimeMillis();
+        long elapsedSeconds = (long) ((stop - start) / 1000.0);
+        System.out.println("Finished writing index to disk in approximately " + elapsedSeconds + " seconds.");
+
+//        mDbDao.close("termLocations");
         return mByteLocations;
     }
 
     public void writeDocWeights(List<DocWeight> docWeights) {
-        mBinDao.open("docWeights");
         try {
+            mBinDao.open("docWeights");
             mBinDao.writeDocWeights(docWeights); // will be written at byte location: docWeightsOut. length() - 4
+            mBinDao.close("docWeights");
+
         } catch (IOException ex) {
             ex.printStackTrace();
         }
-        mBinDao.open("docWeights");
+    }
+
+
+    public void writeVocabulary(List<String> terms, List<Long> bytes) {
+        try {
+            mDbDao.open("termLocations");
+            mDbDao.writeVocabulary(terms, bytes);
+            mDbDao.close("termLocations");
+
+        }
+        catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 
     public List<String> readVocabulary() {
-        mDbDao.open("termLocations");
-        return mDbDao.readVocabulary();
+        List<String> terms = new ArrayList<>();
+        try {
+            mDbDao.open("termLocations");
+            terms = mDbDao.readVocabulary();
+            mDbDao.close("termLocations");
+        }
+        catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return terms;
     }
 
     public boolean hasExistingIndex() {
-        return mIndexDir.exists();
+        if (mIndexDir.exists() && mIndexDir.listFiles().length > 0) {
+            return true;
+        }
+        else {
+            return false;
+        }
     }
 }

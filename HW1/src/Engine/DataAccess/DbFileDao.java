@@ -33,55 +33,53 @@ public class DbFileDao extends FileDao {
     public void create(String name) {
         String dbPath = mSourceDir + "/" + name + mFileExt;
         File tempFile = new File(dbPath);
-
-        if (!mActiveDb.exists(tempFile.getName()) || mActiveDb == null) {
-            mActiveDb = DBMaker.fileDB(tempFile).make();
-            mActiveMap = mActiveDb.treeMap(name).keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
-                    .counterEnable()
-                    .create();
-        }
-            // get the File instance for the newly created db and add it to the static list of files
-//            mFiles.add(mActiveDb.get(name));
-//        } catch (Exception ex) {
-//            ex.printStackTrace();
-//        }
-    }
-
-    @Override
-    public void open(String name) {
-        String dbPath = mSourceDir + "/" + name + ".bin"; // construct the entire file path using the static mSourceDir and the ".bin" extension for this implementation
-        File tempFile = new File(dbPath);
-
-        if (!mActiveDb.exists(tempFile.getName()) || mActiveDb == null) {
+        try {
+//        if (mActiveDb == null) {
             mActiveDb = DBMaker.fileDB(tempFile).make();
             mActiveMap = mActiveDb.treeMap(name).keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
                     .counterEnable()
                     .createOrOpen();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    @Override
+    public void open(String name) {
+        String dbPath = mSourceDir + "/" + name + mFileExt; // construct the entire file path using the static mSourceDir
+        // and the ".bin" extension for this implementation
+        File tempFile = new File(dbPath);
+
+        try {
+            mActiveDb = DBMaker.fileDB(tempFile).make();
+            mActiveMap =
+                    mActiveDb.treeMap(name).keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG).counterEnable().createOrOpen();
         }
             // check if currently closed before opening
-        else if (mActiveDb.isClosed() || mActiveMap.isClosed()) {
-            mActiveDb = DBMaker.fileDB(tempFile).make();
-            mActiveDb.treeMap(name).keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG).open();
+        catch (NullPointerException ex) {
+            ex.printStackTrace();
         }
     }
 
     @Override
     public void close(String name) {
-        if (!mActiveMap.isClosed()) {
-            mActiveMap.close();
-        }
-        if (!mActiveDb.isClosed()) {
-            mActiveDb.close();
-        }
+//        mActiveMap.close();
+        mActiveDb.close();
     }
 
     public void writeTermLocation(String term, long byteLocation) {
         mActiveMap.put(term, byteLocation);
-        mActiveMap.getKeys();
     }
 
     public long readTermLocation(String term) {
-        return mActiveMap.get(term);
+        long termLocation = 0;
+        try {
+             termLocation = mActiveMap.get(term);
+        }
+        catch (NullPointerException ex) {
+            ex.printStackTrace();
+        }
+        return termLocation;
     }
 
     public List<String> readVocabulary() {
@@ -92,6 +90,15 @@ public class DbFileDao extends FileDao {
         }
         return terms;
     }
+
+    public void writeVocabulary(List<String> terms, List<Long> bytes) {
+        for (int i = 0; i < terms.size(); i++) {
+            String term = terms.get(i);
+            long currLocation = bytes.get(i);
+            mActiveMap.put(term, currLocation);
+        }
+    }
+
 }
 
 

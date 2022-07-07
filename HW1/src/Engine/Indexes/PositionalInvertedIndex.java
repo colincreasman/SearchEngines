@@ -12,6 +12,7 @@ public class PositionalInvertedIndex implements Index {
         Collections.sort(mVocabulary);
         mIndex = new HashMap<>();
     }
+
     /**
      * Adds a term to the index using the document it occurs in
      * and the list of integer positions where it occurs
@@ -29,19 +30,18 @@ public class PositionalInvertedIndex implements Index {
             // now check if the term already has a Posting for this specific docId
             // find the last posting for the term in the HashMap index
             Posting lastPosting = postingsInIndex.get(postingsInIndex.size() - 1);
-
             // since the postings lists are always sorted, if the current docId is in the term's postings list it would be the last item added to the list
             if (lastPosting.getDocumentId() == documentId) {
                 // if true, then the term's postings list already contains a posting for this doc, so we add the new termPosition to the end of the postings list for the term
                 lastPosting.addTermPosition(termPosition);
-            } else {
+            }
+
+            else {
                 // if false, then the posting list for this term exists but does not yet contain a posting for this doc
                 Posting newPosting = new Posting(documentId, termPosition);
                 // add a new posting with the docId and termPosition to the HashMap index
                 postingsInIndex.add(newPosting);
-
-                // after adding a new term, re-sort the list of postings by their documentId's
-                ///postingsInIndex.sort(Comparator.comparingInt(Posting::getDocumentId));
+                postingsInIndex.sort(Comparator.comparingInt(Posting::getDocumentId));
             }
         }
         // if the val for this term is null, the term has not been added to the HashMap index yet
@@ -67,7 +67,6 @@ public class PositionalInvertedIndex implements Index {
     @Override
     public List<Posting> getPostings(String term) {
         List<Posting> postings = mIndex.get(term);
-
         return postings;
     }
 

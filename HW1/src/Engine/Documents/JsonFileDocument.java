@@ -86,18 +86,13 @@ public class JsonFileDocument implements FileDocument {
                 }
                 // find the "title" section and store it in the corresponding class variable
                 // simplifies getTitle()
-                else if (Objects.equals(currentName, "id")) {
-                    mDocumentId = reader.nextInt(); // TODO: make sure this reads the docId's correctly, might have to cast to string and do some regex if not
-                }
                 else if (Objects.equals(currentName, "title")) {
                     mDocumentTitle = reader.nextString();
                 }
-
                 else {
                     reader.nextString();
                 }
             }
-
             // close the reader and stream
             reader.endObject();
             reader.close();

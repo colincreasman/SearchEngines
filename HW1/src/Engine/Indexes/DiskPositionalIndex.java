@@ -1,5 +1,6 @@
 package Engine.Indexes;
 
+
 import Engine.DataAccess.BinFileDao;
 import Engine.DataAccess.DbFileDao;
 import Engine.DataAccess.DiskIndexWriter;
@@ -8,7 +9,6 @@ import Engine.Documents.DocumentCorpus;
 import Engine.Text.AdvancedTokenProcessor;
 import Engine.Text.EnglishTokenStream;
 import static App.Driver.ActiveConfiguration.*;
-
 import Engine.Weights.DocTermWeight;
 import Engine.Weights.DocWeight;
 
@@ -22,21 +22,17 @@ public class DiskPositionalIndex implements Index {
     private static Index mIndexInMemory;
     private static String mPath;
     private static List<DocWeight> mDocWeights;
-    private static List<Long> mByteLocations;
-    private static HashMap<String, Long> mTermLocations;
+    private static List<Long> mTermLocations;
     private static HashMap<String, List<Posting>> mBasicTermPostings;
 
     public DiskPositionalIndex(DocumentCorpus corpus) {
         mPath = corpus.getPath();
-        // initialize the in-memory positional index WITHOUT changing the ActiveConfiguration's in-memory index which is the current DiskIndex being built
-//        indexWriter = new DiskIndexWriter();
         mVocabulary = new ArrayList<>();
         mIndexInMemory = new PositionalInvertedIndex(mVocabulary);
-//        mDbDao = new DbFileDao();
-//        mBinDao = new BinFileDao();
+        mDbDao = new DbFileDao();
+        mBinDao = new BinFileDao();
         mDocWeights = new ArrayList<>();
-        mByteLocations = new ArrayList<>();
-        mTermLocations = new HashMap<>();
+        mTermLocations = new ArrayList<>();
     }
 
     public void initializeInMemoryIndex() {
@@ -65,20 +61,13 @@ public class DiskPositionalIndex implements Index {
                 for (String term : terms) {
                     // whenever a new term is added to the index, a DocTermWeight is automatically created (or updated, if one already exists for this term-doc combo) by the Posting class
                     mIndexInMemory.addTerm(term, d.getId(), tokenPosition);
-                    mVocabulary.add(term);
-//
-//                    int currFreq = 1;
-//                    try {
-//                        // try to update the current term's tftd in the map if it exists
-//                        currFreq += termFrequencies.get(term);
-//                        termFrequencies.put(term, currFreq);
-//                    }
-//                    catch (NullPointerException ex) {
-//                        // if the null ex is caught, this must be the first instance of this term, so we put it in the map with the original freq of 1
-//                        termFrequencies.put(term, currFreq);
-//                    }
-//                    // to mitigate weight calculations, this same DocTermWeight reference is added to the list of termWeights that will eventually compose the current DocWeight
-                    DocTermWeight termWeight = mIndexInMemory.getPostings(term).get(d.getId()).getDocTermWeight();
+
+                    // since the postings lists are always sorted, we can reference the new Posting for the term that was just added by accessing the most recent item in its postings list
+                    List<Posting> termPostings = mIndexInMemory.getPostings(term);
+                    Posting lastPosting = termPostings.get(termPostings.size() - 1);
+
+                    // now we obtain a reference to the term's wDt through that recently added posting
+                    DocTermWeight termWeight = lastPosting.getDocTermWeight();
                     wDts.add(termWeight);
                 }
                 // only increment the position when moving on to a new token; if normalizing a token produces more than one term, they will all be posted at the same position
@@ -97,9 +86,11 @@ public class DiskPositionalIndex implements Index {
         System.out.println("Initialized index in approximately " + elapsedSeconds + " seconds.");
 
         // now write that index to disk and save the returned byte positions into the static object field for them
-        indexWriter.writeIndex(this, mPath);
+        mTermLocations = indexWriter.writeIndex(mIndexInMemory, mPath);
+        mVocabulary = mIndexInMemory.getVocabulary();
+        indexWriter.writeVocabulary(mVocabulary, mTermLocations);
         indexWriter.writeDocWeights(mDocWeights);
-//        mVocabulary = mIndexInMemory.getVocabulary();
+
     }
 
     // gets the index's vocabulary, term locations, and doc weights by reading them from the existing on-disk index data
@@ -127,12 +118,11 @@ public class DiskPositionalIndex implements Index {
         List<Posting> postings = new ArrayList<>();
 
         mDbDao.open("termLocations");
-        mBinDao.open("postings");
-
         long byteLocation = mDbDao.readTermLocation(term);
-        postings = mBinDao.readPostings(byteLocation);
-
         mDbDao.close("termLocations");
+
+        mBinDao.open("postings");
+        postings = mBinDao.readPostings(byteLocation);
         mBinDao.close("postings");
 
         return postings;
@@ -146,12 +136,11 @@ public class DiskPositionalIndex implements Index {
         List<Posting> postings = new ArrayList<>();
 
         mDbDao.open("termLocations");
-        mBinDao.open("postings");
-
         long byteLocation = mDbDao.readTermLocation(term);
-        postings = mBinDao.readPostingsWithoutPositions(byteLocation);
-
         mDbDao.close("termLocations");
+
+        mBinDao.open("postings");
+        postings = mBinDao.readPostingsWithoutPositions(byteLocation);
         mBinDao.close("postings");
 
         return postings;
@@ -162,7 +151,6 @@ public class DiskPositionalIndex implements Index {
      */
     @Override
     public List<String> getVocabulary() {
-        System.out.println("Loading index vocabulary from disk...");
         if (mVocabulary == null || mVocabulary.isEmpty()) {
             mVocabulary = indexWriter.readVocabulary();
         }

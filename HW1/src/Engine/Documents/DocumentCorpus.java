@@ -23,4 +23,8 @@ public interface DocumentCorpus {
 	 * Returns the absolute path of the corpus directory as a string
 	 */
 	String getPath();
+
+	void setAvgDocLength(long avgLd);
+
+	long getAvgDocLength();
 }

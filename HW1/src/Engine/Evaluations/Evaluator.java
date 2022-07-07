@@ -48,8 +48,8 @@ public class Evaluator {
         mQueryDao.open("qRel");
         String qRelString = mQueryDao.readSingleLine(lineNum);
         List<String> qRels = Arrays.asList(qRelString.split(" "));
-
         mEvalQuery = new EvaluatedQuery(mFileQuery, qRels);
+        mQueryDao.close("qRel");
     }
 
     public void useUserQuery(String input) {

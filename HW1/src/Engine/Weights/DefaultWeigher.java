@@ -55,7 +55,8 @@ public class DefaultWeigher extends WeighingStrategy {
         catch (Exception ex)   {
             System.out.println("Failed to read the wDt value from disk for term: " + w.getTerm());
         }
-//        mBinDao.close("postings");
+        mBinDao.close("postings");
+        mDbDao.close("termLocations");
         return wDt;
     }
 

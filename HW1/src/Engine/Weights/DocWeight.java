@@ -22,6 +22,7 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
     private Document mDocument;
     private int mDocId;
     private long mDocLength; // number of TOKENS (NOT TERMS) in doc d
+    private long mAvgDocLength;
     private long mByteSize; // size of the document file in bytes
     private int mAvgTermFrequency;
     private List<DocTermWeight> mTermWeights; // list of  w(d,t) values for all the terms in the given doc
@@ -42,13 +43,13 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
     public DocWeight(Document d, List<DocTermWeight> termWeights) {
         mValue = 0;
         mDocLength = 0;
+        mAvgDocLength = 0;
         mAvgTermFrequency = 0;
         mDocument = d;
         mDocId = d.getId();
         mTermWeights = termWeights;
         mByteSize = d.getByteSize();
         mAccumulator = 0;
-
     }
 
     @Override
@@ -66,7 +67,7 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
     public double getValue() {
         // if the value hasn't been calculated yet, retrieve it by either calculating it or reading from the disk depening on the active run mode
         if (mValue == 0) {
-            if (runMode == BUILD) {
+            if (hasDiskIndex) {
                 calculate(activeWeighingScheme);
             }
             else {
@@ -143,6 +144,10 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
     @Override
     public int compareTo(@NotNull DocWeight w) {
         return Double.compare(mAccumulator, w.getAccumulator());
+    }
+
+    public long getAvgDocLength() {
+        return mAvgDocLength;
     }
 
 

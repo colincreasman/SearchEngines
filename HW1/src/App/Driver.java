@@ -39,9 +39,9 @@ public class Driver {
 		QUIT
 	}
 
-	/**
-	 * enum wrapper for all the currently supported activeIndex types; can be extended to allow additional modes in the future
-	 */
+
+	//enum wrapper for all the currently supported activeIndex types; can be extended to allow additional modes in
+	// the future
 	public enum IndexType {
 		INVERTED,
 		TERM_DOCUMENT,
@@ -49,9 +49,8 @@ public class Driver {
 		DISK_POSITIONAL
 	}
 
-	/**
-	 * enum wrapper for all the currently supported weighting schemes for ranked retrievals; can be extended to allow additional modes in the future
-	 */
+	// enum wrapper for all the currently supported weighting schemes for ranked retrievals; can be extended to allow
+	// additional modes in the future
 	public enum WeighingScheme {
 		DEFAULT {
 //			private boolean isActive = false;
@@ -107,7 +106,6 @@ public class Driver {
 				hasDiskIndex = indexWriter.hasExistingIndex();
 			}
 			activeWeighingScheme = DEFAULT;
-
 		}
 
 		public static ActiveConfiguration getInstance() {
@@ -322,7 +320,7 @@ public class Driver {
 				break;
 			}
 			case 5: {
-				corpusPath += "relevance-cranfield";
+				corpusPath += "relevance_cranfield";
 				path = Paths.get(corpusPath).toAbsolutePath();
 				ext = ".json";
 				break;
@@ -539,6 +537,7 @@ public class Driver {
 		}
 
 		System.out.println("Building an in-memory " + type.toString() + "Index for the corpus directory:  \n'" + activeCorpus.getPath());
+		System.out.println("Building an in-memory " + type.toString() + "Index for the corpus directory:  \n'" + activeCorpus.getPath());
 		System.out.println("This may take a minute... \n");
 
 		// start timer
@@ -606,7 +605,6 @@ public class Driver {
 				}
 				break;
 			}
-
 			default: {
 				System.out.println("Error: Could not build the index of type '" + type + "' because it has not been implemented yet. Please try again with a different index type. ");
 				activeIndex = selectIndexMenu();

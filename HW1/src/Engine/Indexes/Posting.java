@@ -15,12 +15,12 @@ import java.util.*;
  * A Posting encapsulates a document ID associated a list of term positions within the document
  */
 public class Posting implements Comparable<Posting> {
-	private static int mDocumentId;
-	private static List<Integer> mTermPositions;
-	private static int mTermFrequency; // tf(t,d)
-	private static DocTermWeight mDocTermWeight; // wdt
-	private static QueryTermWeight mQueryTermWeight; // wdt
-	private static DocWeight mDocWeight; // lD
+	private int mDocumentId;
+	private List<Integer> mTermPositions;
+	private int mTermFrequency; // tf(t,d)
+	private DocTermWeight mDocTermWeight; // wdt
+	private QueryTermWeight mQueryTermWeight; // wdt
+	private  DocWeight mDocWeight; // lD
 //	private double mAccumulator;  // Ad
 
 	public Posting() {
