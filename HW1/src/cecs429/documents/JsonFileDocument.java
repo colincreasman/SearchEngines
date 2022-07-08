@@ -28,7 +28,7 @@ public class JsonFileDocument implements FileDocument {
     public JsonFileDocument(int id, Path absoluteFilePath) {
         mDocumentId = id;
         mFilePath = absoluteFilePath;
-        mDocWeight = new DocWeight(this);
+     //   mDocWeight = new DocWeight(this);
     }
 
 

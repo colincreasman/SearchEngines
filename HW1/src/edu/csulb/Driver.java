@@ -10,6 +10,7 @@ import cecs429.weights.*;
 import com.sun.security.jgss.GSSUtil;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -169,13 +170,13 @@ public class Driver {
 		}
 	}
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException {
 		while (runMode != QUIT) {
 			selectRunModeMenu();
 		}
 	}
 
-	private static void selectRunModeMenu() {
+	private static void selectRunModeMenu() throws IOException {
 		Scanner in = new Scanner(System.in);
 
 		while (true) {
@@ -354,7 +355,7 @@ public class Driver {
 		}
 	}
 
-	private static Index selectIndexMenu() {
+	private static Index selectIndexMenu() throws IOException {
 
 		while (true) {
 			Scanner in = new Scanner(System.in);
@@ -435,7 +436,7 @@ public class Driver {
 	}
 
 	// driver method to route user selections from the main menu
-	private static void mainMenu() {
+	private static void mainMenu() throws IOException {
 		Scanner in = new Scanner(System.in);
 
 		// loop until user wants to quit
@@ -519,7 +520,7 @@ public class Driver {
 	}
 
 	// builds an activeIndex (any implementation of the Index interface) using a Document Corpus
-	private static Index buildIndex(IndexType type) {
+	private static Index buildIndex(IndexType type) throws IOException {
 		Scanner in = new Scanner(System.in);
 
 		if (activeIndex != null && indexType == type) {
@@ -717,7 +718,7 @@ public class Driver {
 			System.out.println("Please enter the line number of the query from file to be evaluated (e.i. enter 1 to evaluate the query from the first line of the file, etc.): ");
 
 			int queryNum = in.nextInt();
-			evaluator.useFileQuery(queryNum);
+			evaluator.evaluateFileQuery(queryNum);
 
 			System.out.println("Perform another query? (y/n)");
 			choice = in.nextLine();

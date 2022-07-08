@@ -42,7 +42,7 @@ public class Evaluator {
     }
 
     // takes in the int of a line number to read from file to find the query to be evaluated
-    public EvaluatedQuery getEvalQuery(int lineNum) {
+    public EvaluatedQuery evaluateFileQuery(int lineNum) {
         String qString = "";
         try {
             qString = Files.readAllLines(mQueryPath).get(lineNum);

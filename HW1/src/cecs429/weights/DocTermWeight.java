@@ -56,7 +56,7 @@ public class DocTermWeight implements Weight {
     public double getValue() {
         // if the value hasn't been calculated yet, call calculate now with the current active scheme
         if (mValue == 0) {
-            if (hasDiskIndex) {
+            if (hasDiskIndex || runMode == BUILD) {
                 calculate(activeWeighingScheme);
             } else {
                 read(activeWeighingScheme);

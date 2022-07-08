@@ -25,7 +25,7 @@ public class DiskPositionalIndex implements Index {
     private static String mPath;
     private static List<DocWeight> mDocWeights;
     private static List<Long> mByteLocations;
-    private static HashMap<String, Long> mTermLocations;
+//    private static HashMap<String, Long> mTermLocations;
     private static HashMap<String, List<Posting>> mBasicTermPostings;
 
 
@@ -34,7 +34,7 @@ public class DiskPositionalIndex implements Index {
         mVocabulary = new ArrayList<>();
         mIndexInMemory = new PositionalInvertedIndex(mVocabulary);
         mDocWeights = new ArrayList<>();
-        mTermLocations = new ArrayList<>();
+//        mTermLocations = new ArrayList<>();
     }
 
     public void initializeInMemoryIndex() throws IOException {
@@ -88,9 +88,8 @@ public class DiskPositionalIndex implements Index {
         System.out.println("Initialized index in approximately " + elapsedSeconds + " seconds.");
 
         // now write that index to disk and save the returned byte positions into the static object field for them
-        mTermLocations = indexDao.writeIndex(mIndexInMemory, mPath);
+        mByteLocations = indexDao.writeIndex(mIndexInMemory, mPath);
         mVocabulary = mIndexInMemory.getVocabulary();
-        indexDao.writeVocabulary(mVocabulary, mTermLocations); //TODO
         indexDao.writeDocWeights(mDocWeights);
 
     }
@@ -118,15 +117,8 @@ public class DiskPositionalIndex implements Index {
     @Override
     public List<Posting> getPostings(String term) {
         List<Posting> postings = new ArrayList<>();
-
-        mDbDao.open("termLocations");
-        long byteLocation = mDbDao.readTermLocation(term);
-        mDbDao.close("termLocations");
-
-        mBinDao.open("postings");
-        postings = mBinDao.readPostings(byteLocation);
-        mBinDao.close("postings");
-
+        long byteLocation = indexDao.readByteLocation(term);
+        postings = indexDao.readPostings(byteLocation);
         return postings;
     }
 
@@ -136,14 +128,8 @@ public class DiskPositionalIndex implements Index {
     @Override
     public List<Posting> getPostingsWithoutPositions(String term) {
         List<Posting> postings = new ArrayList<>();
-
-        mDbDao.open("termLocations");
-        long byteLocation = mDbDao.readTermLocation(term);
-        mDbDao.close("termLocations");
-
-        mBinDao.open("postings");
-        postings = mBinDao.readPostingsWithoutPositions(byteLocation);
-        mBinDao.close("postings");
+        long byteLocation = indexDao.readByteLocation(term);
+        postings = indexDao.readPostingsWithoutPositions(byteLocation);
 
         return postings;
     }
@@ -154,7 +140,7 @@ public class DiskPositionalIndex implements Index {
     @Override
     public List<String> getVocabulary() {
         if (mVocabulary == null || mVocabulary.isEmpty()) {
-            mVocabulary = indexWriter.readVocabulary();
+            mVocabulary = indexDao.readVocabulary();
         }
         return mVocabulary;
     }

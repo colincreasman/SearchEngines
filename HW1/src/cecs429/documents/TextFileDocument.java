@@ -23,7 +23,7 @@ public class TextFileDocument implements FileDocument {
 	 */
 	public TextFileDocument(int id, Path absoluteFilePath) {
 		mDocumentId = id;
-		mDocWeight = new DocWeight(this);
+	//	mDocWeight = new DocWeight(this);
 		mFilePath = absoluteFilePath;
 	}
 

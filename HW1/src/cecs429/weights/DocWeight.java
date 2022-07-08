@@ -69,7 +69,7 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
     public double getValue() {
         // if the value hasn't been calculated yet, retrieve it by either calculating it or reading from the disk depening on the active run mode
         if (mValue == 0) {
-            if (hasDiskIndex) {
+            if (hasDiskIndex || runMode == BUILD) {
                 calculate(activeWeighingScheme);
             }
             else {

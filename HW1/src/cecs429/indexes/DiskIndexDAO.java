@@ -183,7 +183,8 @@ public class DiskIndexDAO {
 
     /**
      * writes the term weights of the provided posting to disk using each of the 4 weighing strategies calculated values
-     * returns back a long value to indicate how many total bytes of the active file were used up by the list of postings
+     * returns back a long value to indicate how many total bytes of the active file were used up by the list of
+     * postings
      */
     public long writeTermWeights(DataOutputStream writer, Posting p, long byteAddress) throws IOException {
         // obtain a reference to current posting's DocTermWeight
@@ -267,15 +268,16 @@ public class DiskIndexDAO {
             return results;
         }
 
-        // only proceed to read vocab from disk if it hasn't already been loaded
-        DB termsDb = null;
-        BTreeMap<String, Long> termsMap = null;
+//        // only proceed to read vocab from disk if it hasn't already been loaded
+//        if (DB termsDb = null;
+//        BTreeMap<String, Long> termsMap = null;
 
         // try to initialize the db as a child file of the overall index directory
         try {
             // if possible open the existing B+ tree that maps all the currently written on-disk terms to their byte locations
-            termsDb = DBMaker.fileDB(mDbPath).make();
-            termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG).open(); // since this is a read-only function, we need to open the map, not openOrClose
+            DB termsDb = DBMaker.fileDB(mDbPath).make();
+            BTreeMap<String, Long> termsMap =
+                    termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG).open(); // since this is a read-only function, we need to open the map, not openOrClose
 
             // extract the list of all terms from the map B+ tree as an in-memory List iterator
             Iterator<String> termsOnDisk = termsMap.keyIterator();
@@ -424,6 +426,7 @@ public class DiskIndexDAO {
         try (RandomAccessFile reader = new RandomAccessFile(mPostingsPath, "r")) {
             reader.seek(byteLocation);
             weight = reader.readDouble();
+            reader.close();
         } catch (Exception ex) {
             System.out.println("Failed to read the doc weights from disk. '");
             ex.printStackTrace();
