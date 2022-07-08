@@ -6,20 +6,24 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import static edu.csulb.Driver.ActiveConfiguration.*;
+import static edu.csulb.Driver.WeighingScheme;
 
+import cecs429.weights.DocTermWeight;
+import cecs429.weights.DocWeight;
 import org.mapdb.BTreeMap;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 import org.mapdb.Serializer;
 
-public class DiskIndexDAO implements IndexDAO {
-  //  private PositionalInvertedIndex mPosIndex;
+public class DiskIndexDAO {
+    //  private PositionalInvertedIndex mPosIndex;
     private static String mIndexPath;
     private static String mPostingsPath;
     private static String mDocWeightsPath;
     private static String mDbPath;
     private static List<Long> mByteLocations;
     private HashMap<String, Long> mTermLocations; // maps each term to its byte location in postings.bin
+
 
     public DiskIndexDAO(String corpusPath) {
         mIndexPath = corpusPath + "/index";
@@ -35,7 +39,6 @@ public class DiskIndexDAO implements IndexDAO {
         }
     }
 
-    @Override
     public boolean hasExistingIndex() {
         Path dir = Paths.get(mIndexPath).toAbsolutePath();
         Path postings = Paths.get(mPostingsPath).toAbsolutePath();
@@ -44,13 +47,11 @@ public class DiskIndexDAO implements IndexDAO {
         // only return true if all of the required files already exist
         if (Files.exists(dir) && Files.exists(postings) && Files.exists(weights)) {
             return true;
-        }
-        else {
+        } else {
             return false;
         }
     }
 
-    @Override
     public List<Long> writeIndex(Index index, String corpusPath) {
         System.out.println("Writing the index to disk...");
         // start timer
@@ -72,17 +73,10 @@ public class DiskIndexDAO implements IndexDAO {
             postingsBin.delete();
         }
 
-        File docWeightsBin = new File(mDocWeightsPath);
-        // make sure there is no other docWeights.bin file already in index the directory before trying to write a new one
-        if (docWeightsBin.exists()) {
-            docWeightsBin.delete();
-        }
-
         // initialize necessary structs for the results list and the DB writers
         List<Long> results = new ArrayList<>();
         mTermLocations = new HashMap<>();
 
-        // try to initialize the db as a child file of the overall index directory
         try {
             // set up a  B+ tree that maps all the on-disk terms to their byte locations
             DB termsDb = DBMaker.fileDB(mDbPath).make();
@@ -90,219 +84,161 @@ public class DiskIndexDAO implements IndexDAO {
                     .counterEnable()
                     .createOrOpen();
 
+
             // setup output streams for postings.bin and docWeights.bin
-            FileOutputStream postingsStream = new FileOutputStream(postingsBin);DataOutputStream postingsOut = new DataOutputStream(postingsStream);
+            FileOutputStream postingsStream = new FileOutputStream(postingsBin);
+            DataOutputStream postingsOut = new DataOutputStream(postingsStream);
 
             // start a byte counter at 0 that will increment by 4 bytes everytime something new is written to the file
-            // alternatively, we can get the byte location of each term by calling .size() on the output file for every new term - "returns the current number of bytes written to the output stream so far"
             // initialize both approaches to 0 before counting any terms
-            long bytesByCount = 0;
+            long byteAddress = 0;
 
             for (String term : index.getVocabulary()) {
                 List<Posting> currPostings = index.getPostings(term);
-                int docFrequency = currPostings.size();
-
-                // we also need to write the current term and byte location to the RDB B+ tree by adding the vals to the map using .put()
-                termsMap.put(term, bytesByCount);
-                postingsOut.writeInt(docFrequency);
-
-                // load every term and byte location to the termsLocations map as we iterate
-                mByteLocations.add(bytesByCount);
-                mTermLocations.put(term, bytesByCount);
-
-                bytesByCount += 4; // whenever a 4-byte int is written to the file, increment the byteCounter by 4 to account for the 4 bytes used to write the integer
-
-                // for the first of the current term's postings, we can take its docId as-is without using gaps
-                int docId = currPostings.get(0).getDocumentId();
-
-                // now go through each posting for the given term
-                for (int i = 0; i < currPostings.size(); i++) {
-                    // setup vars for the current posting's tf(t,d) value and its list of term locations
-                    int termFrequency = currPostings.get(i).getTermPositions().size(); // tf(t,d)
-                    List<Integer> positions = currPostings.get(i).getTermPositions();
-
-                    // if this is not the first posting for a given term, the docId must be re-assigned using the gap between itself and the previous docId
-                    if (i > 0) {
-                        int oldId = currPostings.get(i - 1).getDocumentId();
-                        int currId = currPostings.get(i).getDocumentId();
-                        docId = (currId - oldId);
-                    }
-
-                    // write the current docId and tf(t,d) values to the file
-                    postingsOut.writeInt(docId);
-                    bytesByCount += 4;
-
-                    double termWeight = calculateTermDocWeight(termFrequency);
-                    postingsOut.writeDouble(termWeight);
-                    bytesByCount += 8; // increment byte position by 8 to account for the 8 bytes used for termWeight
-
-                    postingsOut.writeInt(termFrequency);
-                    bytesByCount += 4;
-
-                    // setup the currPosition var that will be written to disk on for each term position
-                    // just like the docIds above, initialize currPosition BEFORE iterating through the list by assigning it to the first term position as-is
-                    int termPosition = positions.get(0);
-
-                    // now handle the remaining term positions by finding the gaps between each subsequent position
-                    for (int j = 0; j < positions.size(); j++) {
-                        // for every position after the first, re-assign it to the difference between itself and the previous position
-                        if (j > 0) {
-                            int oldPosition = positions.get(j - 1);
-                            int currPosition = positions.get(j);
-                            termPosition = (currPosition - oldPosition);
-                        }
-                        // write the updated position to the file and increment the byte counter
-                        postingsOut.writeInt(termPosition);
-                        bytesByCount += 4;
-                    }
+                //write the current term's byte location to the RDB B+ tree by adding the vals to the map using .put()
+                try {
+                    termsMap.put(term, byteAddress);
+                    results.add(byteAddress);
+                } catch (Exception ex) {
+                    System.out.println("Failed to write the byte address to DB for the term: " + term);
+                }
+                // update byteAddress after writing
+                try {
+                    byteAddress = writePostings(postingsOut, currPostings, byteAddress);
+                } catch (IOException ex) {
+                    System.out.println("Failed to write to disk for term ' " + term + "' with the posting: " + currPostings);
                 }
             }
-            termsDb.close();
-            termsMap.close();
-            postingsOut.close();
-
-            long stop = System.currentTimeMillis();
-            long elapsedSeconds = (long) ((stop - start) / 1000.0);
-            System.out.println("Finished writing index to disk in approximately " + elapsedSeconds + " seconds.");
+        } catch (FileNotFoundException ex) {
+            System.out.println("Failed to write the index to disk because the file does not exist");
         }
-        catch (IOException ex) {
-            ex.printStackTrace();
-        }
-        return mByteLocations;
+        return results;
     }
 
-    @Override
-    public void writeTermLocation(String term, long bytePosition) {
-        // try to initialize the db as a child file of the overall index directory
-        try {
-            // if possible, create a B+ tree that maps all the on-disk terms to their byte locations
-            DB termsDb = DBMaker.fileDB(mDbPath).make();
-            BTreeMap<String, Long> termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
-                    .counterEnable()
-                    .createOrOpen();
+    /**
+     * writes a list of posting for a given term
+     * Each posting's data is written in the order: docId (as a gap), w(d,t) values, tf(t,d), and finally the list of term positions (as gap) {p1, p2...}
+     * returns back a long value to indicate how many total bytes of the active file were used up by the list of postings
+     */
+    public long writePostings(DataOutputStream writer, List<Posting> termPostings, long byteAddress) throws IOException {
+        // there is only a single dFt value for a list of postings, so write it to file first
+        int dFt = termPostings.size();
+        writer.writeInt(dFt);
 
-            // now we can write the term and its location to disk by simply calling put() on the map
-            termsMap.put(term, bytePosition);
-            termsDb.close();
-            termsMap.close();
-        } catch (Exception ex) {
-            System.out.println("Failed to write the term '" + term + "' with a byte location of " + bytePosition + ". \n");
-            ex.printStackTrace();
-        }
-    }
+        //  before iterating through each posting we can take the first docId as-is (without calculating gaps)
+        int docId = termPostings.get(0).getDocumentId();
 
-    @Override
-    public void writeDocWeights(HashMap<Integer,Double> weightsMap) {
-        // try to initialize the docWeights file as a child file of the overall index directory
-        try {
-            File docWeightsBin = new File(mDocWeightsPath);
-            // make sure there is no other docWeights.bin file already in index the directory before trying to write a new one
-            if (docWeightsBin.exists()) {
-                docWeightsBin.delete();
+        for (int i = 0; i < dFt; i++) {
+            // if this is not the first posting for a given term, the docId must be re-assigned using the gap between itself and the previous docId
+            if (i > 0) {
+                int oldId = termPostings.get(i - 1).getDocumentId();
+                int currId = termPostings.get(i).getDocumentId();
+                docId = (currId - oldId);
             }
 
-            FileOutputStream docWeightsStream = new FileOutputStream(docWeightsBin);
+            // write docId before any other postings data
+            writer.writeInt(docId);
+            byteAddress += 4;
+
+            // use the current byteAddress to write the weights for the current posting and use the result to increment
+            Posting currPosting = termPostings.get(i);
+            byteAddress = writeTermWeights(writer, currPosting, byteAddress);
+
+            // find tf(t,d) from the number of term locations and write it to file
+            List<Integer> positions = currPosting.getTermPositions();
+            int termFrequency = positions.size(); // tf(t,d)
+            writer.writeInt(termFrequency);
+
+            // use the current byteCount to write the current list of term positions and use the result to increment it
+//            long positionIncrement = writePositions(byteAddress, positions);
+//            byteAddress += positionIncrement;
+            byteAddress = writePositions(writer, positions, byteAddress);
+        }
+        // return the final byteAddress after incrementing everything written
+        return byteAddress;
+    }
+
+    /**
+     * writes a list of term positions as gaps
+     * returns back a long value to indicate how many total bytes of the active file were used up by the list of postings
+     */
+    public long writePositions(DataOutputStream writer, List<Integer> positions, long byteAddress) throws IOException {
+
+        //  before iterating through each position we can take the first term position as-is (without calculating gaps)
+        int termPosition = positions.get(0);
+        for (int i = 0; i < positions.size(); i++) {
+            // for every position after the first, re-assign it as a gap
+            if (i > 0) {
+                int oldPosition = positions.get(i - 1);
+                int currPosition = positions.get(i);
+                termPosition = (currPosition - oldPosition);
+            }
+
+            // write the updated position to the file and increment the byte counter
+            writer.writeInt(termPosition);
+            byteAddress += 4;
+        }
+        return byteAddress;
+    }
+
+    /**
+     * writes the term weights of the provided posting to disk using each of the 4 weighing strategies calculated values
+     * returns back a long value to indicate how many total bytes of the active file were used up by the list of postings
+     */
+    public long writeTermWeights(DataOutputStream writer, Posting p, long byteAddress) throws IOException {
+        // obtain a reference to current posting's DocTermWeight
+        DocTermWeight termWeight = p.getDocTermWeight();
+        // now use the Weight reference to calculate values with each type of weigher
+        for (WeighingScheme scheme : WeighingScheme.values()) {
+            termWeight.calculate(scheme);
+            writer.writeDouble(termWeight.getValue());
+            byteAddress += 8; // increment the byteAddress 8 to write each weight as a double
+        }
+        return byteAddress;
+    }
+
+    public void writeDocWeights(List<DocWeight> docWeights) throws IOException {
+        // try to make a new .bin file using the mPostingsPath set at construction
+        File postingsBin = new File(mPostingsPath);
+        // make sure there is no other postings.bin file already in index the directory before trying to write a new one
+        if (postingsBin.exists()) {
+            postingsBin.delete();
+        }
+
+        try {
+            // setup output streams for postings.bin and docWeights.bin
+            FileOutputStream docWeightsStream = new FileOutputStream(postingsBin);
             DataOutputStream docWeightsOut = new DataOutputStream(docWeightsStream);
 
-            int previousId = 0;
-            int gapId = 0;
-            for (int currId : weightsMap.keySet()) {
-//                if (currId > 0) {
-//                    gapId = currId + (currId - previousId);
-//                    previousId = currId;
-//                }
+            int avgDocLength = 0;
 
-                docWeightsOut.writeInt(currId);
-                docWeightsOut.writeDouble(weightsMap.get(currId));
+            for (DocWeight w : docWeights) {
+                double docLd = w.getValue();
+                long docLength = w.getDocLength();
+                long byteSize = w.getByteSize();
+                ;
+                int avgFrequency = w.getAvgTermFrequency();
+
+                // write the per-doc weight data of each docWeight in the order of: docWeight, docLength, byteSize, avgTfTd,
+                // starts at byte 0
+                docWeightsOut.writeDouble(docLd);  // now at byte 8
+                docWeightsOut.writeLong(docLength); // now at byte 16
+                docWeightsOut.writeLong(byteSize); // now at byte 24
+                docWeightsOut.writeInt(avgFrequency); // now at byte 28
+                // next DocWeight starts writing @ byte 28
+
+                avgDocLength += docLength;
             }
-            docWeightsOut.close();
-        }
-//                // for the first term only, write the gapId as-is without updating it with the current doc
-//                if (gapId == 0) {
-//                    docWeightsOut.writeInt(gapId);
-//                    gapId += currId; // ONLY DO THIS FOR THE FIRST TERM because its zero
-//                }
-//                // use the gapId to write the remaining docIds
-//                else {
-//                    // increment gapId by the difference between itself and the next docId
-//                    gapId = gapId + (currId - gapId);
-//                    // only write AFTER updating the gap
-//                    docWeightsOut.writeInt(currId)
-        catch (Exception ex) {
-            ex.printStackTrace();
+
+            avgDocLength = avgDocLength / docWeights.size();
+            // as soon as the avgDocLength is caclulated for the first time assign it to the global corpus
+            activeCorpus.setAvgDocLength(avgDocLength);
+            docWeightsOut.writeInt(avgDocLength);// will be written at byte location: (docWeightsOut.length() - 4)
+        } catch (Exception ex) {
+            System.out.println("Failed to write doc weights to disk for document:");
         }
     }
 
-    @Override
-    public double readDocWeight(int docId) {
-        //HashMap<Integer, Double> results = new HashMap<>();
-        double weight = 0.0;
-
-        try (RandomAccessFile reader = new RandomAccessFile(mDocWeightsPath, "r")) {
-            int byteLocation = (docId * 12) + 4; //
-            // start reading from the beginning of the file, the first byte should hold the first doc id
-            reader.seek(byteLocation);
-            // read the first Id as-is
-           // int previousId = 0;
-           // for (int i = 0; i < activeCorpus.getCorpusSize(); i++) {
-//                if (i > 0) {
-//                    int gapId = reader.readInt();
-//                    currId = previousId + gapId;
-//                    previousId = currId;
-//                }
-             //   int currId = reader.readInt();
-
-            weight = reader.readDouble();
-            //    results.put(currId, currWeight);
-            //}
-            reader.close();
-        }
-        catch (Exception ex) {
-            System.out.println("Failed to read the doc weights from disk. '");
-            ex.printStackTrace();
-        }
-        return weight;
-    }
-
-//    public HashMap<String, Long> readTermLocations() {
-//        // check if the term locations have already been loaded into the class field before reading them from the disk
-//        if (mTermLocations != null && mTermLocations.size() > 0) {
-//            return mTermLocations;
-//        }
-//
-//        // only proceed to read from disk if they havent been loaded yet
-//        HashMap<String, Long> results = new HashMap<>();
-//        // try to initialize the db as a child file of the overall index directory
-//        try {
-//            // if possible, create a B+ tree that maps all the on-disk terms to their byte locations
-//            DB termsDb = DBMaker.fileDB(mDbPath).make();
-//            BTreeMap<String, Long> termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
-//                    .open();
-//
-//
-//            // extract the list of all terms from the map B+ tree as an in-memory List iterator
-//            Iterator<String> termsOnDisk = termsMap.keyIterator();
-//            // now we can add all the on-disk terms to an in-memory return value by extracting terms from the iterator until the stream ends
-//            while (termsOnDisk.hasNext()) {
-//                String term = termsOnDisk.next();
-//                long location = termsMap.get(term);
-//                results.put(term, location);
-////            }
-////            // now we can write the term and its location to disk by simply calling put() on the map
-////            for (String term : termsMap.keySet()) {
-////                results.put(term, termsMap.get(term));
-//            }
-//            termsDb.close();
-//            termsMap.close();
-//
-//        }
-//        catch (Exception ex) {
-//            ex.printStackTrace();
-//        }
-//        return results;
-//    }
-
-    @Override
     public long readByteLocation(String term) {
         // only proceed to read from disk if they havent been loaded yet
         long location = 0;
@@ -316,14 +252,12 @@ public class DiskIndexDAO implements IndexDAO {
             location = termsMap.get(term);
 
             termsDb.close();
+        } catch (NullPointerException ex) {
+            ex.printStackTrace();
         }
-        catch (NullPointerException ex) {
-                ex.printStackTrace();
-            }
         return location;
     }
 
-    @Override
     public List<String> readVocabulary() {
         // initialize necessary structs
         List<String> results = new ArrayList<>();
@@ -351,38 +285,32 @@ public class DiskIndexDAO implements IndexDAO {
             }
             termsMap.close();
             termsDb.close();
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             System.out.println("Error reading from on disk index: No on-disk B+ tree was found in the provided index directory");
             return null;
         }
         return results;
     }
 
-    // reads select postings data from the disk to return a list of postings,
-    // each constructed with vals for its docId and docWeights
-    // all other postings data will be handled in the getPostings() method calling this one
-    // initialize necessary vars for results and structs to read from the termsDB
-    @Override
     public List<Posting> readPostingsWithoutPositions(long byteLocation) {
         int termDocFrequency = 0;
         double termDocWeight = 0.0;
         List<Posting> results = new ArrayList<>();
 
         try (RandomAccessFile reader = new RandomAccessFile(mPostingsPath, "r")) {
+
             // start by seeking to the byte location of the term - this is where all of its postings data begins
             // now we can easily find any other postings data we need by incrementing the necessary amount of bytes from that initial position
             reader.seek(byteLocation);
 
             // first get tf(d) (the amount of docs the term occurs in) which should be at the exact byte indicated by the termLocation
-            int totalDocs = reader.readInt();
+            int dFt = reader.readInt();
 
             // before iterating through all the term's docs, initialize the first docId to 0
-            // this allows it to accurately represent every subsequent docId by continually incrementing with the gap size as we iterate
             int currentDocId = 0;
 
             // now we can use that tf(d) value find the rest of the term's data
-            for (int i = 0; i < totalDocs; i++) {
+            for (int i = 0; i < dFt; i++) {
                 // for the first value only, read the doc ID as-is with no gaps
                 if (i == 0) {
                     currentDocId = reader.readInt();
@@ -391,48 +319,49 @@ public class DiskIndexDAO implements IndexDAO {
                 else {
                     currentDocId += reader.readInt();
                 }
-
-                // read the next term weight directly from the current reader position (they are not written as gaps)
+                // use the ordinal of the active weighing scheme to find out how many bytes(if any) to jump before reading the correct weight type
+                int weightBytes = activeWeighingScheme.ordinal();
+                reader.skipBytes(weightBytes);
+                // read w(d,t)
                 double currentWeight = reader.readDouble();
 
-                // increment the gap counter for docId by 4 to account for the 4 bytes read for the tf(t,d)
+                // read tf(t,d)
                 int currTermFrequency = reader.readInt();
 
-                // next jump ahead by the 4 * (number of terms) to get to the next docId
+                // now jump ahead by the 4 * tf(t,d) to get to the next docId without reading each term position
                 reader.skipBytes(4 * currTermFrequency);
 
-                Posting currPosting = new Posting(currentDocId, currentWeight, currTermFrequency);
+                // instantiate a generic posting and set its data with the values read from file
+                Posting currPosting = new Posting(currentDocId);
+                currPosting.setDocTermWeight(currentWeight);
+                currPosting.setTermFrequency(currTermFrequency);
                 results.add(currPosting);
             }
-            reader.close();
-        }
-        catch (IOException ex) {
+        } catch (IOException ex) {
             ex.printStackTrace();
         }
         return results;
     }
 
-    @Override
     public List<Posting> readPostings(long byteLocation) {
         int termDocFrequency = 0;
         double termDocWeight = 0.0;
-
         List<Posting> results = new ArrayList<>();
 
         try (RandomAccessFile reader = new RandomAccessFile(mPostingsPath, "r")) {
+
             // start by seeking to the byte location of the term - this is where all of its postings data begins
             // now we can easily find any other postings data we need by incrementing the necessary amount of bytes from that initial position
             reader.seek(byteLocation);
 
             // first get tf(d) (the amount of docs the term occurs in) which should be at the exact byte indicated by the termLocation
-            int totalDocs = reader.readInt();
+            int dFt = reader.readInt();
 
             // before iterating through all the term's docs, initialize the first docId to 0
-            // this allows it to accurately represent every subsequent docId by continually incrementing with the gap size as we iterate
             int currentDocId = 0;
 
             // now we can use that tf(d) value find the rest of the term's data
-            for (int i = 0; i < totalDocs; i++) {
+            for (int i = 0; i < dFt; i++) {
                 // for the first value only, read the doc ID as-is with no gaps
                 if (i == 0) {
                     currentDocId = reader.readInt();
@@ -441,11 +370,13 @@ public class DiskIndexDAO implements IndexDAO {
                 else {
                     currentDocId += reader.readInt();
                 }
-
-                // read the next term weight directly from the current reader position (they are not written as gaps)
+                // use the ordinal of the active weighing scheme to find out how many bytes(if any) to jump before reading the correct weight type
+                int weightBytes = activeWeighingScheme.ordinal();
+                reader.skipBytes(weightBytes);
+                // read w(d,t)
                 double currentWeight = reader.readDouble();
 
-                // increment the gap counter for docId by 4 to account for the 4 bytes read for the tf(t,d)
+                // read tf(t,d)
                 int currTermFrequency = reader.readInt();
 
                 List<Integer> termPositions = new ArrayList<>();
@@ -455,51 +386,49 @@ public class DiskIndexDAO implements IndexDAO {
                 for (int j = 0; j < currTermFrequency; j++) {
                     if (j == 0) {
                         currTermPosition = reader.readInt();
-                    }
-                    else {
+                    } else {
                         currTermPosition += reader.readInt();
                     }
                     termPositions.add(currTermPosition);
                 }
 
-                Collections.sort(termPositions);
-                Posting currPosting = new Posting(currentDocId, currentWeight, currTermFrequency, termPositions);
+                // instantiate a generic posting and set its data with the values read from file
+                Posting currPosting = new Posting(currentDocId, termPositions);
+                currPosting.setDocTermWeight(currentWeight);
+                currPosting.setTermFrequency(currTermFrequency);
                 results.add(currPosting);
             }
-            reader.close();
-        }
-        catch (IOException ex) {
+        } catch (IOException ex) {
             ex.printStackTrace();
         }
         return results;
     }
-    // calculates the weight of a term in a given doc using the formula w(d,t) = 1 + ln(tf,td)
-    private double calculateTermDocWeight(int termDocFrequency) {
+
+    public double readDocWeight(long byteLocation) {
+        //HashMap<Integer, Double> results = new HashMap<>();
         double weight = 0.0;
 
-        switch (weightingScheme) {
-            // the default scheme uses the formula w(d,t) = 1 + ln(tf,td)
-            case Default: {
-                double termFrequency = (double) termDocFrequency;
-                weight = 1 + Math.log(termFrequency);
-                break;
-            }
+        try (RandomAccessFile reader = new RandomAccessFile(mDocWeightsPath, "r")) {
+            reader.seek(byteLocation);
+            weight = reader.readDouble();
+        } catch (Exception ex) {
+            System.out.println("Failed to read the doc weights from disk. '");
+            ex.printStackTrace();
+        }
+        return weight;
+    }
 
-            // TODO: implement the rest of these!
-            case TF_IDF: {
-                break;
-            }
-            case Okapi: {
+    public double readDocTermWeight(long byteLocation) {
+        double weight = 0.0;
 
-            }
-            case Wacky: {
-                break;
-            }
-            default: {
-                System.out.println("Error: Selected weighting scheme has not been implemented yet");
-                break;
-            }
+        try (RandomAccessFile reader = new RandomAccessFile(mPostingsPath, "r")) {
+            reader.seek(byteLocation);
+            weight = reader.readDouble();
+        } catch (Exception ex) {
+            System.out.println("Failed to read the doc weights from disk. '");
+            ex.printStackTrace();
         }
         return weight;
     }
 }
+

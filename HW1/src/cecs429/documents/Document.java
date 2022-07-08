@@ -1,5 +1,7 @@
 package cecs429.documents;
 
+import cecs429.weights.DocWeight;
+
 import java.io.Reader;
 
 /**
@@ -20,4 +22,11 @@ public interface Document {
 	 * The title of the document, for displaying to the user.
 	 */
 	String getTitle();
+
+	DocWeight getWeight();
+
+	void setWeight(DocWeight w);
+
+	long getByteSize();
+
 }

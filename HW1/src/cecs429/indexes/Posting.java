@@ -1,17 +1,12 @@
 package cecs429.indexes;
 
-import edu.csulb.Driver;
+import cecs429.weights.DocTermWeight;
+import cecs429.weights.DocWeight;
+import cecs429.weights.QueryTermWeight;
 import org.jetbrains.annotations.NotNull;
-
-import javax.swing.*;
-
 import static edu.csulb.Driver.ActiveConfiguration.*;
-import static edu.csulb.Driver.QueryMode.Ranked;
-
-
+import static edu.csulb.Driver.QueryMode.RANKED;
 import java.util.*;
-import java.util.Comparator;
-
 
 /**
  * A Posting encapsulates a document ID associated a list of term positions within the document
@@ -19,19 +14,15 @@ import java.util.Comparator;
 public class Posting implements Comparable<Posting> {
 	private int mDocumentId;
 	private List<Integer> mTermPositions;
-	private int mPositionsCount; //same as tf(d)
-	private double mAccumulator;
-	// additional field used only in postings for ranked retrievals
-	private double mDocTermWeight; // wdt
-	private double mQueryTermWeight;
-
-	private double mDocWeight; // Ld
-
-
+	private int mTermFrequency; // tf(t,d)
+	private DocTermWeight mDocTermWeight; // wdt
+	private QueryTermWeight mQueryTermWeight; // wdt
+	private  DocWeight mDocWeight; // lD
+//	private double mAccumulator;  // Ad
 
 	public Posting() {
 		mTermPositions = new ArrayList<>();
-		mAccumulator = 0;
+//		mAccumulator = 0;
 	}
 
 	/**
@@ -41,7 +32,10 @@ public class Posting implements Comparable<Posting> {
 	public Posting(int documentId) {
 		mDocumentId = documentId;
 		mTermPositions = new ArrayList<>();
-		mAccumulator = 0;
+		mTermFrequency = 0;
+//		mAccumulator = 0;
+		mDocTermWeight = new DocTermWeight();
+		mDocWeight = activeCorpus.getDocument(documentId).getWeight();
 	}
 	/**
 	 * Overloaded constructor for making a posting with only a single termPosition at the time of initialization
@@ -52,50 +46,29 @@ public class Posting implements Comparable<Posting> {
 		mDocumentId = documentId;
 		mTermPositions = new ArrayList<>();
 		mTermPositions.add(termPosition);
-		mAccumulator = 0;
-
+		mTermFrequency = mTermPositions.size();
+//		mAccumulator = 0;
+		mDocTermWeight = new DocTermWeight(documentId, mTermFrequency);
+		mDocWeight = activeCorpus.getDocument(documentId).getWeight();
 	}
 	/**
-	 * Overloaded constructor for making a posting with only a a list of termPosition at the time of initialization
+	 * Overloaded constructor for making a posting with only alist of termPosition at the time of initialization
 	 * @param documentId
 	 * @param termPositions
 	 */
 	public Posting(int documentId, List<Integer> termPositions) {
 		mDocumentId = documentId;
 		mTermPositions = termPositions;
-		//Collections.sort(mTermPositions);
-		mPositionsCount = termPositions.size();
-		mAccumulator = 0;
+		mTermFrequency = mTermPositions.size();
+//		mAccumulator = 0;
+		mDocTermWeight = new DocTermWeight(documentId, mTermFrequency);
+		mDocWeight = activeCorpus.getDocument(documentId).getWeight();
 	}
 
-	/**
-	 * Overloaded constructor for positionless postings in ranked retrieval
-	 * includes additional fields for doc/term weights and
-	 * @param documentId
-	 * @param termWeight
-	 * @param termFrequency
-	 */
-	public Posting(int documentId, double termWeight, int termFrequency) {
-		mDocumentId = documentId;
-		mDocTermWeight = termWeight;
-		mPositionsCount = termFrequency;
-//		mDocWeight = docWeight;
-		mAccumulator = 0;
-	}
-
-	/**
-	 * Overloaded constructor for positionless postings in ranked retrieval
-	 * includes additional fields for doc/term weights and
-	 * @param documentId
-	 * @param termWeight
-	 * @param termFrequency
-	 */
-	public Posting(int documentId, double termWeight, int termFrequency, List<Integer> positions) {
-		mDocumentId = documentId;
-		mDocTermWeight = termWeight;
-		mPositionsCount = termFrequency;
-		mTermPositions = positions;
-		mAccumulator = 0;
+	public void addTermPosition (int position) {
+		mTermPositions.add(position);
+		Collections.sort(mTermPositions);
+		mDocTermWeight.setTermFrequency(mTermPositions.size());
 	}
 
 	public int getDocumentId() {
@@ -106,18 +79,12 @@ public class Posting implements Comparable<Posting> {
 		return mTermPositions;
 	}
 
-
-	public void addTermPosition (int position) {
-		mTermPositions.add(position);
-		Collections.sort(mTermPositions);
-	}
-
 	// given two Separate postings objects with the same docID's, returns a single Posting instance that maps their common docId to an aggregate list of  all the term positions from both original Postings (without duplicates)
 	public Posting merge(Posting b) {
 		///List<Integer> results = new	ArrayList<>();
 		// return the original posting if the docId's are not the same
 		if  (this.mDocumentId != b.mDocumentId) {
-		//	System.out.println("Error: The term positions from the provided postings cannot be merged because they do not map to the same docID. Returning the original (unmerged) Posting\n" );
+			//	System.out.println("Error: The term positions from the provided postings cannot be merged because they do not map to the same docID. Returning the original (unmerged) Posting\n" );
 			return this;
 		}
 		else {
@@ -140,8 +107,8 @@ public class Posting implements Comparable<Posting> {
 	@Override
 	public String toString() {
 		String result;
-		if (queryMode == Ranked || mTermPositions == null) {
-			result = "[w(q,t) = " + mQueryTermWeight + "; w(d,t) = " + mDocTermWeight + "; tf(t,d) = " + mPositionsCount + "]";
+		if (queryMode == RANKED || mTermPositions == null) {
+			result = "[w(q,t) = " + mQueryTermWeight.getValue() + "; w(d,t) = " + mDocTermWeight.getValue() + "; tf(t,d) = " + mDocTermWeight.getTermFrequency() + "]";
 		}
 		else {
 			result = mDocumentId + ":" + mTermPositions.toString();
@@ -150,56 +117,36 @@ public class Posting implements Comparable<Posting> {
 
 	}
 
-	public int getPositionsCount() {
-		return mPositionsCount;
+	public int getTermFrequency() {
+		return mTermFrequency;
 	}
 
-	public double getDocTermWeight() {
+	public void setTermFrequency(int tfTd) {
+		mTermFrequency = tfTd;
+	}
+
+	public DocTermWeight getDocTermWeight() {
 		return mDocTermWeight;
 	}
 
-	public double getDocWeight() {
+	public void setDocTermWeight(double w) {
+		mDocTermWeight.setValue(w);
+	}
+
+	public DocWeight getDocWeight() {
 		return mDocWeight;
 	}
 
-	public void setDocWeight(double newWeight) {
-		mDocWeight = newWeight;
+	public void setDocWeight(DocWeight w) {
+		mDocWeight = w;
 	}
 
-	public void increaseAccumulator(double acc) {
-		mAccumulator += acc;
-	}
-
-	public double getAccumulator() {
-		return mAccumulator;
-	}
-
-	public void setAccumulator(double newAcc) {
-		mAccumulator = newAcc;
-	}
-
-
-
-	@Override
-	public int compareTo(@NotNull Posting p) {
-		if (mAccumulator < p.getAccumulator()) {
-			return -1;
-		}
-		else if (p.getAccumulator() < mAccumulator) {
-			return 1;
-		}
-		else {
-			return 0;
-		}
-	}
-
-	public double getQueryTermWeight() {
+	public QueryTermWeight getQueryTermWeight() {
 		return mQueryTermWeight;
 	}
 
-	public void setQueryTermWeight(double mQueryTermWeight) {
-		this.mQueryTermWeight = mQueryTermWeight;
+	@Override
+	public int compareTo(@NotNull Posting p) {
+		return Integer.compare(mDocumentId, p.getDocumentId());
 	}
-
 }
-
