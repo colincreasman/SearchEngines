@@ -105,6 +105,7 @@ public class DiskIndexDAO {
                 // update byteAddress after writing
                 try {
                     byteAddress = writePostings(postingsOut, currPostings, byteAddress);
+                 //   byteAddress += 4;
                 } catch (IOException ex) {
                     System.out.println("Failed to write to disk for term ' " + term + "' with the posting: " + currPostings);
                 }
@@ -125,10 +126,10 @@ public class DiskIndexDAO {
         // there is only a single dFt value for a list of postings, so write it to file first
         int dFt = termPostings.size();
         writer.writeInt(dFt);
+        byteAddress += 4;
 
         //  before iterating through each posting we can take the first docId as-is (without calculating gaps)
         int docId = termPostings.get(0).getDocumentId();
-
         for (int i = 0; i < dFt; i++) {
             // if this is not the first posting for a given term, the docId must be re-assigned using the gap between itself and the previous docId
             if (i > 0) {
@@ -149,6 +150,7 @@ public class DiskIndexDAO {
             List<Integer> positions = currPosting.getTermPositions();
             int termFrequency = positions.size(); // tf(t,d)
             writer.writeInt(termFrequency);
+            byteAddress += 4;
 
             // use the current byteCount to write the current list of term positions and use the result to increment it
 //            long positionIncrement = writePositions(byteAddress, positions);
@@ -375,14 +377,14 @@ public class DiskIndexDAO {
                 }
 
                 // use the ordinal of the active weighing scheme to find out how many bytes(if any) to jump before reading the correct weight type
-                int weightBytes = activeWeighingScheme.ordinal();
+                int weightBytes = 8 * (activeWeighingScheme.ordinal());
                 reader.skipBytes(weightBytes);
 
                 // read w(d,t)
                 double currentWeight = reader.readDouble();
 
                 // skip again for the remaining number of weighing schemes
-                int remainingWeightBytes = (WeighingScheme.values().length - weightBytes - 1);
+                int remainingWeightBytes = 8 * (WeighingScheme.values().length - weightBytes - 1);
                 reader.skipBytes(remainingWeightBytes);
 
                 // read tf(t,d)
