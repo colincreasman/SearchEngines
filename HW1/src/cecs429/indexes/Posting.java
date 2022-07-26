@@ -62,7 +62,7 @@ public class Posting implements Comparable<Posting> {
 		mTermFrequency = mTermPositions.size();
 //		mAccumulator = 0;
 		mDocTermWeight = new DocTermWeight(documentId, mTermFrequency);
-		mDocWeight = activeCorpus.getDocument(documentId).getWeight();
+		//mDocWeight = activeCorpus.getDocument(documentId).getWeight();
 	}
 
 	public void addTermPosition (int position) {

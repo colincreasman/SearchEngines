@@ -109,6 +109,7 @@ public class DiskIndexDAO {
                     System.out.println("Failed to write to disk for term ' " + term + "' with the posting: " + currPostings);
                 }
             }
+            termsDb.close();
         } catch (FileNotFoundException ex) {
             System.out.println("Failed to write the index to disk because the file does not exist");
         }
@@ -200,15 +201,15 @@ public class DiskIndexDAO {
 
     public void writeDocWeights(List<DocWeight> docWeights) throws IOException {
         // try to make a new .bin file using the mPostingsPath set at construction
-        File postingsBin = new File(mPostingsPath);
+        File docWeightsBin = new File(mDocWeightsPath);
         // make sure there is no other postings.bin file already in index the directory before trying to write a new one
-        if (postingsBin.exists()) {
-            postingsBin.delete();
+        if (docWeightsBin.exists()) {
+            docWeightsBin.delete();
         }
 
         try {
             // setup output streams for postings.bin and docWeights.bin
-            FileOutputStream docWeightsStream = new FileOutputStream(postingsBin);
+            FileOutputStream docWeightsStream = new FileOutputStream(docWeightsBin);
             DataOutputStream docWeightsOut = new DataOutputStream(docWeightsStream);
 
             int avgDocLength = 0;
@@ -285,7 +286,6 @@ public class DiskIndexDAO {
             while (termsOnDisk.hasNext()) {
                 results.add(termsOnDisk.next());
             }
-            termsMap.close();
             termsDb.close();
         } catch (Exception ex) {
             System.out.println("Error reading from on disk index: No on-disk B+ tree was found in the provided index directory");
@@ -347,11 +347,12 @@ public class DiskIndexDAO {
 
     public List<Posting> readPostings(long byteLocation) {
         int termDocFrequency = 0;
-        double termDocWeight = 0.0;
-        List<Posting> results = new ArrayList<>();
+            double termDocWeight = 0.0;
+            List<Posting> results = new ArrayList<>();
 
-        try (RandomAccessFile reader = new RandomAccessFile(mPostingsPath, "r")) {
+            try {
 
+                RandomAccessFile reader = new RandomAccessFile(mPostingsPath, "r");
             // start by seeking to the byte location of the term - this is where all of its postings data begins
             // now we can easily find any other postings data we need by incrementing the necessary amount of bytes from that initial position
             reader.seek(byteLocation);
@@ -372,11 +373,17 @@ public class DiskIndexDAO {
                 else {
                     currentDocId += reader.readInt();
                 }
+
                 // use the ordinal of the active weighing scheme to find out how many bytes(if any) to jump before reading the correct weight type
                 int weightBytes = activeWeighingScheme.ordinal();
                 reader.skipBytes(weightBytes);
+
                 // read w(d,t)
                 double currentWeight = reader.readDouble();
+
+                // skip again for the remaining number of weighing schemes
+                int remainingWeightBytes = (WeighingScheme.values().length - weightBytes - 1);
+                reader.skipBytes(remainingWeightBytes);
 
                 // read tf(t,d)
                 int currTermFrequency = reader.readInt();
@@ -384,14 +391,17 @@ public class DiskIndexDAO {
                 List<Integer> termPositions = new ArrayList<>();
 
                 int currTermPosition = 0;
-
-                for (int j = 0; j < currTermFrequency; j++) {
-                    if (j == 0) {
-                        currTermPosition = reader.readInt();
-                    } else {
-                        currTermPosition += reader.readInt();
+                try {
+                    for (int j = 0; j < currTermFrequency; j++) {
+                        if (j == 0) {
+                            currTermPosition = reader.readInt();
+                        } else {
+                            currTermPosition += reader.readInt();
+                        }
+                        termPositions.add(currTermPosition);
                     }
-                    termPositions.add(currTermPosition);
+                } catch (EOFException ex) {
+                    ex.printStackTrace();
                 }
 
                 // instantiate a generic posting and set its data with the values read from file
@@ -400,7 +410,8 @@ public class DiskIndexDAO {
                 currPosting.setTermFrequency(currTermFrequency);
                 results.add(currPosting);
             }
-        } catch (IOException ex) {
+        }
+        catch (IOException ex) {
             ex.printStackTrace();
         }
         return results;

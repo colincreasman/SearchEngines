@@ -116,7 +116,7 @@ public class DiskPositionalIndex implements Index {
      */
     @Override
     public List<Posting> getPostings(String term) {
-        List<Posting> postings = new ArrayList<>();
+        List<Posting> postings;
         long byteLocation = indexDao.readByteLocation(term);
         postings = indexDao.readPostings(byteLocation);
         return postings;
