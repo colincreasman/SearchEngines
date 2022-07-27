@@ -324,13 +324,19 @@ public class DiskIndexDAO {
                     currentDocId += reader.readInt();
                 }
                 // use the ordinal of the active weighing scheme to find out how many bytes(if any) to jump before reading the correct weight type
-                int weightBytes = activeWeighingScheme.ordinal();
+                int weightBytes = 8 * (activeWeighingScheme.ordinal());
                 reader.skipBytes(weightBytes);
                 // read w(d,t)
                 double currentWeight = reader.readDouble();
 
+                // skip again for the remaining number of weighing schemes
+                int remainingWeightBytes = 8 * (WeighingScheme.values().length - weightBytes - 1);
+                reader.skipBytes(remainingWeightBytes);
+
                 // read tf(t,d)
                 int currTermFrequency = reader.readInt();
+
+
 
                 // now jump ahead by the 4 * tf(t,d) to get to the next docId without reading each term position
                 reader.skipBytes(4 * currTermFrequency);

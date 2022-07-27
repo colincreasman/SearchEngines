@@ -35,7 +35,7 @@ public class Posting implements Comparable<Posting> {
 		mTermFrequency = 0;
 //		mAccumulator = 0;
 		mDocTermWeight = new DocTermWeight();
-		mDocWeight = activeCorpus.getDocument(documentId).getWeight();
+		mDocWeight = new DocWeight(documentId);
 	}
 	/**
 	 * Overloaded constructor for making a posting with only a single termPosition at the time of initialization
@@ -49,7 +49,7 @@ public class Posting implements Comparable<Posting> {
 		mTermFrequency = mTermPositions.size();
 //		mAccumulator = 0;
 		mDocTermWeight = new DocTermWeight(documentId, mTermFrequency);
-		mDocWeight = activeCorpus.getDocument(documentId).getWeight();
+		mDocWeight = new DocWeight(documentId);
 	}
 	/**
 	 * Overloaded constructor for making a posting with only alist of termPosition at the time of initialization
@@ -62,7 +62,7 @@ public class Posting implements Comparable<Posting> {
 		mTermFrequency = mTermPositions.size();
 //		mAccumulator = 0;
 		mDocTermWeight = new DocTermWeight(documentId, mTermFrequency);
-		//mDocWeight = activeCorpus.getDocument(documentId).getWeight();
+		mDocWeight = new DocWeight(documentId);
 	}
 
 	public void addTermPosition (int position) {
@@ -108,7 +108,7 @@ public class Posting implements Comparable<Posting> {
 	public String toString() {
 		String result;
 		if (queryMode == RANKED || mTermPositions == null) {
-			result = "[w(q,t) = " + mQueryTermWeight.getValue() + "; w(d,t) = " + mDocTermWeight.getValue() + "; tf(t,d) = " + mDocTermWeight.getTermFrequency() + "]";
+			result =  "[w(d,t) = " + mDocTermWeight.getValue() + "; tf(t,d) = " + mTermFrequency + "]";
 		}
 		else {
 			result = mDocumentId + ":" + mTermPositions.toString();

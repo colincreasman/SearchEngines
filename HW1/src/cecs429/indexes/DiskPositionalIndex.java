@@ -76,7 +76,7 @@ public class DiskPositionalIndex implements Index {
                 tokenPosition += 1;
             }
 
-            DocWeight docWeight =  new DocWeight(d, wDts);
+            DocWeight docWeight =  new DocWeight(d.getId(), wDts);
             docWeight.setDocLength(tokenPosition);
             // after setting all the data for the current docWeight, add it to the list of doc weights and assign it to the Document objet itself so it can be referenced from other locations later on
             mDocWeights.add(docWeight);

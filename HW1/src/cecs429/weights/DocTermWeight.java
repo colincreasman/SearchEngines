@@ -29,7 +29,7 @@ public class DocTermWeight implements Weight {
 
     public DocTermWeight(int docId, int termFrequency) {
         mDocId = docId;
-        mDocument = activeCorpus.getDocument(docId);
+//        mDocument = activeCorpus.getDocument(docId);
         mTermFrequency = termFrequency;
     }
 

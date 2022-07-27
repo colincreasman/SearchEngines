@@ -135,6 +135,9 @@ public class DirectoryCorpus implements DocumentCorpus {
 	
 	@Override
 	public Document getDocument(int id) {
+		if (mDocuments == null) {
+			getDocuments();
+		}
 		return mDocuments.get(id);
 	}
 

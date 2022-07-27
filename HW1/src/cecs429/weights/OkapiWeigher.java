@@ -8,7 +8,7 @@ public class OkapiWeigher extends WeighingStrategy {
     // Okapi w(d,t) = [2.2 * tf(t,d)] / [(1.2 * (0.25 + 0.75 * (docLength(d)/docLength(A))]
     @Override
     public double calculateWdt(DocTermWeight w) {
-        DocWeight refLd = w.getDocument().getWeight();
+        DocWeight refLd = w.getDocId() .getWeight();
         double tfTd = w.getTermFrequency();
         long currDocLength = refLd.getDocLength();
         long avgDocLength = activeCorpus.getAvgDocLength();

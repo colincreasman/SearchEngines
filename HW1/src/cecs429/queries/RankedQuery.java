@@ -74,7 +74,7 @@ public class RankedQuery implements QueryComponent {
                     try {
                         // if an existing posting is already in the map, increase the accumlator in its docWeight
                         Posting existing = mPostingsMap.get(currDocId);
-                        currDocWeight.increaseAccumulator(increment);
+                        existing.getDocWeight().increaseAccumulator(increment);
 
                     } catch (NullPointerException ex) {
                         // if the key is null in the rank map, there has yet to be added posting for this docId
@@ -110,7 +110,7 @@ public class RankedQuery implements QueryComponent {
         // now that all doc rankings have been calculated and the top K docweights have been polled, use their docId's to reference their original posting  from the PostingsMap
         while (!mRankedDocs.isEmpty()) {
             DocWeight finalDocWeight = mRankedDocs.poll();
-            Posting finalPosting = mPostingsMap.get((finalDocWeight.getDocument().getId()));
+            Posting finalPosting = mPostingsMap.get((finalDocWeight.getDocId()));
             // re-update the doc weight to ensure it preserves the final calculated values
             finalPosting.setDocWeight(finalDocWeight);
             results.add(finalPosting);

@@ -30,27 +30,27 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
     private List<DocTermWeight> mTermWeights; // list of  w(d,t) values for all the terms in the given doc
     private double mAccumulator;
 
-    public DocWeight(Document d) {
+    public DocWeight(int docId) {
         mValue = 0;
         mDocLength = 0;
         mAvgTermFrequency = 0;
-        mDocument = d;
-        mDocId = d.getId();
+//        mDocument = d;
+        mDocId = docId;
         mTermWeights = new ArrayList<>();
-        mByteSize = d.getByteSize();
+//        mByteSize = d.getByteSize();
         mAccumulator = 0;
 
     }
 
-    public DocWeight(Document d, List<DocTermWeight> termWeights) {
+    public DocWeight(int docId, List<DocTermWeight> termWeights) {
         mValue = 0;
         mDocLength = 0;
         mAvgDocLength = 0;
         mAvgTermFrequency = 0;
-        mDocument = d;
-        mDocId = d.getId();
+//        mDocument = d;
+        mDocId = docId;
         mTermWeights = termWeights;
-        mByteSize = d.getByteSize();
+//        mByteSize = d.getByteSize();
         mAccumulator = 0;
     }
 
@@ -69,7 +69,7 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
     public double getValue() {
         // if the value hasn't been calculated yet, retrieve it by either calculating it or reading from the disk depening on the active run mode
         if (mValue == 0) {
-            if (hasDiskIndex || runMode == BUILD) {
+            if (!hasDiskIndex) {
                 calculate(activeWeighingScheme);
             }
             else {
