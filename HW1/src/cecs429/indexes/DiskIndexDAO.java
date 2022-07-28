@@ -220,7 +220,6 @@ public class DiskIndexDAO {
                 double docLd = w.getValue();
                 long docLength = w.getDocLength();
                 long byteSize = w.getByteSize();
-                ;
                 int avgFrequency = w.getAvgTermFrequency();
 
                 // write the per-doc weight data of each docWeight in the order of: docWeight, docLength, byteSize, avgTfTd,
@@ -434,6 +433,62 @@ public class DiskIndexDAO {
             weight = reader.readDouble();
         } catch (Exception ex) {
             System.out.println("Failed to read the doc weights from disk. '");
+            ex.printStackTrace();
+        }
+        return weight;
+    }
+
+    public long readDocLength(int docId) {
+        long weight = 0;
+        long byteLocation = (docId * 28) + 8;
+
+        try (RandomAccessFile reader = new RandomAccessFile(mDocWeightsPath, "r")) {
+            reader.seek(byteLocation);
+            weight = reader.readLong();
+        } catch (Exception ex) {
+            System.out.println("Failed to read the doc length from disk. '");
+            ex.printStackTrace();
+        }
+        return weight;
+    }
+
+    public long readByteSize(int docId) {
+        long weight = 0;
+        long byteLocation = (docId * 28) + 16;
+
+        try (RandomAccessFile reader = new RandomAccessFile(mDocWeightsPath, "r")) {
+            reader.seek(byteLocation);
+            weight = reader.readLong();
+        } catch (Exception ex) {
+            System.out.println("Failed to read the doc byte size from disk. '");
+            ex.printStackTrace();
+        }
+        return weight;
+    }
+
+    public int readAvgTermFrequency(int docId) {
+        int weight = 0;
+        long byteLocation = (docId * 28) + 24;
+
+        try (RandomAccessFile reader = new RandomAccessFile(mDocWeightsPath, "r")) {
+            reader.seek(byteLocation);
+            weight = reader.readInt();
+        } catch (Exception ex) {
+            System.out.println("Failed to read the doc byte size from disk. '");
+            ex.printStackTrace();
+        }
+        return weight;
+    }
+
+    public int readAvgDocLength() {
+        int weight = 0;
+
+        try (RandomAccessFile reader = new RandomAccessFile(mDocWeightsPath, "r")) {
+            long byteLocation = reader.length() - 4;
+            reader.seek(byteLocation);
+            weight = reader.readInt();
+        } catch (Exception ex) {
+            System.out.println("Failed to read the doc byte size from disk. '");
             ex.printStackTrace();
         }
         return weight;

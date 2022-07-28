@@ -12,9 +12,9 @@ public class WackyWeigher extends WeighingStrategy {
     // Wacky w(d,t) = [1 + ln(tf(t,d))] / [1 + ln(avg(tf(t,d)))]
     @Override
     public double calculateWdt(DocTermWeight w) {
-        DocWeight refLd = w.getDocument().getWeight();
+        int docId = w.getDocId();
         int tfTd = w.getTermFrequency();
-        int avgTfTd = refLd.getAvgTermFrequency();
+        int avgTfTd = indexDao.readAvgTermFrequency(docId);
 
         double numerator = 1 + Math.log(tfTd);
         double denominator = 1 + Math.log(avgTfTd);
@@ -27,15 +27,17 @@ public class WackyWeigher extends WeighingStrategy {
     public double calculateWqt(QueryTermWeight w) {
         int n = activeCorpus.getCorpusSize();
         int dFt = w.getDft();
-
         double fraction = ( Math.log(n - dFt) ) / dFt;
+
         return Math.max(0, fraction);
     }
 
     // Wacky Ld = sqrt(byteSize(d))
     public double calculateLd(DocWeight w) {
-        return Math.sqrt(w.getByteSize());
+        int docId = w.getDocId();
+        long byteSize = indexDao.readByteSize(docId);
 
+        return Math.sqrt(docId);
     }
 
 }

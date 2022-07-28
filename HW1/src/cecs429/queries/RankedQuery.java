@@ -91,7 +91,7 @@ public class RankedQuery implements QueryComponent {
         for (int docId : mPostingsMap.keySet()) {
             DocWeight currDocWeight = mPostingsMap.get(docId).getDocWeight();
 
-            double currLd = currDocWeight.getValue(); // Ld
+            double currLd = currDocWeight.readValue(); // Ld
             double currAd = currDocWeight.getAccumulator();
 
             if (currAd != 0) {

@@ -78,6 +78,8 @@ public class DiskPositionalIndex implements Index {
 
             DocWeight docWeight =  new DocWeight(d.getId(), wDts);
             docWeight.setDocLength(tokenPosition);
+            docWeight.setByteSize(d.getByteSize());
+
             // after setting all the data for the current docWeight, add it to the list of doc weights and assign it to the Document objet itself so it can be referenced from other locations later on
             mDocWeights.add(docWeight);
             d.setWeight(docWeight);
@@ -88,9 +90,9 @@ public class DiskPositionalIndex implements Index {
         System.out.println("Initialized index in approximately " + elapsedSeconds + " seconds.");
 
         // now write that index to disk and save the returned byte positions into the static object field for them
+        indexDao.writeDocWeights(mDocWeights);
         mByteLocations = indexDao.writeIndex(mIndexInMemory, mPath);
         mVocabulary = mIndexInMemory.getVocabulary();
-        indexDao.writeDocWeights(mDocWeights);
 
     }
 

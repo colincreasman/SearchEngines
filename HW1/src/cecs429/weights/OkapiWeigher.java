@@ -2,16 +2,17 @@ package cecs429.weights;
 
 import javax.print.Doc;
 import static edu.csulb.Driver.ActiveConfiguration.activeCorpus;
+import static edu.csulb.Driver.ActiveConfiguration.indexDao;
 
 public class OkapiWeigher extends WeighingStrategy {
 
     // Okapi w(d,t) = [2.2 * tf(t,d)] / [(1.2 * (0.25 + 0.75 * (docLength(d)/docLength(A))]
     @Override
     public double calculateWdt(DocTermWeight w) {
-        DocWeight refLd = w.getDocId() .getWeight();
+        int docId = w.getDocId();
         double tfTd = w.getTermFrequency();
-        long currDocLength = refLd.getDocLength();
-        long avgDocLength = activeCorpus.getAvgDocLength();
+        long currDocLength = indexDao.readDocLength(docId);
+        int avgDocLength = indexDao.readAvgDocLength();
 
         double numerator = 2.2 * tfTd;
         // make sure the avgDocLength isn't zero
@@ -45,6 +46,5 @@ public class OkapiWeigher extends WeighingStrategy {
     public double readLd(DocWeight w) {
         return 1;
     }
-
 
 }

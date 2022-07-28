@@ -47,6 +47,17 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
         mDocLength = 0;
         mAvgDocLength = 0;
         mAvgTermFrequency = 0;
+
+        if (termWeights.size() == 0) {
+            mAvgTermFrequency = 1;
+        }
+        else {
+            for (DocTermWeight w : termWeights) {
+                mAvgTermFrequency += w.getTermFrequency();
+            }
+            mAvgTermFrequency = mAvgTermFrequency / termWeights.size();
+        }
+
 //        mDocument = d;
         mDocId = docId;
         mTermWeights = termWeights;
@@ -69,13 +80,18 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
     public double getValue() {
         // if the value hasn't been calculated yet, retrieve it by either calculating it or reading from the disk depening on the active run mode
         if (mValue == 0) {
-            if (!hasDiskIndex) {
+            if (runMode == BUILD) {
                 calculate(activeWeighingScheme);
             }
             else {
                 read(activeWeighingScheme);
             }
         }
+        return mValue;
+    }
+
+    public double readValue() {
+        read(activeWeighingScheme);
         return mValue;
     }
 
@@ -113,6 +129,10 @@ public class DocWeight implements Weight, Comparable<DocWeight> {
 
     public long getByteSize() {
         return mByteSize;
+    }
+
+    public void setByteSize(long byteSize) {
+        mByteSize = byteSize;
     }
 
     public int getAvgTermFrequency() {
