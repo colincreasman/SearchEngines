@@ -53,7 +53,7 @@ public class Evaluator {
         }
         mQuery = mParser.parseQuery(qString);
         try {
-            String qRelString = Files.readAllLines(mQueryRelPath).get(lineNum);
+            String qRelString = Files.readAllLines(mQueryRelPath).get(lineNum - 1);
                 List<String> qRels = Arrays.asList(qRelString.split(" "));
                 mEvalQuery = new EvaluatedQuery(mQuery, qRels);
             }

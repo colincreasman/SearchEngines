@@ -83,7 +83,7 @@ public class EvaluatedQuery {
 
         try {
             for (int id : sorted.keySet()) {
-                results += "\n Document: " + id + "    ||     Relevance: " + mRetrievedRelevant.get(id);
+                results += "\n Retrieved Document: " + id + "    ||     Relevance: " + mRetrievedRelevant.get(id);
             }
         }
 
