@@ -22,6 +22,7 @@ public class DiskIndexDAO {
     private static String mDocWeightsPath;
     private static String mDbPath;
     private static List<Long> mByteLocations;
+    private static DB termsDb;
     private HashMap<String, Long> mTermLocations; // maps each term to its byte location in postings.bin
 
 
@@ -248,7 +249,7 @@ public class DiskIndexDAO {
         // try to initialize the db as a child file of the overall index directory
         try {
             // if possible, create a B+ tree that maps all the on-disk terms to their byte locations
-            DB termsDb = DBMaker.fileDB(mDbPath).make();
+            termsDb = DBMaker.fileDB(mDbPath).make();
             BTreeMap<String, Long> termsMap = termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG)
                     .open();
 
@@ -256,7 +257,7 @@ public class DiskIndexDAO {
 
             termsDb.close();
         } catch (NullPointerException ex) {
-            ex.printStackTrace();
+            System.out.println("Failed to retrieve postings for the query term '" + term + "' because it was not found in any of the documents in the active corpus. ");
         }
         return location;
     }
@@ -277,7 +278,7 @@ public class DiskIndexDAO {
         // try to initialize the db as a child file of the overall index directory
         try {
             // if possible open the existing B+ tree that maps all the currently written on-disk terms to their byte locations
-            DB termsDb = DBMaker.fileDB(mDbPath).make();
+            termsDb = DBMaker.fileDB(mDbPath).make();
             BTreeMap<String, Long> termsMap =
                     termsDb.treeMap("map").keySerializer(Serializer.STRING).valueSerializer(Serializer.LONG).open(); // since this is a read-only function, we need to open the map, not openOrClose
 
@@ -329,7 +330,7 @@ public class DiskIndexDAO {
                 double currentWeight = reader.readDouble();
 
                 // skip again for the remaining number of weighing schemes
-                int remainingWeightBytes = 8 * (WeighingScheme.values().length - weightBytes - 1);
+                int remainingWeightBytes = 8 * (WeighingScheme.values().length - activeWeighingScheme.ordinal() - 1);
                 reader.skipBytes(remainingWeightBytes);
 
                 // read tf(t,d)
@@ -389,7 +390,7 @@ public class DiskIndexDAO {
                 double currentWeight = reader.readDouble();
 
                 // skip again for the remaining number of weighing schemes
-                int remainingWeightBytes = 8 * (WeighingScheme.values().length - weightBytes - 1);
+                int remainingWeightBytes = 8 * (WeighingScheme.values().length - activeWeighingScheme.ordinal() - 1);
                 reader.skipBytes(remainingWeightBytes);
 
                 // read tf(t,d)

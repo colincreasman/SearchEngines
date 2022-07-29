@@ -146,4 +146,12 @@ public class RankedQuery implements QueryComponent {
     public void setKterms(int k) {
         mKterms = k;
     }
+
+    public String toString() {
+        String result = "";
+        for (String s : mTerms) {
+            result += s + " ";
+        }
+        return result;
+    }
 }

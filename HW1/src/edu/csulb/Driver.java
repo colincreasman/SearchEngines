@@ -154,8 +154,7 @@ public class Driver {
 		}
 
 		public static void setWeightingScheme(WeighingScheme scheme) {
-			activeWeighingScheme = scheme;
-		}
+			activeWeighingScheme = scheme;}
 
 		public static void setIndexType(IndexType indexType) {
 			ActiveConfiguration.indexType = indexType;
@@ -397,7 +396,7 @@ public class Driver {
 			int choice = in.nextInt();
 
 			// if ranked retrieval is chosen, have them chose one of the available weighting schemes
-			if (choice == 0) {
+			if (choice == 2) {
 				activeWeighingScheme = selectWeightMenu();
 			}
 
@@ -718,7 +717,8 @@ public class Driver {
 	private static void evaluateQueryMenu() throws IOException {
 		Scanner in = new Scanner(System.in);
 		Evaluator evaluator = new Evaluator();
-
+		TokenProcessor processor = new AdvancedTokenProcessor();
+		QueryParser parser = new RankedQueryParser();
 
 		while (true) {
 			System.out.println("\nPlease select an evaluation from the options below: ");
@@ -754,15 +754,80 @@ public class Driver {
 					break;
 				}
 				case 2: {
-					System.out.println("Not implemented");
+					String queryChoice = "y";
+
+					while (!queryChoice.equals("n")) {
+						activeWeighingScheme = selectWeightMenu();
+						System.out.println("Please enter the line number of the query from file to be evaluated (e.i. enter 1 to evaluate the query from the first line of the file, etc.): ");
+						int queryNum = in.nextInt();
+
+						EvaluatedQuery q = evaluator.evaluateFileQuery(queryNum);
+
+						System.out.println("Please enter the number of ranked results (K) to use for the average " +
+								"precision calculation :");
+						int kTerms = in.nextInt();
+						double result = evaluator.calculateAvgPrecision(activeWeighingScheme, kTerms, q);
+
+						System.out.println("The average precision results are shown below: \n" );
+						System.out.println(" - Query: '" + q.getQueryString() + "' " );
+						System.out.println(" - Ranked Retrieval Results: " + q);
+						System.out.println("\n - Average Precision: " + result + "\n");
+						System.out.println("\nView relevance results for another query? (y/n)");
+						queryChoice = in.nextLine();
+					}
 					break;
 				}
 				case 3: {
-					System.out.println("Not implemented");
+					String queryChoice = "y";
+
+					while (!queryChoice.equals("n")) {
+						activeWeighingScheme = selectWeightMenu();
+
+						System.out.println("Please enter the number of ranked results (K) to use for the Mean Average" +
+								" Precision calculations over each weighing scheme: ");
+
+						int kTerms = in.nextInt();
+
+						System.out.println("The Mean Average Precision results for each weighing scheme are shown " +
+								"below: " +
+								"\n" );
+
+//						for (WeighingScheme w : WeighingScheme.values()) {
+//							w = activeWeighingScheme;
+							double map = evaluator.calculateMeanAvgPrecision(activeWeighingScheme,
+									kTerms);
+							System.out.println("Total MAP Results Retrieved for the Weighing Scheme " + activeWeighingScheme + " over k = " + kTerms + " results: ");
+//							System.out.println(" - Weighing Scheme: " + w);
+							System.out.println(" - Mean Average Precision: " + map);
+							///}
+
+						System.out.println("\nView relevance results for another query? (y/n)");
+						queryChoice = in.nextLine();
+					}
 					break;
 				}
 				case 4: {
-					System.out.println("Not implemented");
+					String queryChoice = "y";
+
+					while (!queryChoice.equals("n")) {
+						System.out.println("Please enter the line number of the query from file to be evaluated (e.i. enter 1 to evaluate the query from the first line of the file, etc.): ");
+						int queryNum = in.nextInt();
+
+						QueryComponent q = evaluator.readFileQuery(queryNum);
+
+						System.out.println("Please enter the number of iterations to measure throughout over:");
+						int iterations = in.nextInt();
+						double result = evaluator.calculateThroughput(q, iterations);
+
+						System.out.println("The throughput results are shown below: \n");
+						System.out.println(" - Query: '" + q + "' ");
+						System.out.println(" - Iterations: " + iterations);
+						System.out.println(" - Mean Average Response Time: " + (1 / result));
+						System.out.println(" - Throughput: " + result + " Queries/Second ");
+
+						System.out.println("\nView throughput calculations for another query? (y/n)");
+						queryChoice = in.nextLine();
+					}
 					break;
 				}
 				case 5: {

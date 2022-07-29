@@ -22,4 +22,5 @@ public interface QueryComponent {
     List<Posting> getPostingsWithoutPositions(TokenProcessor processor, Index activeIndex);
 
 //    HashMap<String, List<Posting>> getTermPostings();
+
 }

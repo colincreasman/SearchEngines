@@ -1,11 +1,14 @@
 package cecs429.evaluation;
 
 
+import cecs429.indexes.Index;
 import cecs429.indexes.Posting;
 import cecs429.queries.QueryComponent;
 import cecs429.queries.RankedQuery;
 import cecs429.text.AdvancedTokenProcessor;
 import cecs429.text.TokenProcessor;
+
+import javax.management.Query;
 
 import static edu.csulb.Driver.ActiveConfiguration.activeCorpus;
 import static edu.csulb.Driver.ActiveConfiguration.activeIndex;
@@ -18,18 +21,22 @@ import java.util.*;
 public class EvaluatedQuery {
     private TokenProcessor mProcessor;
 
-    private RankedQuery mQuery;
+    private static RankedQuery mQuery;
 
-    private List<Integer> mTotalRelevant; // list of all the relative docs that should have been retrieved for the
+    private static List<Integer> mTotalRelevant; // list of all the relative docs that should have been retrieved for
+    // the
     // mQuery (basically just an exact line read from qRel)
-    private List<Integer> mTotalRetrieved; // list of all doc names mQuery's getPostings()
+    private static List<Integer> mTotalRetrieved; // list of all doc names mQuery's getPostings()
 
-    private HashMap<Integer, Boolean> mRetrievedRelevant; // Map of all retrieved docs and a boolean indicating
+    private static HashMap<Integer, Boolean> mRetrievedRelevant; // Map of all retrieved docs and a boolean indicating
     // whether it was relevant
 
-    private List<String> mTotal; // list of all doc names in the entire corpus
+    private static List<String> mTotal; // list of all doc names in the entire corpus
 
-    public EvaluatedQuery() {}
+    public EvaluatedQuery(QueryComponent q) {
+        mProcessor = new AdvancedTokenProcessor();
+        mQuery = (RankedQuery) q;
+    }
 
     public EvaluatedQuery(QueryComponent q, List<String> qRel) {
         mProcessor = new AdvancedTokenProcessor();
@@ -52,7 +59,6 @@ public class EvaluatedQuery {
             mTotalRetrieved.add(titleInt);
         }
 
-        Collections.sort(mTotalRetrieved);
         return mTotalRetrieved;
     }
 
@@ -61,36 +67,51 @@ public class EvaluatedQuery {
     }
 
     public HashMap<Integer, Boolean> getRetrievedRelevant(int kTerms) {
-        mTotalRetrieved = getTotalRetrieved(kTerms);
+        if (mTotalRetrieved == null || mTotalRetrieved.size() == 0) {
+            mTotalRetrieved = getTotalRetrieved(kTerms);
+        }
+
         mRetrievedRelevant = new HashMap<>();
 
         for (int ret : mTotalRetrieved) {
             if (mTotalRelevant.contains(ret)) {
                 mRetrievedRelevant.put(ret, true);
-            }
-            else {
+            } else {
                 mRetrievedRelevant.put(ret, false);
             }
         }
-
 
         return mRetrievedRelevant;
     }
     @Override
     public String toString() {
-        String results = "";
-        Map<Integer, Boolean> sorted = new TreeMap<>(mRetrievedRelevant);
+        if (mRetrievedRelevant == null || mRetrievedRelevant.size() == 0) {
+            return getQueryString();
+        }
 
-        try {
-            for (int id : sorted.keySet()) {
-                results += "\n Retrieved Document: " + id + "    ||     Relevance: " + mRetrievedRelevant.get(id);
+        else {
+            String results = "";
+
+            try {
+                for (int id : mRetrievedRelevant.keySet()) {
+                    results += "\n           Retrieved Document: " + id + "    ||     Relevance: " + mRetrievedRelevant.get(id);
+                }
+            } catch (Exception ex) {
+                System.out.println("Error: Ranked retrieval results have not been retrieved yet");
             }
-        }
 
-        catch (Exception ex) {
-            System.out.println("Error: Ranked retrieval results have not been retrieved yet");
+            return results;
         }
-
-        return results;
     }
+
+    public String getQueryString() {
+        return mQuery.toString();
+    }
+
+
+
+
+
+
+
 }
