@@ -6,8 +6,12 @@ import cecs429.queries.QueryComponent;
 import cecs429.queries.RankedQuery;
 import cecs429.text.AdvancedTokenProcessor;
 import cecs429.text.TokenProcessor;
+
+import static edu.csulb.Driver.ActiveConfiguration.activeCorpus;
 import static edu.csulb.Driver.ActiveConfiguration.activeIndex;
-import java.util.List;
+
+import java.sql.SQLOutput;
+import java.util.*;
 
 
 // TODO: implement this so that it encapsulates a single RankedQuery object and a matching List<Integer> of relevant docId's
@@ -16,10 +20,12 @@ public class EvaluatedQuery {
 
     private RankedQuery mQuery;
 
-    private List<String> mTotalRelevant; // list of all the relative docs that should have been retrieved for the mQuery (basically just an exact line read from qRel)
-    private List<String> mTotalRetrieved; // list of all doc names mQuery's getPostings()
+    private List<Integer> mTotalRelevant; // list of all the relative docs that should have been retrieved for the
+    // mQuery (basically just an exact line read from qRel)
+    private List<Integer> mTotalRetrieved; // list of all doc names mQuery's getPostings()
 
-    private List<String> mRetrievedRelevant; // list of only rel doc names that were retrieved from
+    private HashMap<Integer, Boolean> mRetrievedRelevant; // Map of all retrieved docs and a boolean indicating
+    // whether it was relevant
 
     private List<String> mTotal; // list of all doc names in the entire corpus
 
@@ -27,15 +33,64 @@ public class EvaluatedQuery {
 
     public EvaluatedQuery(QueryComponent q, List<String> qRel) {
         mProcessor = new AdvancedTokenProcessor();
-//        List<Posting> qPostings = q.getPostingsWithoutPositions(mProcessor, activeIndex);
         mQuery = (RankedQuery) q;
+
+        mTotalRelevant = new ArrayList<>();
+        for (String s : qRel) {
+            mTotalRelevant.add(Integer.parseInt(s));
+        }
+        Collections.sort(mTotalRelevant);
     }
 
+    public List<Integer> getTotalRetrieved(int kTerms) {
+        mQuery.setKterms(kTerms);
+        List<Posting> postings = mQuery.getPostingsWithoutPositions(mProcessor, activeIndex);
+        mTotalRetrieved = new ArrayList<>();
 
-    public void setKterms(int k) {
-        mQuery.setKterms(k);
+        for (Posting p : postings) {
+            int titleInt = Integer.parseInt(activeCorpus.getDocument(p.getDocumentId()).getTitle());
+            mTotalRetrieved.add(titleInt);
+        }
+
+        Collections.sort(mTotalRetrieved);
+        return mTotalRetrieved;
+    }
+
+    public List<Integer> getTotalRelevant() {
+        return mTotalRelevant;
+    }
+
+    public HashMap<Integer, Boolean> getRetrievedRelevant(int kTerms) {
+        mTotalRetrieved = getTotalRetrieved(kTerms);
+        mRetrievedRelevant = new HashMap<>();
+
+        for (int ret : mTotalRetrieved) {
+            if (mTotalRelevant.contains(ret)) {
+                mRetrievedRelevant.put(ret, true);
+            }
+            else {
+                mRetrievedRelevant.put(ret, false);
+            }
+        }
+
+
+        return mRetrievedRelevant;
+    }
+    @Override
+    public String toString() {
+        String results = "";
+        Map<Integer, Boolean> sorted = new TreeMap<>(mRetrievedRelevant);
+
+        try {
+            for (int id : sorted.keySet()) {
+                results += "\n Document: " + id + "    ||     Relevance: " + mRetrievedRelevant.get(id);
+            }
+        }
+
+        catch (Exception ex) {
+            System.out.println("Error: Ranked retrieval results have not been retrieved yet");
+        }
+
+        return results;
     }
 }
-//        String unsplitQuery = mQuery
-//        List<Posting> queryResults = q.getPostingsWithoutPositions()
-//}

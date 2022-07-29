@@ -13,6 +13,7 @@ import java.io.RandomAccessFile;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.List;
 import edu.csulb.Driver.WeighingScheme;
 import java.io.File;
@@ -45,7 +46,7 @@ public class Evaluator {
     public EvaluatedQuery evaluateFileQuery(int lineNum) {
         String qString = "";
         try {
-            qString = Files.readAllLines(mQueryPath).get(lineNum);
+            qString = Files.readAllLines(mQueryPath).get(lineNum - 1);
         } catch (IOException e) {
             System.out.println("Error: The query could not be read because the requested line number is past the end of the file.");
             e.printStackTrace();
@@ -59,6 +60,7 @@ public class Evaluator {
         catch (IOException e) {
                 e.printStackTrace();
         }
+
         return mEvalQuery;
     }
 
@@ -66,14 +68,14 @@ public class Evaluator {
         mQuery = mParser.parseQuery(input);
     }
 
-    // calculates the MAP of all queries on file over the entire active corpus using configurable weighing scheme weighing scheme that is passed in
+    // calculates the MAP of all queries on file over the entire active corpus using configurable weighing scheme that is passed in
     // here 'k' represents the number of ranked postings that will be retrieved by the rankedQuery for the given calculation
-    public void evaluateApQ(WeighingScheme scheme, int k) {
+    public void evaluateAvgPrecision(WeighingScheme scheme, int k) {
         activeWeighingScheme = scheme;
-        mEvalQuery.setKterms(k);
+        //mEvalQuery.setKterms(k);
     }
 
-    public void evaluateMapQ(WeighingScheme scheme, int k) {
+    public void evaluateMeanAvgPrecision(WeighingScheme scheme, int k) {
         activeWeighingScheme = scheme;
     }
 

@@ -2,6 +2,7 @@ package edu.csulb;
 import cecs429.documents.DirectoryCorpus;
 import cecs429.documents.Document;
 import cecs429.documents.DocumentCorpus;
+import cecs429.evaluation.EvaluatedQuery;
 import cecs429.evaluation.Evaluator;
 import cecs429.indexes.*;
 import cecs429.queries.*;
@@ -41,7 +42,6 @@ public class Driver {
 		EVALUATE,
 		QUIT
 	}
-
 
 	//enum wrapper for all the currently supported activeIndex types; can be extended to allow additional modes in
 	// the future
@@ -184,8 +184,8 @@ public class Driver {
 			System.out.println("*************************************************");
 			System.out.println("(1) Build Mode - Build a new index ");
 			System.out.println("(2) Query Mode - Query an existing index ");
-			System.out.println("(3) Evaluate Mode -  Evaluate the precision and recall of ranked retrievals ");
-			System.out.println("(4) Quit Application");
+//			System.out.println("(3) Evaluate Mode -  Evaluate the precision and recall of ranked retrievals ");
+			System.out.println("(3) Quit Application");
 			int choice = in.nextInt();
 
 			switch (choice) {
@@ -256,13 +256,14 @@ public class Driver {
 					break;
 				}
 
-				case 3: {
-					//TODO: immplement this!
-					setRunMode(EVALUATE); // the new Evaluate run mode allows the user to evaluate the performance of the search engine's  ranked queries and compare them across various weighing strategies
-					break;
-				}
+//				case 3: {
+//					//TODO: immplement this!
+//					setRunMode(EVALUATE); // the new Evaluate run mode allows the user to evaluate the performance of the search engine's  ranked queries and compare them across various weighing strategies
+//					evaluateQuery();
+//					break;
+//				}
 
-				case 4: {
+				case 3: {
 					setRunMode(QUIT);
 				}
 
@@ -420,7 +421,7 @@ public class Driver {
 			int count = 0;
 			for (WeighingScheme weightingScheme : WeighingScheme.values()) {
 				count += 1;
-				System.out.println("(" + count + ")" + weightingScheme.toString() + "\n");
+				System.out.println("(" + count + ")" + weightingScheme.toString());
 			}
 			int choice = in.nextInt();
 
@@ -455,7 +456,8 @@ public class Driver {
 			System.out.println("(i) View Top 1000 Index Postings");
 			System.out.println("(j) View Corpus Overview ");
 			System.out.println("(k) View a Document ");
-			System.out.println("(l) Quit Application [:q]");
+			System.out.println("(l) Run query evaluator ");
+			System.out.println("(m) Quit Application [:q]");
 
 			String selection = in.nextLine();
 
@@ -508,6 +510,10 @@ public class Driver {
 					break;
 				}
 				case "l": {
+					setRunMode(EVALUATE);
+					evaluateQueryMenu();
+				}
+				case "m": {
 					setRunMode(QUIT);
 					break;
 				}
@@ -709,22 +715,73 @@ public class Driver {
 		System.out.println("Returning to main menu...");
 	}
 
-	private static void evaluateQuery() {
+	private static void evaluateQueryMenu() throws IOException {
 		Scanner in = new Scanner(System.in);
 		Evaluator evaluator = new Evaluator();
-		String choice = "y";
 
-		while (!choice.equals("n")) {
-			System.out.println("Please enter the line number of the query from file to be evaluated (e.i. enter 1 to evaluate the query from the first line of the file, etc.): ");
 
-			int queryNum = in.nextInt();
-			evaluator.evaluateFileQuery(queryNum);
+		while (true) {
+			System.out.println("\nPlease select an evaluation from the options below: ");
+			System.out.println("*******************************************************************");
+			System.out.println("(1) Ranked Retrieval Results with Relevance ");
+			System.out.println("(2) Average Precision by Weighing Scheme ");
+			System.out.println("(3) Mean Average Precision by Weighing Scheme ");
+			System.out.println("(4) Throughput by Iteration Count ");
+			System.out.println("(5) Precision Recall Graph ");
+			System.out.println("(6) Return to Main Menu");
 
-			System.out.println("Perform another query? (y/n)");
-			choice = in.nextLine();
+			int choice = in.nextInt();
+			switch (choice) {
+				case 1: {
+					String queryChoice = "y";
+
+					while (!queryChoice.equals("n")) {
+						activeWeighingScheme = selectWeightMenu();
+						System.out.println("Please enter the line number of the query from file to be evaluated (e.i. enter 1 to evaluate the query from the first line of the file, etc.): ");
+						int queryNum = in.nextInt();
+
+						EvaluatedQuery result = evaluator.evaluateFileQuery(queryNum);
+
+						System.out.println("Please enter the number of ranked results to retrieve (K): ");
+						int kTerms = in.nextInt();
+
+						result.getRetrievedRelevant(kTerms);
+						System.out.println("Ranked retrieval results with relevance are shown below: \n" + result);
+
+						System.out.println("View relevance results for another query? (y/n)");
+						queryChoice = in.nextLine();
+					}
+					break;
+				}
+				case 2: {
+					System.out.println("Not implemented");
+					break;
+				}
+				case 3: {
+					System.out.println("Not implemented");
+					break;
+				}
+				case 4: {
+					System.out.println("Not implemented");
+					break;
+				}
+				case 5: {
+					System.out.println("Not implemented");
+					break;
+				}
+				case 6: {
+					System.out.println("Returning to main menu...");
+					mainMenu();
+					break;
+				}
+				default: {
+					System.out.println("Input Error: Please try again and select one of the options listed. ");
+					break;
+				}
+			}
 		}
-		System.out.println("Returning to main menu...");
 	}
+
 
 	private static void viewQueryResults(List<Posting> results, DocumentCorpus activeCorpus, QueryComponent query) {
 		// initialize counter to keep track of total number of documents the query was found in
@@ -739,7 +796,7 @@ public class Driver {
 				System.out.println("    - DocId: " + p.getDocumentId());
 
 				if (queryMode == RANKED) {
-					System.out.println("    - Doc Weight (Ld): " + p.getDocWeight());
+					System.out.println("    - Doc Weight (Ld): " + p.getDocWeight().getValue());
 
 					System.out.println("    - Final Accumulator Value (Ad): " + p.getDocWeight().getAccumulator());
 
